@@ -2,7 +2,7 @@
 // Inlines the vendored OFL fonts (vendor/fonts/*.woff2, from npm @fontsource) into assets/fonts.css as data URIs.
 // Chrome blocks @font-face loads from file:// pages, so the fonts travel inside a stylesheet that a plain
 // <link rel="stylesheet"> loads from file:// and http alike.
-//   node games/property-game/tools/build-fonts.mjs
+//   node tools/build-fonts.mjs
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

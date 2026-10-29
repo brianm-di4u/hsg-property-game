@@ -3,7 +3,7 @@
 // atlas: assets/pieces.webp and src/js/sprites-data.js (frame rects and foot anchors, inlined into the
 // game). Each render is trimmed to its visible pixels first. Also writes a review sheet,
 // art-src/pieces-sheet.png, with every piece over its shadow on board-coloured stock.
-//   node games/property-game/tools/build-sprites.mjs [--scale 1]
+//   node tools/build-sprites.mjs [--scale 1]
 // Uses the harness's Playwright Chromium; no image libraries.
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const require = createRequire(path.resolve(GAME, '..', '..', 'shared', 'test-harness', 'package.json'));
+const require = createRequire(path.resolve(GAME, 'shared', 'test-harness', 'package.json'));
 const { chromium } = require('playwright');
 const SRC = path.join(GAME, 'art-src', 'blender', 'renders', 'pieces');
 const meta = JSON.parse(fs.readFileSync(path.join(SRC, 'pieces.json'), 'utf8'));

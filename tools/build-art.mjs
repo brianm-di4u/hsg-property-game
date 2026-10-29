@@ -2,17 +2,17 @@
 // Packs the painted art (art-src/art.json -> assets/*.webp via the shared art-pack tool), then writes
 // src/js/art-list.js: the names the game may request. Only files that exist in assets/ are listed, so the
 // game never asks for a missing image (a 404 would fail the harness).
-//   node games/property-game/tools/build-art.mjs [--only a,b]
+//   node tools/build-art.mjs [--only a,b]
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const ROOT = path.resolve(GAME, '..', '..');
+const ROOT = path.resolve(GAME);
 const args = process.argv.slice(2);
 if (!args.includes('--list-only')) {
-  try { execFileSync(process.execPath, [path.join(ROOT, 'shared', 'test-harness', 'art-pack.mjs'), 'games/property-game', ...args], { cwd: ROOT, stdio: 'inherit' }); } catch (e) { console.log('art-pack reported missing files; listing what exists'); }
+  try { execFileSync(process.execPath, [path.join(ROOT, 'shared', 'test-harness', 'art-pack.mjs'), '.', ...args], { cwd: ROOT, stdio: 'inherit' }); } catch (e) { console.log('art-pack reported missing files; listing what exists'); }
 }
 const man = JSON.parse(fs.readFileSync(path.join(GAME, 'assets', 'manifest.json'), 'utf8'));
 const names = Object.keys(man).filter((n) => fs.existsSync(path.join(GAME, 'assets', n + '.webp')));

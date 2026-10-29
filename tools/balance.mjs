@@ -2,7 +2,7 @@
 // Plays N AI-vs-AI games with the real rules engine (src/js) in Node and checks the PRD §13
 // targets: game length, stalls, first bankruptcy, seat and persona win rates, trades, auctions.
 // Exit 1 if a metric is outside its band.
-//   node games/property-game/tools/balance.mjs [games=600] [players=4]
+//   node tools/balance.mjs [games=600] [players=4]
 import { playGame, data } from './sim.mjs';
 
 const N = +(process.argv[2] || 600), NP = +(process.argv[3] || 4), CAP = 120;

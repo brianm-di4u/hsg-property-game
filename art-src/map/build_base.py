@@ -1,14 +1,14 @@
 # Geographic base map for the board's centre: a plan view of Hot Springs from public data, which Codex then repaints
 # as a 1930s pictorial map (the geography stays where the data puts it). Runs in Blender's bundled Python (numpy):
 #   "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --python build_base.py
-# Inputs: the raw public data the trivia session downloaded (games/trivia/art-src/geo/raw; sources in
-# games/trivia/research and below), read through its loaders:
+# Inputs: the raw public data the trivia session downloaded (copy hsg-trivia's art-src/geo/raw to art-src/geo/raw here;
+# sources in hsg-trivia's research/ and below), read through trivia's loaders (vendored in tools/map/):
 #   USGS 3DEP 1/3" elevation (hillshade), Census TIGER/Line roads and rail, USGS NHD water, OSM Oaklawn track (ODbL).
 # Outputs (art-src/map/): base-map.png (1600 px; base-map-lines.png, streets only, for checking the repaint) and
 # map-frame.json: the extent in metres east/north of the Fordyce Bathhouse, used by the game to place pins.
 import sys, os, math, json
 HERE = os.path.dirname(os.path.abspath(__file__))
-TRIVIA = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'trivia', 'tools', 'map'))
+TRIVIA = os.path.normpath(os.path.join(HERE, '..', '..', 'tools', 'map'))
 sys.path.insert(0, TRIVIA)
 import numpy as np
 from geo_common import load_json, to_m

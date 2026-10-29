@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Before/after sheets: pairs same-named screenshots from two milestones side by side.
-//   node games/property-game/tools/before-after.mjs [before=visual-before] [after=visual-final]
+//   node tools/before-after.mjs [before=visual-before] [after=visual-final]
 // Writes screenshots/<after>/before-after/<viewport>-NN.png (review aid; screenshots are git-ignored).
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(path.resolve(HERE, '../../../shared/test-harness/package.json'));
+const require = createRequire(path.resolve(HERE, '../shared/test-harness/package.json'));
 const { chromium } = require('playwright');
 const [before = 'visual-before', after = 'visual-final'] = process.argv.slice(2);
 const SHOTS = ['01-title', '05-board', '08-buy-dialog', '09-auction', '11-deed', '12-resort', '15-headline', '16-town-talk',

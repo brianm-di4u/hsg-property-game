@@ -3,15 +3,15 @@
 // audited trivia bank (games/trivia/data/questions.json: id exists, `confirmed`, same source,
 // and every number in the displayed line appears in that bank item) or to a research file
 // (the quoted phrase and every number appear in the file). Exit 1 on any failure.
-//   node games/property-game/tools/check-facts.mjs
+//   node tools/check-facts.mjs
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { data } from './sim.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(here, '../../..');
-const bank = JSON.parse(fs.readFileSync(path.join(root, 'games/trivia/data/questions.json'), 'utf8')).questions;
+const root = path.resolve(here, '..');
+const bank = JSON.parse(fs.readFileSync(path.join(root, 'shared/data/trivia-questions.json'), 'utf8')).questions;
 const norm = (t) => t.replace(/[–—]/g, '-').replace(/’/g, "'");
 // Numbers as shown (years, money, counts); "1914–15" style ranges check both parts.
 const numbers = (t) => (norm(t).match(/\d[\d,.]*\d|\d/g) || []).map((n) => n.replace(/[.,]$/, ''));

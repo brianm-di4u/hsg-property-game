@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // Quick look at the 3D table on the real GPU (installed Chrome, headless, ANGLE/D3D11): like peek.mjs, into screenshots/peek3d/.
 // and saves screenshots to screenshots/peek/ (git-ignored). Not a test; the harness suite is the test.
-//   node games/property-game/tools/peek.mjs [months=8] [query]
+//   node tools/peek.mjs [months=8] [query]
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const require = createRequire(path.resolve(GAME, '..', '..', 'shared', 'test-harness', 'package.json'));
+const require = createRequire(path.resolve(GAME, 'shared', 'test-harness', 'package.json'));
 const { chromium } = require('playwright');
 const steps = +(process.argv[2] || 40), query = process.argv[3] || '';
 const out = path.join(GAME, 'screenshots', process.argv.includes('--cpu') ? 'peek' : 'peek3d'); fs.mkdirSync(out, { recursive: true });

@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const require = createRequire(path.resolve(GAME, '..', '..', 'shared', 'test-harness', 'package.json'));
+const require = createRequire(path.resolve(GAME, 'shared', 'test-harness', 'package.json'));
 const { chromium } = require('playwright');
 const [x, y, w, h] = process.argv.slice(2, 6).map(Number), q = process.argv[6] || '?gl=3d';
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--enable-gpu', '--use-angle=d3d11', '--ignore-gpu-blocklist'] });

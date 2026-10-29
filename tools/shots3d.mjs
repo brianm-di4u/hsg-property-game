@@ -2,7 +2,7 @@
 // Screenshots of the 3D table on the real GPU (installed Chrome, headless, ANGLE/D3D11), served over http from the
 // repo like the harness, at the harness's two viewports. The harness itself has only software GL, so its shots show
 // the flat board; this tool records the 3D view for review and measures frame rate and per-frame script time.
-//   node games/property-game/tools/shots3d.mjs [milestone=vis-3d] [--fps] [--throttle]
+//   node tools/shots3d.mjs [milestone=vis-3d] [--fps] [--throttle]
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const ROOT = path.resolve(GAME, '..', '..');
+const ROOT = path.resolve(GAME);
 const require = createRequire(path.resolve(ROOT, 'shared', 'test-harness', 'package.json'));
 const { chromium } = require('playwright');
 const args = process.argv.slice(2), milestone = args.find((a) => !a.startsWith('--')) || 'vis-3d';
@@ -21,7 +21,7 @@ const server = http.createServer((req, res) => {
   if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res);
 }).listen(0);
-const base = `http://127.0.0.1:${server.address().port}/games/property-game/index.html`;
+const base = `http://127.0.0.1:${server.address().port}/index.html`;
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--enable-gpu', '--use-angle=d3d11', '--ignore-gpu-blocklist'] });
 const SEATS = [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }, { kind: 'ai', persona: 'speculator' }, { kind: 'ai', persona: 'banker' }];
 const idle = (page) => page.waitForFunction(() => window.__game.isIdle(), null, { timeout: 20000 }).catch(() => {});

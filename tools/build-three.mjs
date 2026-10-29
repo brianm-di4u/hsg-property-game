@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Tree-shakes the vendored three.js (vendor/three, r186, MIT) down to the classes the 3D table uses and writes
 // src/js/three-lib.js, a plain module the shared inliner can bundle (no imports, one `export const THREE`).
-//   cd games/property-game/tools/dev && npm install   (once: esbuild, build-time only)
-//   node games/property-game/tools/build-three.mjs
+//   cd tools/dev && npm install   (once: esbuild, build-time only)
+//   node tools/build-three.mjs
 // Add a name to NAMES when board3d.js starts using another three.js export.
 import fs from 'node:fs';
 import path from 'node:path';

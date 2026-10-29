@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // Quick look while building: opens the game from disk at desktop and phone sizes, plays a seeded game a little way
 // and saves screenshots to screenshots/peek/ (git-ignored). Not a test; the harness suite is the test.
-//   node games/property-game/tools/peek.mjs [months=8] [query]
+//   node tools/peek.mjs [months=8] [query]
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const require = createRequire(path.resolve(GAME, '..', '..', 'shared', 'test-harness', 'package.json'));
+const require = createRequire(path.resolve(GAME, 'shared', 'test-harness', 'package.json'));
 const { chromium } = require('playwright');
 const steps = +(process.argv[2] || 40), query = process.argv[3] || '';
 const out = path.join(GAME, 'screenshots', 'peek'); fs.mkdirSync(out, { recursive: true });

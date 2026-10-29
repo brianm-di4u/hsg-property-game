@@ -2,13 +2,13 @@
 // Opens the game straight from disk (file://, no server) and checks that the vendored fonts, the painted art and
 // the piece atlas load, a game starts and plays a few AI turns, and nothing errors or leaves the machine.
 // Runs twice: the harness Chromium (software GL: the flat board) and installed Chrome on the GPU (the 3D table).
-//   node games/property-game/tools/check-file-url.mjs
+//   node tools/check-file-url.mjs
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const require = createRequire(path.resolve(GAME, '..', '..', 'shared', 'test-harness', 'package.json'));
+const require = createRequire(path.resolve(GAME, 'shared', 'test-harness', 'package.json'));
 const { chromium } = require('playwright');
 let failed = 0;
 for (const [label, launch] of [['harness chromium', {}], ['chrome gpu', { channel: 'chrome', headless: true, args: ['--enable-gpu', '--use-angle=d3d11', '--ignore-gpu-blocklist'] }]]) {
