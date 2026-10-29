@@ -1,6 +1,6 @@
 // The 3D table: the painted board (render.js draws its face into a 2048-px canvas texture) as a printed slab on an oak
 // card table under a warm lamp, with the Blender die-cast tokens and bathhouse/resort pieces as meshes, rounded dice,
-// real shadows and a camera that leans toward the moving token. All positions come from render.js in "board px"
+// real shadows and a camera that zooms in on and tracks the moving token. All positions come from render.js in "board px"
 // (render.js's view while 3D is on: a 2048 x 2048 board on wide screens; on phones the same tall, phone-sized layout
 // as the 2D board, drawn at 2048 device px across), so game logic, animations and hit-testing are shared with the
 // 2D board. Money pops and flying coins are drawn on a 2D overlay at projected positions.
@@ -21,7 +21,7 @@ const wz = (py) => (py / VH() - 0.5) * BD;
 const len = (px) => px / VW() * BW; // board px -> world length
 
 export const B3 = { on: false, reason: '', renderer: null, scene: null, camera: null, gl: null, overlay: null, octx: null,
-  W: 0, H: 0, dpr: 1, texKey: '', cam: { t: 0, from: null, to: null, cur: null, dur: 600 }, follow: null, slow: 0, frames: [] };
+  W: 0, H: 0, dpr: 1, texKey: '', cam: { cur: null, vel: { tx: 0, tz: 0, dist: 0 }, settled: true, last: 0 }, follow: null, slow: 0, frames: [] };
 
 // ---------- capability ----------
 export function probe(force) {
@@ -221,8 +221,7 @@ export function resize(w, h, dpr) {
   // seen from almost overhead, the varnish would mirror the lamp across the map: keep the sheen low on phones
   B3.top.clearcoat = tall ? 0.1 : 0.32; B3.top.roughness = tall ? 0.8 : 0.72;
   B3.overview = overviewPose();
-  B3.cam.to = null;
-  if (!B3.follow) B3.cam.cur = { ...restPose(B3.lastS) };
+  settleFrom();
 }
 let TILT = 0.38, MARGIN = 0.03; // camera pitch from straight down (radians); flatter on phones, where the board must fill the width
 // The board face changed size (render.js view resized): reshape the slab to the face's aspect and re-upload the face.
@@ -234,8 +233,10 @@ export function setFace() {
   B3.boardTex.minFilter = THREE.LinearMipmapLinearFilter; B3.boardTex.generateMipmaps = true;
   B3.top.map = B3.boardTex; B3.top.needsUpdate = true; old.dispose();
   B3.texKey = '';
-  if (B3.W) { B3.overview = overviewPose(); B3.cam.to = null; if (!B3.follow) B3.cam.cur = { ...restPose(B3.lastS) }; }
+  if (B3.W) { B3.overview = overviewPose(); settleFrom(); }
 }
+// After a layout change the camera glides from where it is to the new goal; only the very first layout places it.
+function settleFrom() { if (!B3.cam.cur) B3.cam.cur = { ...restPose(B3.lastS) }; B3.cam.settled = false; }
 function poseAt(tx, tz, dist) { return { tx, tz, dist }; }
 function applyPose(p) {
   const c = B3.camera;
@@ -256,18 +257,16 @@ function overviewPose() {
   for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (fits(poseAt(0, 0.35, mid))) hi = mid; else lo = mid; }
   return poseAt(0, 0.35, hi);
 }
-// Lean toward a board point (board px) while something moves there; back to the overview when idle.
-export function focus(px, py, zoom = 0.62) {
+// Zoom in on baron k's token and keep it centred while it moves; unfocus() glides back to the rest pose.
+export function track(k, zoom = 0.62) {
   if (!B3.overview) return;
-  const o = B3.overview;
-  let to = poseAt(o.tx + (wx(px) - o.tx) * 0.7, o.tz + (wz(py) - o.tz) * 0.7, o.dist * zoom);
-  if (B3.closeUp) to = clampPose(poseAt(wx(px), wz(py), o.dist * zoom));
-  B3.follow = to; tweenCam(to, 650);
+  if (!B3.follow || B3.follow.k !== k) B3.follow = { k, zoom, t0: performance.now(), vx: 0, vz: 0, prev: null }; else B3.follow.zoom = zoom;
+  B3.cam.settled = false;
 }
-export function unfocus(ms = 700) { if (!B3.overview) return; B3.follow = null; tweenCam(restPose(B3.lastS), ms); }
+export function unfocus() { if (!B3.overview) return; B3.follow = null; B3.cam.settled = false; }
 // Close-up mode (default on phones): at rest the camera frames the current baron's corner of the board, so names
 // read at full size; the board-view button switches to the whole-board overview.
-export function setCloseUp(on) { B3.closeUp = !!on; if (B3.overview && !B3.follow) tweenCam(restPose(B3.lastS), 600); }
+export function setCloseUp(on) { B3.closeUp = !!on; B3.cam.settled = false; }
 function restPose(s) {
   const o = B3.overview; if (!B3.closeUp || !s || !o) return o;
   const p = s.players[s.turn]; if (!p) return o;
@@ -294,15 +293,38 @@ function clampPose(p) {
   }
   return out;
 }
-const samePose = (a, b) => a && b && Math.abs(a.tx - b.tx) < 1e-3 && Math.abs(a.tz - b.tz) < 1e-3 && Math.abs(a.dist - b.dist) < 1e-3;
-function tweenCam(to, ms) { if (B3.instant) { B3.cam.cur = { ...to }; B3.cam.to = null; return; } B3.cam.from = { ...B3.cam.cur }; B3.cam.to = to; B3.cam.t0 = performance.now(); B3.cam.dur = ms; }
-export function camBusy() { return !!B3.cam.to; }
-function stepCam(now) {
-  const c = B3.cam; if (!c.to) return;
-  const q = Math.min(1, (now - c.t0) / c.dur), e = q < 0.5 ? 4 * q * q * q : 1 - Math.pow(-2 * q + 2, 3) / 2;
-  c.cur = { tx: c.from.tx + (c.to.tx - c.from.tx) * e, tz: c.from.tz + (c.to.tz - c.from.tz) * e, dist: c.from.dist + (c.to.dist - c.from.dist) * e };
-  if (q >= 1) c.to = null;
+// Where the camera wants to be this frame: centred on the followed token (wherever it is mid-hop), else at rest.
+function camGoal(s) {
+  const f = B3.follow, o = B3.overview;
+  if (f && s && s.players[f.k]) { const q = R.view.tokens[f.k] || R.slot(s.players[f.k].pos, f.k); return poseAt(wx(q.x), wz(q.y), o.dist * f.zoom); }
+  return restPose(s);
 }
+// The camera chases its goal on a critically damped spring (no fixed-length tween), so it can zoom in, track a moving
+// token and zoom back out, re-targeting at any moment without a jump in position or speed.
+function damp(c, g, v, key, T, dt) {
+  const w = 2 / T, x = w * dt, e = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+  const d = c[key] - g[key], t = (v[key] + w * d) * dt;
+  v[key] = (v[key] - w * t) * e; c[key] = g[key] + (d + t) * e;
+}
+function stepCam(s, now) {
+  // after a pause with no frames drawn, the first step is one frame long, not the whole gap
+  const c = B3.cam, g = camGoal(s), gap = now - (c.last || 0), dt = gap < 100 ? Math.min(0.05, Math.max(0, gap / 1000)) : 1 / 60; c.last = now;
+  if (!g) return;
+  if (!c.cur || B3.instant) { c.cur = { ...g }; c.vel = { tx: 0, tz: 0, dist: 0 }; c.settled = true; return; }
+  const f = B3.follow;
+  // tracking: start with a gentle pan, then hold the token close to centre; returning: a slower glide out
+  const tp = f ? 0.24 - 0.16 * Math.min(1, (now - f.t0) / 600) : 0.4, tz = f ? 0.3 : 0.42;
+  // aim a little ahead of a moving token (by its smoothed speed) so the spring's lag does not leave it off-centre
+  if (f && dt > 0) {
+    if (f.prev && gap < 100) { const a = Math.min(1, dt / 0.06); f.vx += ((g.tx - f.prev.tx) / dt - f.vx) * a; f.vz += ((g.tz - f.prev.tz) / dt - f.vz) * a; }
+    f.prev = { tx: g.tx, tz: g.tz }; g.tx += f.vx * tp; g.tz += f.vz * tp;
+  }
+  if (dt > 0) { damp(c.cur, g, c.vel, 'tx', tp, dt); damp(c.cur, g, c.vel, 'tz', tp, dt); damp(c.cur, g, c.vel, 'dist', tz, dt); }
+  const near = Math.abs(c.cur.tx - g.tx) < 1e-3 && Math.abs(c.cur.tz - g.tz) < 1e-3 && Math.abs(c.cur.dist - g.dist) < 2e-3;
+  const still = Math.abs(c.vel.tx) < 1e-2 && Math.abs(c.vel.tz) < 1e-2 && Math.abs(c.vel.dist) < 2e-2;
+  if (near && still) { c.cur = { ...g }; c.vel = { tx: 0, tz: 0, dist: 0 }; c.settled = true; } else c.settled = false;
+}
+export function camBusy() { return B3.on && !B3.cam.settled; }
 
 // ---------- per-frame sync ----------
 function texKey(s) {
@@ -337,8 +359,7 @@ export function render(s) {
   syncDice();
   B3.lastS = s;
   if (s && !B3.dark && B3.season !== s.month) { B3.season = s.month; const k = (1 - Math.cos((s.month - 0.5) / 12 * Math.PI * 2)) / 2; B3.key.color.setRGB(1, 0.9 + 0.06 * (1 - k), 0.76 + 0.14 * (1 - k)); }
-  if (!B3.cam.to && !B3.follow && B3.overview) { const r = restPose(s); if (!samePose(r, B3.cam.cur)) tweenCam(r, 650); }
-  stepCam(now); applyPose(B3.cam.cur || B3.overview);
+  stepCam(s, now); applyPose(B3.cam.cur || B3.overview);
   B3.renderer.render(B3.scene, B3.camera);
   drawOverlay();
   // watchdog: sustained slow frames switch to the 2D board (main.js decides)

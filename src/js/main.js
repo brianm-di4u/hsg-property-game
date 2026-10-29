@@ -78,11 +78,12 @@ function layout() {
 let drawQueued = false;
 function paint() { if (B.B3.on) B.render(G.s); else R.draw(G.s); }
 function draw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; if (G.scene === 'game') { paint(); if (B.camBusy()) camLoop(); } }); }
-// Keeps frames coming while the 3D camera eases (counts as an animation for isIdle).
+// Keeps frames coming while the 3D camera eases (counts as an animation for isIdle). It paints only when no other
+// animation loop is painting this frame, so the table is not drawn twice.
 function camLoop() {
   if (G.camLoop || !B.B3.on) return;
   G.camLoop = true; G.anim++;
-  const tick = () => { paint(); if (B.camBusy() && B.B3.on) requestAnimationFrame(tick); else { G.camLoop = false; G.anim--; } };
+  const tick = () => { if (G.anim === 1) paint(); if (B.camBusy() && B.B3.on) requestAnimationFrame(tick); else { G.camLoop = false; G.anim--; } };
   requestAnimationFrame(tick);
 }
 
@@ -93,7 +94,7 @@ function animate(dur, fn) {
     const t0 = performance.now();
     const tick = (now) => {
       const p = G.skip ? 1 : Math.min(1, (now - t0) / dur);
-      fn(p); paint();
+      fn(p); paint(); if (B.camBusy()) camLoop();
       if (p < 1) requestAnimationFrame(tick); else { G.anim--; res(); }
     };
     requestAnimationFrame(tick);
@@ -200,7 +201,7 @@ async function present(e) {
     }
     case 'move': {
       const k = e.pid;
-      if (B.B3.on && animOn()) { const a = R.slot(e.from, k), b = R.slot(e.to, k); B.focus((a.x + b.x) / 2, (a.y + b.y) / 2, narrow() ? 0.5 : 0.72); camLoop(); }
+      if (B.B3.on && animOn()) { B.track(k, narrow() ? 0.5 : 0.72); camLoop(); }
       if (e.jump || e.steps <= 0) {
         const from = R.view.tokens[k] || R.slot(e.from, k), to = R.slot(e.to, k);
         await animate(e.steps === 0 && e.to === e.from ? 0 : 380, (p) => { R.view.tokens[k] = { x: from.x + (to.x - from.x) * p, y: from.y + (to.y - from.y) * p, lift: Math.sin(p * Math.PI) * 20 }; });
@@ -212,7 +213,8 @@ async function present(e) {
           if (animOn()) sfx('step');
         }
       }
-      R.view.tokens[k] = undefined;
+      // a card or the Jury may send the token on again: hold it here (not at its final space) until that move runs
+      R.view.tokens[k] = G.queue.some((q) => q.t === 'move' && q.pid === k) ? R.slot(e.to, k) : undefined;
       R.view.flash = e.to; draw();
       break;
     }
