@@ -27,7 +27,7 @@ export function rentTable(i) {
 export function spaceRules(sp) {
   if (sp.type === 'talk') return 'Draw a Town Talk card and follow it.';
   if (sp.type === 'tax') return `Pay ${money(RULES.tax)}.`;
-  return ({ depot: `Collect ${money(RULES.payday)} Payday whenever you pass or land here.`, jury: 'Just visiting, unless you were summoned. Held barons leave by paying $50, a Pardon, or rolling doubles.', free: 'A public rest stop. Nothing to pay.', gojury: 'Go straight to the Grand Jury Room. No Payday.' })[sp.kind] || '';
+  return ({ depot: `Collect ${money(RULES.payday)} Payday whenever you pass or land here.`, jury: 'Passing through, unless you were summoned. Held barons leave by paying $50, a Pardon, or rolling doubles.', free: 'A public rest stop. Nothing to pay.', gojury: 'Go straight to the Grand Jury Room. No Payday.' })[sp.kind] || '';
 }
 
 // Painted picture for a space or card, when the art is on (never requested otherwise, so no 404s).

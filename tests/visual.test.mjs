@@ -1,6 +1,11 @@
 // Visual layer: painted art, sprites and fonts load; the vector fallback still works; the board shows owners,
 // mortgages and buildings without hiding names; the centre map has a pin for each place with a known location.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { start, mod, g } from './helpers.mjs';
+
+const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export const tests = [
   {
@@ -17,6 +22,12 @@ export const tests = [
       t.expect(r.manifest.includes('map') && r.manifest.filter((n) => n.startsWith('vig-')).length === 31, `manifest has the map and 31 vignettes (${r.manifest.length})`);
       const mode = await t.game('boardMode');
       t.log(`board: ${mode.mode} (${mode.why || 'gpu'})`);
+      // the file:// copy (assets/art-data.js) must hold the same bytes as each packed file: a stale piece atlas
+      // there once drew the wrong frames on every token
+      const src = fs.readFileSync(path.join(GAME, 'assets', 'art-data.js'), 'utf8');
+      const data = JSON.parse(src.slice(src.indexOf('{'), src.lastIndexOf('}') + 1));
+      const stale = Object.entries(data).filter(([n, u]) => !Buffer.from(u.split(',')[1], 'base64').equals(fs.readFileSync(path.join(GAME, 'assets', n + '.webp'))));
+      t.expect(Object.keys(data).length > 30 && !stale.length, `art-data.js matches assets/ (${Object.keys(data).length} images; stale: ${stale.map(([n]) => n).join(', ') || 'none'})`);
     },
   },
   {

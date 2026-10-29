@@ -55,7 +55,10 @@ function layout() {
     const hh = (q) => { const e = $(q); return e ? e.offsetHeight : 0; };
     const panelNeed = Math.max(200, hh('#turnbar') + hh('#event') + Math.max(hh('#actions'), 96) + hh('#players') + 18);
     H = Math.max(W, Math.min(W * 1.45, window.innerHeight - hh('#topbar') - panelNeed - 26));
-    if (B.B3.on && !B.B3.closeUp) H = W * 1.04;
+    // the 3D table keeps one height per screen size and game: a new face height means a new texture and slab, so it
+    // must not follow the panel as the turn bar's text changes
+    // (only once the panel is fully drawn, or the first measure misses the baron cards)
+    if (B.B3.on && G.s && $('#players').children.length === G.s.players.length) { const k = `${window.innerWidth}x${window.innerHeight}:${G.s.players.length}`; if (G.h3d?.k === k) H = G.h3d.H; else G.h3d = { k, H }; }
     wrap.style.height = H + 'px';
   } else {
     wrap.style.height = '';
@@ -63,6 +66,10 @@ function layout() {
     W = H = Math.max(300, avail);
   }
   if (B.B3.on) {
+    // the face texture: phones draw the same tall, phone-sized layout as the 2D board (names sized for a phone),
+    // 2048 device px across; wide screens draw a 2048 board
+    const L = narrow() ? Math.round(W * 0.95) : B.S, LH = narrow() ? Math.round(L * H / W * 0.92) : B.S; // a little shorter than the view, so the board fills the width
+    if (R.view.W !== L || R.view.H !== LH) { R.resize(L, LH, B.S / L); R.view.cacheKey = ''; B.setFace(); }
     const gd = Math.min(narrow() ? 1.5 : 2, dpr);
     if (Math.abs(B.B3.W - W) > 0.5 || Math.abs(B.B3.H - H) > 0.5 || B.B3.dpr !== gd) B.resize(Math.floor(W), Math.floor(H), gd);
   } else if (Math.abs(R.view.W - W) > 0.5 || Math.abs(R.view.H - H) > 0.5 || R.view.dpr !== dpr) { R.resize(W, H, dpr); R.view.cacheKey = ''; }
@@ -240,7 +247,7 @@ async function flyCard(news) {
   if (!animOn() || G.scene !== 'game') return;
   const d = R.deckXY(news ? 'news' : 'talk');
   let x, y, w;
-  if (B.B3.on) { const r = B.B3.canvas.getBoundingClientRect(), p = B.screenOf(d.x, d.y); x = r.left + p.x; y = r.top + p.y; w = d.w * r.width / B.S * 0.9; }
+  if (B.B3.on) { const r = B.B3.canvas.getBoundingClientRect(), p = B.screenOf(d.x, d.y); x = r.left + p.x; y = r.top + p.y; w = d.w * r.width / R.view.W * 0.9; }
   else { const r = R.view.cv.getBoundingClientRect(); x = r.left + d.x; y = r.top + d.y; w = d.w; }
   const h = w * 1.38, back = artSrc(news ? 'back-news' : 'back-talk');
   const el = document.createElement('div'); el.className = 'flycard ' + (news ? 'news' : 'talk'); el.setAttribute('aria-hidden', 'true');
@@ -298,7 +305,9 @@ function refresh() {
   if (!s || G.scene !== 'game') return;
   // clock
   const sea = E.seasonsNow(s);
-  $('#clock').innerHTML = `<div class="month">${MONTHS[s.month]} · Year ${s.year + 1}${s.opts.mode === 'short' ? ` · month ${Math.min(12, s.monthsPlayed + 1)} of 12` : s.opts.years ? ` · ${s.opts.years}-year game` : ''}</div><div class="seasons">${sea.map((x) => { const up = Object.values(x.d).some((m) => m > 1); return `<span class="chip ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${esc(x.name)}</span>`; }).join('') || '<span class="chip">Off season</span>'}</div>`;
+  // the game length rides in the chip row, so the month title never wraps
+  const len = s.opts.mode === 'short' ? `Month ${Math.min(12, s.monthsPlayed + 1)} of 12` : s.opts.years ? `${s.opts.years}-year game` : '';
+  $('#clock').innerHTML = `<div class="month">${MONTHS[s.month]} · Year ${s.year + 1}</div><div class="seasons">${len ? `<span class="chip len">${len}</span>` : ''}${sea.map((x) => { const up = Object.values(x.d).some((m) => m > 1); return `<span class="chip ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${esc(x.name)}</span>`; }).join('') || '<span class="chip">Off season</span>'}</div>`;
   // turn bar
   const a = s.ended ? s.winner : E.actor(s), A = s.players[a];
   const sub = s.ended ? 'Game over' : s.phase === 'auction' ? `Auction: ${SPACES[s.pending.space].name}` : s.phase === 'trade' ? `Considering ${s.players[s.pending.from].name}'s offer` : s.phase === 'debt' ? `Owes ${money(s.debts[0].amount)}: must raise cash` : s.phase === 'buy' ? `Landed on ${SPACES[s.pending.space].name} (${money(SPACES[s.pending.space].price)})` : A.held && s.phase === 'roll' ? 'Held in the Grand Jury Room' : s.phase === 'roll' ? (s.players[s.turn].doubles ? 'Doubles! Roll again' : 'To roll') : 'Moved: manage, trade or end the turn';
@@ -381,6 +390,9 @@ function countCash(el, id, to) {
 function renderPlayers() {
   const s = G.s, ol = $('#players'); ol.innerHTML = '';
   ol.dataset.n = s.players.length;
+  // phones show first names; where two barons share one ("Player 1", "Player 2") they keep their full names
+  const first = (p) => p.name.split(' ')[0], firsts = s.players.map(first);
+  const short = (p) => { const w = p.name.split(' '); return w.length > 2 ? w[0] + ' ' + w[w.length - 1] : p.name; }; // "Jack Tolliver II" -> "Jack II"
   for (const p of s.players) {
     const li = document.createElement('li');
     li.addEventListener('mouseenter', () => { R.view.hiOwner = p.id; draw(); });
@@ -393,7 +405,7 @@ function renderPlayers() {
     const face = p.kind === 'ai' ? artSrc('face-' + p.persona) : '';
     if (face) { const im = document.createElement('img'); im.className = 'face'; im.src = face; im.alt = ''; li.append(im); }
     const fan = E.owned(s, p.id).map((i) => SPACES[i].d ? DISTRICTS[SPACES[i].d].color : '#355E41').map((c) => `<i style="background:${c}"></i>`).join('');
-    d.innerHTML = `<span class="nm"><span class="full">${esc(p.name)}</span><span class="first">${esc(p.name.split(' ')[0])}</span></span><span class="cash"></span>${fan ? `<span class="fan" aria-hidden="true">${fan}</span>` : ''}<span class="meta">${p.kind === 'ai' ? esc(PERSONAS[p.persona].name) + ' AI' : 'Human'} · ${n} lot${n === 1 ? '' : 's'} · worth ${money(E.netWorth(s, p.id))}${p.held ? ' · held' : ''}${p.pardons ? ' · pardon' : ''}</span>`;
+    d.innerHTML = `<span class="nm"><span class="full">${esc(p.name)}</span><span class="first">${esc(firsts.filter((f) => f === first(p)).length > 1 ? short(p) : first(p))}</span></span><span class="cash"></span>${fan ? `<span class="fan" aria-hidden="true">${fan}</span>` : ''}<span class="meta">${p.kind === 'ai' ? esc(PERSONAS[p.persona].name) + ' AI' : 'Human'} · ${n} lot${n === 1 ? '' : 's'} · worth ${money(E.netWorth(s, p.id))}${p.held ? ' · held' : ''}${p.pardons ? ' · pardon' : ''}</span>`;
     li.append(d);
     const cashEl = d.querySelector('.cash'); if (p.out) cashEl.textContent = 'Bankrupt'; else countCash(cashEl, p.id, p.cash);
     li.setAttribute('aria-label', `${p.name}${p.id === s.turn ? ', current turn' : ''}: ${p.out ? 'bankrupt' : money(p.cash) + ' cash, ' + n + ' lots, net worth ' + money(E.netWorth(s, p.id))}`);
@@ -489,18 +501,35 @@ function openManage() { if (!humanActor() || !(can('build') || can('sell') || ca
 function openDebt() { openDialog(manageRender(true), { name: 'debt', closable: false, render: () => manageRender(true) }); }
 
 // Auction
+// A baron's small portrait in dialogs: the persona's cameo for an AI, the token for a human.
+const tokUrl = {};
+function baronImg(p) {
+  const f = p.kind === 'ai' ? artSrc('face-' + p.persona) : '';
+  if (f) return `<img class="bimg" src="${f}" alt="">`;
+  const key = p.token + ':' + (art.ready ? 1 : 0);
+  if (!tokUrl[key]) tokUrl[key] = R.tokenCanvas(p.token, 40).toDataURL();
+  return `<img class="bimg tok" src="${tokUrl[key]}" alt="">`;
+}
+// A lot as a small deed tile: district band, its picture, name and price.
+function lotTile(i, note = '') {
+  const sp = SPACES[i], c = sp.type === 'lot' ? DISTRICTS[sp.d].color : '#355E41', pic = artSrc(spaceArt(i));
+  return `<span class="lottile" style="--d:${c}">${pic ? `<img src="${pic}" alt="">` : '<i></i>'}<span class="ln">${esc(sp.name)}${note ? ` <span class="fine">${note}</span>` : ''}</span><span class="lp">${money(sp.price)}</span></span>`;
+}
 function auctionRender() {
   const s = G.s;
   if (!s.pending || s.pending.kind !== 'auction') return '<p>The auction is over.</p>';
   const A = s.pending, sp = SPACES[A.space], a = E.actor(s), bidder = s.players[a], human = bidder.kind === 'human';
   const min = A.bid > 0 ? A.bid + RULES.minBid : A.min;
-  const rows = A.order.map((q) => { const P = s.players[q]; return `<li>${esc(P.name)} <span class="fine">${money(P.cash)}</span> — ${A.out.includes(q) ? 'out' : q === A.leader ? '<strong>high bid</strong>' : q === a ? '<strong>bidding…</strong>' : 'in'}</li>`; }).join('');
+  const rows = A.order.map((q) => {
+    const P = s.players[q], st = A.out.includes(q) ? 'out' : q === A.leader ? 'lead' : q === a ? 'now' : 'in';
+    return `<li class="bidder ${st}" style="--seat:${TOKENS[P.token].color}">${baronImg(P)}<span class="bn">${esc(P.name)} <span class="fine">${money(P.cash)}</span></span><span class="paddle">${({ out: 'Out', lead: 'High bid', now: 'Bidding…', in: 'In' })[st]}</span></li>`;
+  }).join('');
   const steps = [0, 40, 90].map((d) => min + d);
   const art = artSrc(spaceArt(A.space));
   return `<div class="aucthead">${art ? `<img src="${art}" alt="">` : ''}<div><div class="kicker">${isRow(A.space) ? 'Federal lease · auction only (game rule)' : 'Open auction · highest bid wins'}</div><h2 id="dlg-title">${isRow(A.space) ? 'Lease auction' : 'Auction'}: ${esc(sp.name)}</h2></div></div>
     <p class="fine">Game price ${money(sp.price)}${isRow(A.space) ? ` · federal lease, opening at ${money(A.min)}` : ''}</p>
-    <p>High bid: <span class="bidbig">${A.bid ? money(A.bid) : '—'}</span> ${A.leader >= 0 ? `by <strong>${esc(s.players[A.leader].name)}</strong>` : ''}</p>
-    <ul class="mlist">${rows}</ul>
+    <div class="bidplaque"><span class="k">High bid</span><span class="bidbig">${A.bid ? money(A.bid) : '—'}</span><span class="by">${A.leader >= 0 ? `by <strong>${esc(s.players[A.leader].name)}</strong>` : 'No bids yet'}</span></div>
+    <ul class="mlist bidders">${rows}</ul>
     ${human ? `<p><strong>${esc(bidder.name)}</strong>, your bid (cash ${money(bidder.cash)}):</p><div class="btns" style="justify-content:flex-start">
       ${steps.map((v, k) => `<button class="btn ${k === 0 ? 'primary' : ''}" data-f="bid${k}" data-bid="${v}" ${v > bidder.cash ? 'disabled' : ''}>Bid ${money(v)}</button>`).join('')}
       <button class="btn" data-f="pass" data-pass>Drop out</button></div>`
@@ -518,11 +547,11 @@ function openTrade(to) {
   G.trade = st;
   const render = () => {
     const P = s.players[st.to];
-    const list = (pid, set, side) => E.owned(s, pid).filter((i) => E.tradeable(s, i)).map((i) => `<label class="chk"><input type="checkbox" data-side="${side}" data-i="${i}" data-f="${side}${i}" ${set.has(i) ? 'checked' : ''}> ${lotLabel(i)}${s.lots[i].mortgaged ? ' <span class="fine">(mortgaged)</span>' : ''}</label>`).join('') || '<p class="fine">Nothing tradeable.</p>';
+    const list = (pid, set, side) => E.owned(s, pid).filter((i) => E.tradeable(s, i)).map((i) => `<label class="chk lotpick"><input type="checkbox" data-side="${side}" data-i="${i}" data-f="${side}${i}" ${set.has(i) ? 'checked' : ''}> ${lotTile(i, s.lots[i].mortgaged ? '(mortgaged)' : '')}</label>`).join('') || '<p class="fine">Nothing tradeable.</p>';
     return `<h2 id="dlg-title">Propose a trade</h2>
       <div class="row"><label>Trade with <select data-f="to" data-to>${others.map((p) => `<option value="${p.id}" ${p.id === st.to ? 'selected' : ''}>${esc(p.name)}${p.kind === 'ai' ? ' (AI)' : ''}</option>`).join('')}</select></label></div>
-      <div class="tradecols"><div><h3>You give</h3>${list(me.id, st.give, 'give')}<label class="chk">Cash $<input type="number" min="0" step="10" max="${me.cash}" value="${st.giveCash}" data-f="gc" data-cash="give" style="width:110px"></label></div>
-      <div><h3>You get from ${esc(P.name)}</h3>${list(st.to, st.get, 'get')}<label class="chk">Cash $<input type="number" min="0" step="10" max="${P.cash}" value="${st.getCash}" data-f="tc" data-cash="get" style="width:110px"></label></div></div>
+      <div class="tradecols"><div class="tside"><h3>${baronImg(me)} You give</h3>${list(me.id, st.give, 'give')}<label class="chk">Cash $<input type="number" min="0" step="10" max="${me.cash}" value="${st.giveCash}" data-f="gc" data-cash="give" style="width:110px"></label></div>
+      <div class="tside"><h3>${baronImg(P)} You get from ${esc(P.name)}</h3>${list(st.to, st.get, 'get')}<label class="chk">Cash $<input type="number" min="0" step="10" max="${P.cash}" value="${st.getCash}" data-f="tc" data-cash="get" style="width:110px"></label></div></div>
       ${st.err ? `<p role="alert" style="color:var(--danger);font-weight:700">${esc(st.err)}</p>` : ''}
       <p class="fine">Lots in districts with buildings can't be traded. Mortgaged lots keep their mortgage.</p>
       <div class="btns"><button class="btn" data-f="cancel" data-ok>Cancel</button><button class="btn primary" data-f="propose" data-propose>Propose</button></div>`;
@@ -550,10 +579,10 @@ function submitTrade() {
 function incomingRender() {
   const s = G.s; if (!s.pending || s.pending.kind !== 'trade') return '<p>No offer.</p>';
   const o = s.pending, F = s.players[o.from], T = s.players[o.to];
-  const side = (x) => [...x.lots.map((i) => `<li>${lotLabel(i)}</li>`), x.cash ? `<li>${money(x.cash)} cash</li>` : ''].join('') || '<li>Nothing</li>';
+  const side = (x) => [...x.lots.map((i) => `<li>${lotTile(i)}</li>`), x.cash ? `<li class="cashline">${money(x.cash)} cash</li>` : ''].join('') || '<li class="fine">Nothing</li>';
   const hot = F.kind === 'human';
   return `<h2 id="dlg-title">Offer for ${esc(T.name)}</h2>${hot ? `<p><strong>Pass the device to ${esc(T.name)}.</strong></p>` : ''}
-    <p><strong>${esc(F.name)}</strong> offers:</p><div class="tradecols"><div><h3>You receive</h3><ul>${side(o.give)}</ul></div><div><h3>You give</h3><ul>${side(o.get)}</ul></div></div>
+    <p class="offerby">${baronImg(F)}<span><strong>${esc(F.name)}</strong> offers:</span></p><div class="tradecols"><div class="tside"><h3>You receive</h3><ul class="lots">${side(o.give)}</ul></div><div class="tside"><h3>You give</h3><ul class="lots">${side(o.get)}</ul></div></div>
     <div class="btns"><button class="btn" data-f="dec" data-resp="0">Decline</button><button class="btn primary" data-f="acc" data-resp="1">Accept</button></div>`;
 }
 function openIncoming() { openDialog(incomingRender(), { name: 'incoming', closable: false, render: incomingRender }); }
@@ -654,14 +683,15 @@ function screenSetup(scr) {
   const st = G.setup || (G.setup = { seats: DEFAULT_SEATS(), mode: 'full', variant: 'standard', years: 0, seed: '' });
   const seg = (key, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button type="button" data-seg="${key}" data-v="${v}" aria-pressed="${st[key] === v}">${l}</button>`).join('')}</div>`;
   scr.innerHTML = `<div class="wrap"><h2>New game</h2>
-    <div class="card"><h3 style="margin-top:0">Barons (${st.seats.length} of 6)</h3><div id="seats">${st.seats.map((p, k) => `<div class="seat" data-k="${k}"><span class="tk"></span>
-      <div class="seg" role="group" aria-label="Seat ${k + 1} player type"><button type="button" data-kind="human" data-k="${k}" aria-pressed="${p.kind === 'human'}">Human</button><button type="button" data-kind="ai" data-k="${k}" aria-pressed="${p.kind === 'ai'}">AI</button></div>
-      <input type="text" aria-label="Seat ${k + 1} name" data-name="${k}" value="${esc(p.name)}" placeholder="${p.kind === 'ai' ? esc(PERSONAS[p.persona]?.who || 'AI baron') : 'Name'}" maxlength="18">
-      <select class="persona" aria-label="Seat ${k + 1} AI personality" data-persona="${k}" ${p.kind === 'ai' ? '' : 'disabled'}><option value="random">Random personality</option>${PERSONA_KEYS.map((x) => `<option value="${x}" ${p.persona === x ? 'selected' : ''}>${PERSONAS[x].name}: ${PERSONAS[x].blurb}</option>`).join('')}</select>
+    <div class="card"><h3 style="margin-top:0">Barons (${st.seats.length} of 6)</h3><div id="seats">${st.seats.map((p, k) => `<div class="seat ${p.kind}" data-k="${k}" style="--seat:${TOKENS[k].color}"><span class="tk"></span>
+      <div class="seg kind" role="group" aria-label="Seat ${k + 1} player type"><button type="button" data-kind="human" data-k="${k}" aria-pressed="${p.kind === 'human'}">Human</button><button type="button" data-kind="ai" data-k="${k}" aria-pressed="${p.kind === 'ai'}">AI</button></div>
+      <input type="text" class="nm" aria-label="Seat ${k + 1} name" data-name="${k}" value="${esc(p.name)}" placeholder="${p.kind === 'ai' ? esc(PERSONAS[p.persona]?.who || 'AI baron') : 'Name'}" maxlength="18">
+      ${p.kind === 'ai' ? `<select class="persona" aria-label="Seat ${k + 1} AI personality" data-persona="${k}"><option value="random">Random</option>${PERSONA_KEYS.map((x) => `<option value="${x}" ${p.persona === x ? 'selected' : ''}>${PERSONAS[x].name}</option>`).join('')}</select>
+      <p class="blurb">${PERSONAS[p.persona] ? esc(PERSONAS[p.persona].blurb) : 'A personality drawn at random when play starts.'}</p>` : '<p class="blurb">Plays from this device.</p>'}
       <button type="button" class="iconbtn" data-rm="${k}" aria-label="Remove seat ${k + 1}" ${st.seats.length <= 2 ? 'disabled' : ''}>✕</button></div>`).join('')}</div>
       <button type="button" class="btn" data-add ${st.seats.length >= 6 ? 'disabled' : ''} style="margin-top:8px">Add a baron</button></div>
     <div class="card"><div class="row" style="gap:18px;align-items:flex-start">
-      <div><strong>Game length</strong><br>${seg('mode', [['full', 'Full game'], ['short', 'Short game (12 months)']])}</div>
+      <div><strong>Game length</strong><br>${seg('mode', [['full', 'Full game'], ['short', 'Short: 12 months']])}</div>
       <label>Year limit (full game)<select data-years ${st.mode === 'short' ? 'disabled' : ''}>${[[0, 'No limit'], [1, '1 year'], [2, '2 years'], [3, '3 years'], [5, '5 years']].map(([v, l]) => `<option value="${v}" ${+st.years === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <div><strong>Rules</strong><br>${seg('variant', [['standard', 'Standard'], ['common', 'Common Ground']])}</div>
       <label>Seed (optional)<input type="number" data-seed value="${esc(st.seed)}" placeholder="random" style="width:130px"></label></div>
@@ -681,7 +711,7 @@ function screenSetup(scr) {
   scr.onchange = (ev) => {
     const t = ev.target;
     if (t.dataset.name != null) st.seats[+t.dataset.name].name = t.value.trim();
-    if (t.dataset.persona != null) st.seats[+t.dataset.persona].persona = t.value;
+    if (t.dataset.persona != null) { const k = +t.dataset.persona; st.seats[k].persona = t.value; screenSetup(scr); scr.querySelector(`[data-persona="${k}"]`).focus(); }
     if (t.dataset.years != null) st.years = +t.value;
     if (t.dataset.seed != null) st.seed = t.value;
   };

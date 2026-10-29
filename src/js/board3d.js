@@ -1,8 +1,9 @@
 // The 3D table: the painted board (render.js draws its face into a 2048-px canvas texture) as a printed slab on an oak
 // card table under a warm lamp, with the Blender die-cast tokens and bathhouse/resort pieces as meshes, rounded dice,
 // real shadows and a camera that leans toward the moving token. All positions come from render.js in "board px"
-// (render.js's view is a virtual 2048 x 2048 board while 3D is on), so game logic, animations and hit-testing
-// are shared with the 2D board. Money pops and flying coins are drawn on a 2D overlay at projected positions.
+// (render.js's view while 3D is on: a 2048 x 2048 board on wide screens; on phones the same tall, phone-sized layout
+// as the 2D board, drawn at 2048 device px across), so game logic, animations and hit-testing are shared with the
+// 2D board. Money pops and flying coins are drawn on a 2D overlay at projected positions.
 // Falls back to the 2D board when there is no WebGL, on software GL, with ?gl=0, or when frames run slow.
 import { THREE } from './three-lib.js';
 import { MESHES } from './pieces-mesh.js';
@@ -10,12 +11,14 @@ import * as R from './render.js';
 import { img } from './art.js';
 import { TOKENS, SPACES } from './data.js';
 
-export const S = 2048;           // board texture size = virtual board px
+export const S = 2048;           // board texture width in device px
 const BW = 10;                   // board width in world units
+let BD = BW;                     // board depth in world units (taller than wide on phones)
 const TOP = 0.14;                // board slab thickness; the face is at y = TOP
-const wx = (px) => (px / S - 0.5) * BW;
-const wz = (py) => (py / S - 0.5) * BW;
-const pxw = (u) => u / BW * S;   // world length -> board px
+const VW = () => R.view.W, VH = () => R.view.H; // the board in board px
+const wx = (px) => (px / VW() - 0.5) * BW;
+const wz = (py) => (py / VH() - 0.5) * BD;
+const len = (px) => px / VW() * BW; // board px -> world length
 
 export const B3 = { on: false, reason: '', renderer: null, scene: null, camera: null, gl: null, overlay: null, octx: null,
   W: 0, H: 0, dpr: 1, texKey: '', cam: { t: 0, from: null, to: null, cur: null, dur: 600 }, follow: null, slow: 0, frames: [] };
@@ -145,7 +148,7 @@ export function init(host, theme) {
   B3.renderer = renderer; B3.canvas = cv;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 1.0;
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; // r186: PCF filters over shadow.radius (soft edges); PCFSoftShadowMap is gone
   const scene = new THREE.Scene(); B3.scene = scene;
   scene.environment = envMap(); scene.environmentIntensity = 0.55;
   B3.camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
@@ -166,7 +169,8 @@ export function init(host, theme) {
   B3.top = new THREE.MeshPhysicalMaterial({ map: B3.boardTex, roughness: 0.72, metalness: 0, clearcoat: 0.32, clearcoatRoughness: 0.3 });
   B3.edge = new THREE.MeshStandardMaterial({ roughness: 0.7 });
   const under = new THREE.MeshStandardMaterial({ color: 0x2a2018 });
-  B3.board = new THREE.Mesh(new THREE.BoxGeometry(BW, TOP, BW), [B3.edge, B3.edge, B3.top, under, B3.edge, B3.edge]);
+  BD = BW * VH() / VW();
+  B3.board = new THREE.Mesh(new THREE.BoxGeometry(BW, TOP, BD), [B3.edge, B3.edge, B3.top, under, B3.edge, B3.edge]);
   B3.board.position.y = TOP / 2; B3.board.castShadow = true; B3.board.receiveShadow = true; scene.add(B3.board);
   // pieces
   B3.tokens = TOKENS.map((T) => { const g = piece('tok-' + T.shape) || new THREE.Group(); g.visible = false; scene.add(g); return g; });
@@ -212,12 +216,26 @@ export function resize(w, h, dpr) {
   B3.overlay.width = Math.round(w * dpr); B3.overlay.height = Math.round(h * dpr);
   B3.overlay.style.width = w + 'px'; B3.overlay.style.height = h + 'px';
   B3.camera.aspect = w / h; B3.camera.fov = h > w * 1.02 ? 24 : 26; B3.camera.updateProjectionMatrix();
-  TILT = h > w * 1.02 ? 0.22 : 0.38;
+  const tall = h > w * 1.02;
+  TILT = tall ? 0.12 : 0.38; MARGIN = tall ? 0.012 : 0.03;
+  // seen from almost overhead, the varnish would mirror the lamp across the map: keep the sheen low on phones
+  B3.top.clearcoat = tall ? 0.1 : 0.32; B3.top.roughness = tall ? 0.8 : 0.72;
   B3.overview = overviewPose();
   B3.cam.to = null;
   if (!B3.follow) B3.cam.cur = { ...restPose(B3.lastS) };
 }
-let TILT = 0.38; // camera pitch from straight down (radians); flatter on phones, where the board must fill the width
+let TILT = 0.38, MARGIN = 0.03; // camera pitch from straight down (radians); flatter on phones, where the board must fill the width
+// The board face changed size (render.js view resized): reshape the slab to the face's aspect and re-upload the face.
+export function setFace() {
+  if (!B3.board) return;
+  const d = BW * VH() / VW();
+  if (Math.abs(d - BD) > 1e-4) { BD = d; B3.board.geometry.dispose(); B3.board.geometry = new THREE.BoxGeometry(BW, TOP, BD); }
+  const old = B3.boardTex; B3.boardTex = canvasTex(B3.texCanvas);
+  B3.boardTex.minFilter = THREE.LinearMipmapLinearFilter; B3.boardTex.generateMipmaps = true;
+  B3.top.map = B3.boardTex; B3.top.needsUpdate = true; old.dispose();
+  B3.texKey = '';
+  if (B3.W) { B3.overview = overviewPose(); B3.cam.to = null; if (!B3.follow) B3.cam.cur = { ...restPose(B3.lastS) }; }
+}
 function poseAt(tx, tz, dist) { return { tx, tz, dist }; }
 function applyPose(p) {
   const c = B3.camera;
@@ -226,8 +244,8 @@ function applyPose(p) {
 }
 function fits(p) {
   applyPose(p);
-  const v = new THREE.Vector3(), m = 0.03;
-  for (const [x, y, z] of [[-BW / 2, TOP, -BW / 2], [BW / 2, TOP, -BW / 2], [-BW / 2, 0, BW / 2], [BW / 2, 0, BW / 2], [0, 1.0, -BW / 2]]) {
+  const v = new THREE.Vector3(), m = MARGIN;
+  for (const [x, y, z] of [[-BW / 2, TOP, -BD / 2], [BW / 2, TOP, -BD / 2], [-BW / 2, 0, BD / 2], [BW / 2, 0, BD / 2], [0, 1.0, -BD / 2]]) {
     v.set(x, y, z).project(B3.camera);
     if (Math.abs(v.x) > 1 - m || Math.abs(v.y) > 1 - m) return false;
   }
@@ -259,7 +277,7 @@ function restPose(s) {
 // Slides a pose so the board fills the whole view (no table showing past its edges), keeping the zoom.
 const corner = new THREE.Vector3(), cray = new THREE.Raycaster();
 function clampPose(p) {
-  const out = { ...p }, lim = BW / 2 - 0.02;
+  const out = { ...p }, lim = BW / 2 - 0.02, limz = BD / 2 - 0.02;
   for (let it = 0; it < 4; it++) {
     applyPose(out);
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
@@ -270,7 +288,7 @@ function clampPose(p) {
     }
     let dx = 0, dz = 0;
     if (x1 - x0 > 2 * lim) dx = -(x0 + x1) / 2; else if (x0 < -lim) dx = -lim - x0; else if (x1 > lim) dx = lim - x1;
-    if (z1 - z0 > 2 * lim) dz = -(z0 + z1) / 2; else if (z0 < -lim) dz = -lim - z0; else if (z1 > lim) dz = lim - z1;
+    if (z1 - z0 > 2 * limz) dz = -(z0 + z1) / 2; else if (z0 < -limz) dz = -limz - z0; else if (z1 > limz) dz = limz - z1;
     if (Math.abs(dx) < 1e-4 && Math.abs(dz) < 1e-4) break;
     out.tx += dx; out.tz += dz;
   }
@@ -301,14 +319,14 @@ export function render(s) {
   const key = texKey(s);
   if (key !== B3.texKey) { R.draw(s); B3.boardTex.needsUpdate = true; B3.texKey = key; }
   // tokens
-  const tokR = R.tokenR(), tokScale = (tokR / S * BW) / 0.54 * 1.3;
+  const tokR = R.tokenR(), tokScale = len(tokR) / 0.54 * 1.3;
   B3.tokens.forEach((g) => { g.visible = false; });
   B3.ring.visible = false;
   if (s) {
     s.players.forEach((p, k) => {
       if (p.out) return;
       const g = B3.tokens[p.token]; if (!g) return;
-      const pos = v.tokens[k] || R.slot(p.pos, k), lift = (pos.lift || 0) / S * BW;
+      const pos = v.tokens[k] || R.slot(p.pos, k), lift = len(pos.lift || 0);
       g.visible = true; place(g, pos.x, pos.y, lift);
       const sq = pos.squash || 0, sc = tokScale * (k === s.turn ? 1.08 : 1);
       g.scale.set(sc * (1 + sq * 0.5), sc * (1 - sq), sc * (1 + sq * 0.5));
@@ -361,10 +379,10 @@ function bounce(x) { const n = 7.5625, d = 2.75; if (x < 1 / d) return n * x * x
 
 const tumbleQ = [...Array(12)].map((_, k) => new THREE.Quaternion().setFromEuler(new THREE.Euler(k * 1.7, k * 2.3, k * 0.9)));
 function syncDice() {
-  const D = R.view.dice, h = R.diceHome(), size = h.size / S * BW;
+  const D = R.view.dice, h = R.diceHome(), size = len(h.size);
   const pos = D.pos || [{ x: h.x - h.gap, y: h.y, lift: 0, rot: -0.12 }, { x: h.x + h.gap, y: h.y + h.gap * 0.15, lift: 0, rot: 0.18 }];
   B3.dice.forEach((m, k) => {
-    const p = pos[k], v = k ? D.b : D.a, lift = (p.lift || 0) / S * BW;
+    const p = pos[k], v = k ? D.b : D.a, lift = len(p.lift || 0);
     m.scale.setScalar(size);
     place(m, p.x, p.y, size * 0.5 + lift);
     if (D.tumbling && lift > 0.002) m.quaternion.copy(tumbleQ[(D.frame + k * 5) % 12]).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), D.frame * 0.7));
@@ -377,11 +395,11 @@ function drawOverlay() {
   const g = B3.octx, dpr = B3.dpr; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, B3.overlay.width, B3.overlay.height);
   const v = R.view; if (!v.pops.length && !v.coins.length && !v.puffs.length) return;
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  R.paintMoney(g, (x, y, lift) => screenOf(x, y, lift || 0), B3.W / S * 0.95);
+  R.paintMoney(g, (x, y, lift) => screenOf(x, y, lift || 0), B3.W / VW() * 0.95);
 }
 const tmp = new THREE.Vector3();
 export function screenOf(px, py, liftPx = 0) {
-  tmp.set(wx(px), TOP + liftPx / S * BW, wz(py)).project(B3.camera);
+  tmp.set(wx(px), TOP + len(liftPx), wz(py)).project(B3.camera);
   return { x: (tmp.x + 1) / 2 * B3.W, y: (1 - tmp.y) / 2 * B3.H };
 }
 // Board point under a client position (for clicks), in board px; null off the board.
@@ -390,6 +408,6 @@ export function boardPoint(cx, cy) {
   const r = B3.canvas.getBoundingClientRect();
   ray.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), B3.camera);
   if (!ray.ray.intersectPlane(plane, hitV)) return null;
-  const x = (hitV.x / BW + 0.5) * S, y = (hitV.z / BW + 0.5) * S;
-  return x >= 0 && y >= 0 && x < S && y < S ? { x, y } : null;
+  const x = (hitV.x / BW + 0.5) * VW(), y = (hitV.z / BD + 0.5) * VH();
+  return x >= 0 && y >= 0 && x < VW() && y < VH() ? { x, y } : null;
 }

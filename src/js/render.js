@@ -209,8 +209,13 @@ export function tokenCanvas(k, px, num) {
   const c = document.createElement('canvas'), d = Math.min(3, window.devicePixelRatio || 1);
   c.width = c.height = Math.round(px * d); c.className = 'tokicon'; c.setAttribute('aria-hidden', 'true');
   const x = c.getContext('2d'); x.scale(d, d); x.imageSmoothingQuality = 'high';
-  if (SPRITES['tok-' + TOKENS[k].shape] && img('pieces')) drawToken(x, k, px * 0.46, px * 0.9, px * 0.3, num);
-  else drawToken(x, k, px * 0.44, px * 0.92, px * 0.34, num);
+  const f = SPRITES['tok-' + TOKENS[k].shape];
+  if (f && img('pieces')) {
+    // the piece alone (no table shadow), scaled to fit and centred on its own bounds
+    const [, , w, h, fx, fy] = f, s = Math.min(px * 0.84 / w, px * 0.84 / h);
+    sprite(x, 'tok-' + TOKENS[k].shape, (px - w * s) / 2 + fx * s, (px - h * s) / 2 + fy * s + px * 0.03, s);
+    if (num != null) badge(x, px * 0.8, px * 0.2, Math.max(5.5, px * 0.15), num);
+  } else drawToken(x, k, px * 0.44, px * 0.92, px * 0.34, num);
   return c;
 }
 
@@ -405,7 +410,7 @@ function drawSpace(ctx, i, t) {
 
 function drawCorner(ctx, sp, P, t) {
   const r = P.r, A = P.art, L = P.label, dark = view.theme === 'dark';
-  const labels = { depot: ['THE DEPOT', 'Payday $150 ›'], jury: ['GRAND JURY ROOM', 'Just visiting'], free: ['FREE BATHHOUSE', 'Rest a while'], gojury: ['SUMMONED', 'Go to the Grand Jury'] };
+  const labels = { depot: ['THE DEPOT', 'Payday $150 ›'], jury: ['GRAND JURY ROOM', 'Passing through'], free: ['FREE BATHHOUSE', 'Rest a while'], gojury: ['SUMMONED', 'Go to the Grand Jury'] };
   const [a, b] = labels[sp.kind];
   const col = sp.kind === 'depot' ? '#355E41' : sp.kind === 'free' ? '#2B6C8F' : '#8E2A1B';
   const vig = img('vig-' + VIG[sp.i]);

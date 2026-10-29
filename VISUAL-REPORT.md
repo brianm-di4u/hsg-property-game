@@ -12,18 +12,24 @@ the finals:
 Each set has contact sheets, and the finals have before/after sheets. The independent reviews are in `benchmarks/`
 (git-ignored): `REVIEW-before.md`, `REVIEW-m1.md`, `REVIEW-m3.md` and `REVIEW-final.md`. Nothing is committed.
 
+The campaign ran in the original monorepo (`games/property-game/`). This repo is that folder as a standalone
+repository: paths below are relative to the repo root, and the harness lives at `shared/test-harness/`. The
+coordinator's review fixes (`coord-review`) are under [Fix pass after the coordinator review](#fix-pass-after-the-coordinator-review).
+
 ## What changed
 
 **The board is a printed 1930s game on an oak card table.**
 - **Two renderers, one board.**
   - On a real GPU it is a three.js 3D table (`src/js/board3d.js`, three.js r186 vendored and tree-shaken): a bevelled
-    board slab on the oak table under a warm table-lamp spot with soft shadows, a light varnish sheen on the board, and
+    board slab on the oak table under a warm table-lamp spot with soft-edged shadows (filtered PCF, radius 4), a light
+    varnish sheen on the board, and
     Blender die-cast pieces as meshes.
   - On software GL, with no WebGL, with `?gl=0`, or when the frame watchdog trips, the same board draws as a flat
     canvas on the same table. The flat board uses the same art, with pre-rendered Blender sprites and baked shadows for
     the pieces.
-  - The 3D board's face is the 2D renderer drawn into a 2048-px texture, so the layout, the text and the hit-testing
-    logic are shared.
+  - The 3D board's face is the 2D renderer drawn into a 2048-px-wide texture, so the layout, the text and the
+    hit-testing logic are shared. On phones the face uses the 2D board's tall phone layout (sized for a 390-px screen,
+    drawn at 2048 device px across), so names and prices read as on the flat board.
 - **A painted picture on every space.** 31 original vignettes in one 1930s lithograph style replace the repeated line
   icons, each of the real place:
   - the Fordyce's lozenge brick, the Buckstaff's seven bays, the Hale's Mission parapet;
@@ -131,15 +137,32 @@ Benchmarks (`benchmarks/SOURCES.md`, review only):
 
 ## Tests
 
+After the fix pass (this repo, final build, 2026-10-29):
+
 | Run | Result |
 |---|---|
-| `run.mjs games/property-game --gpu --milestone visual-final` (3D table on the RTX 5060, both viewports) | **93/93** |
-| `run.mjs games/property-game --milestone visual-final-2d` (software GL: flat-board fallback) | **93/93** |
-| `run.mjs games/property-game --file-url --milestone visual-final-file` (every test from file://) | **93/93** |
-| `tools/check-file-url.mjs` (file://, harness Chromium and installed Chrome on the GPU; fonts, art, a played game, no external requests) | 4/4 |
+| `node shared/test-harness/run.mjs . --gpu --file-url --milestone fix-gpu` (3D table on the RTX 5060, every test from file://) | **93/93** |
+| `node shared/test-harness/run.mjs . --milestone fix-2d` (software GL: flat-board fallback) | **93/93** |
+| `node tools/check-file-url.mjs` (file://, harness Chromium and installed Chrome on the GPU; fonts, art, a played game, no external requests) | 4/4 |
+
+One earlier software-GL run on an intermediate build failed one check: in `input.test.mjs` "keyboard-only", the pause
+menu was open after Esc. It passed alone 3/3 and in both final runs. The fix pass did not touch keyboard or dialog
+code, so this is recorded as an intermittent timing failure under machine load. Contact sheets:
+`screenshots/fix-gpu/before-after/` (against `coord-review`) and `screenshots/fix-2d/sheets/`; every changed screen
+was inspected at both viewports.
+
+At the end of the campaign (monorepo, `games/property-game`):
+
+| Run | Result |
+|---|---|
+| `--gpu --milestone visual-final` (3D table on the RTX 5060, both viewports) | **93/93** |
+| `--milestone visual-final-2d` (software GL: flat-board fallback) | **93/93** |
+| `--file-url --milestone visual-final-file` (every test from file://) | **93/93** |
+| `tools/check-file-url.mjs` | 4/4 |
 | `tools/check-facts.mjs` | 78/78 facts verified |
 
-**Test coverage.** 93 tests: the 83 originals plus 10 new ones.
+**Test coverage.** 93 tests: the 83 originals plus 10 new ones. The fix pass added a check to an existing test: the
+first `visual.test.mjs` test now also byte-compares `assets/art-data.js` with `assets/*.webp`.
 - **`visual.test.mjs`:**
   - art, fonts and the manifest;
   - the built-up board;
@@ -160,12 +183,19 @@ frames, cards, deeds, auctions, the title, game over and the dark theme, at both
 ## Performance
 | Measure | Desktop | Phone (390×844) |
 |---|---|---|
-| 3D, RTX 5060, 4 AI barons animating | 59.2 fps, 0.7 ms median render | 58.3 fps, 0.4 ms |
+| 3D, RTX 5060, 4 AI barons animating (fix pass, `tools/shots3d.mjs --fps`) | 58.5 fps, 0.5 ms median render | 59.0 fps, 0.5 ms |
+| 3D, harness `--gpu --file-url` perf test (fix pass) | 58.6 fps | 58.2 fps |
+| 3D, RTX 5060, 4 AI barons animating (campaign) | 59.2 fps, 0.7 ms median render | 58.3 fps, 0.4 ms |
 | 3D with 4× CPU throttle | 59.3 fps, 2.3 ms | 58.5 fps, 2.0 ms |
 | Flat board, harness (software GL) | 60.1 fps | ≈58–60 fps |
-| JS heap | 9.5–13.6 MB | 10.8–14.5 MB |
+| JS heap, served over http (3D: `tools/shots3d.mjs`; flat: harness) | 10.3 MB 3D, 10.7–12.1 MB flat | 10.8 MB 3D, 13.6 MB flat |
+| JS heap, from file:// with the 3D table (harness `--gpu --file-url`) | 16.3–18.4 MB | 17.4–18.4 MB |
 | Hooks ready / painted art decoded | ≈60 ms / 250–345 ms | same |
 
+- **Why the heap is higher from file://.** The coordinator measured 17–18 MB, against 9.5–14.5 MB here before.
+  That run used `--file-url`, where the game also loads `assets/art-data.js`: the board images as data-URL strings
+  (2.5 MB of source, held as JS strings), which WebGL needs there instead of local image files. Served over http the
+  same build measures 10–14 MB. The fix pass re-measured both (2026-10-29, fix pass).
 - **Render on demand in both views.** The rAF loop runs only while something moves or the camera eases. The board
   texture is redrawn only when the board state changes (keyed on lots, month, Headline, cursor, theme).
 - **3D limits:** pixel ratio capped at 2, and 1.5 on phones; a 2048 shadow map, 1024 on phones.
@@ -195,30 +225,77 @@ software GL and file://), but not re-scored:
 - **Baron identity.** Human seats shared one silhouette; they now show their own token. Every portrait has a
   seat-colour ring, so duplicate personas differ.
 
+## Fix pass after the coordinator review
+The coordinator's review (`screenshots/coord-review`, 93/93 with `--gpu --file-url`) found that desktop held up and
+phones did not. The fixes below were made in this repo, most important first:
+1. **Phone setup.** Each seat is now a baron card: a portrait with a seat-colour ring, the name field, and the
+   Human/AI toggle in an auto-width column. On phones the toggle and the personality get their own row. The persona's
+   blurb wraps under the name instead of being cut inside the select, and human seats have no disabled personality
+   select. `src/js/main.js` `screenSetup`, `.seat` rules in `src/styles/main.css`.
+2. **Phone card buttons.** The OK button on the Gazette and Town Talk cards was half off-screen. The phone sheet's
+   button row now sticks at `bottom: 0` and carries the safe-area inset in its own padding. Card dialogs scroll inside
+   the sheet instead of overflowing it.
+3. **Token icons** in the turn bar, baron cards, setup and game over. They were a black blob because
+   `assets/art-data.js` (the file:// copy of the art) still held the piece atlas from before the bathtub token, so every
+   frame was read from the wrong place. That is why `?art=0` was fine and only file:// showed it.
+   - Regenerated the file.
+   - `tools/build-sprites.mjs` now refreshes it.
+   - `visual.test.mjs` byte-compares every embedded image with `assets/*.webp`.
+   - The icon also draws the piece alone, fitted to its own bounds, so the game-over plinth no longer crops the
+     streetcar.
+4. **Phone 3D board.**
+   - The face is drawn with the 2D board's phone layout (a tall board about 0.95 × screen width, drawn at 2048 device px
+     across). Names and prices read at the flat board's sizes instead of ~5 px.
+   - The slab takes the face's aspect, so it uses the spare height.
+   - The camera is flatter (pitch 0.12) so the board fills the width.
+   - The varnish sheen is turned down on phones (seen from overhead it mirrored the lamp).
+   - The table keeps one height per screen and game, so turn-bar text changes never rebuild the face.
+5. **Duplicate first names.** Phone baron cards show first names. Where two barons share one, the card shows the
+   first and last word instead ("Player 1" / "Player 2", "Jack Tolliver" / "Jack II").
+6. **Turn bar overflow.** The game length ("Month 1 of 12", "3-year game") moved out of the month title into a dashed
+   chip in the season row, so the title never wraps. On phones the chips wrap instead of sliding under the view button.
+7. **`?art=0` title contrast.** The top bar has its surface background in 3D mode too, so the month title is no
+   longer dark on the dark table.
+8. **Shadows.** three.js r186 removed `PCFSoftShadowMap` (it warned and fell back). The renderer now asks for
+   `PCFShadowMap`, which in r186 filters over `shadow.radius` (4), so the shadows stay soft-edged with no warning.
+9. **Small items.** The game-over streetcar crop is fixed (see 3). Desktop setup no longer cuts blurbs or shows a
+   disabled select on human rows. The short-game label is "Short: 12 months" and the setup toggles don't wrap.
+10. **Wording.** The jail corner's subtitle and help text say "Passing through" instead of the genre leader's wording.
+11. **Font licences.** The four `vendor/fonts/OFL-*.txt` files are now each family's upstream `OFL.txt` from
+    `github.com/google/fonts`, with the real copyright holders: TypeTogether, the Alfa Slab One Project Authors, the
+    Barlow Project Authors and the Libre Caslon Text Project Authors. Provenance is noted in `SAMPLES.md`.
+12. **Heap.** See Performance: 18.4 MB is the file:// figure.
+
+**Also, from the remaining MAJOR gap (off-board screens):**
+- Auctions show each bidder with a portrait and a status paddle (In / Bidding… / High bid / Out), with the high bid on a
+  brass plaque.
+- Trades pick lots as small deed tiles (district band, picture, name, price), with both barons' portraits on their
+  columns.
+- Incoming offers show the offering baron's portrait and the lots as tiles.
+
 ## Known gaps
-The review's fourth MAJOR gap remains open, as do several minor ones:
-- **Off-board screens are still mostly HTML forms** (MAJOR). Setup, the auction list, trade (native checkboxes and a
-  select) and the game-over table work but are plain next to the benchmarks. The "Game price" and "Game effect" pills
-  are kept on purpose: the project labels game logic separately from sourced history.
+Still open after the fix pass (none re-scored by the reviewer):
+- **Off-board screens are partly upgraded** (was the review's fourth MAJOR gap). The setup seats are now baron cards
+  with portraits, auctions have bidder paddles and a brass high-bid plaque, and trades pick lots as small deed tiles.
+  The setup options (length, rules, seed) are still plain segmented buttons and selects, and game over is a newspaper
+  masthead over a results table. The "Game price" and "Game effect" pills are kept on purpose: the project labels game
+  logic separately from sourced history.
 - **3D buildings read as small slabs at board scale.** Their roofs (red tile, green tile, teal dome, twin towers) only
   read in close-up.
-- **Lighting is good but flat next to the benchmarks:** no ambient occlusion in the tile seams. On the flat board the
+- **Lighting is good but flat next to the benchmarks:** no ambient occlusion in the tile seams. On phones the board's
+  varnish sheen is turned down (an almost overhead camera would mirror the lamp across the map). On the flat board the
   dark theme's Club neon is a thin line.
-- **Seasons** change the lamp colour and pin pennants on the map, but there are no seasonal props.
-- **The 2D phone board** still uses short names ("GATORS", "MOTOR CTS"), as it did before. The 3D close-up shows full
-  names.
+- **Seasons** change the lamp's colour temperature and pin pennants on the map; there are no seasonal props.
+- **Phone boards use short names** ("GATORS", "MOTOR CTS") on the side columns, in 3D now as well as 2D, because they
+  share the phone layout. The deed, the close-up and the cursor tooltip give the full name.
 - **A payment frame was never captured in a screenshot**, though the coin flights and counting cash are in the game.
-- **Duplicate personas** in 5–6 seat games share a portrait and a name (e.g. "Jack Tolliver II"); there are six
-  portraits for six personas.
-- **Seats are not shown as one strip on phones.** Player cards use first names in a 3-column grid, and below the panel
-  there is unused table on tall phones.
+- **Duplicate personas** in 5–6 seat games share a portrait (six portraits for six personas). Their names differ
+  ("Jack Tolliver II"), and the seat-colour ring and token tell them apart.
 - **Phone close-up framing.** The camera is clamped to the board, but the close-up can still cut the first tile of the
   next side. The whole-board button is the remedy.
-- **Trade** still uses native checkboxes and a select (functional and keyboard-accessible, but plain).
-- **Seasons** change the lamp's colour temperature and pin pennants on the map; there are no seasonal props.
 - **Audio and screen readers** were still not checked by a person.
-- **Timing measurements.** fps was measured headless on a shared, loaded machine; per-frame render time (0.3–2.4 ms)
-  is the steadier figure.
+- **Timing measurements.** fps was measured headless on a shared, loaded machine; per-frame render time is the steadier
+  figure.
 
 ## New research and sources
 `research/map-anchors.md` / `.json` add sourced coordinates, addresses, years and confidence for:
@@ -244,8 +321,8 @@ street layout differs from today's:
 - Convention Blvd was Benton Street;
 - the bypasses came after 1950.
 
-Coordinates for the Row, hotels, clubs and ballparks were reused from `games/trivia/research/geo-anchors.json`, with
-credit. Art provenance is in `art-src/PROMPTS.md`; vendored packages are in `SAMPLES.md`.
+Coordinates for the Row, hotels, clubs and ballparks were reused from the trivia game's `research/geo-anchors.json`
+(now in [hsg-trivia](https://github.com/brianm-di4u/hsg-trivia)), with credit. Art provenance is in `art-src/PROMPTS.md`; vendored packages are in `SAMPLES.md`.
 
 ## Shared-data requests (for `research/`)
 - **IQ Zoo address:** 380 Whittington Ave (EOA, AHPP tour script), 1955 to about 1990.

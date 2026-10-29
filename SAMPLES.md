@@ -69,4 +69,8 @@ many rollouts per decision, which would cost a lot in the browser and in a 1,000
 | esbuild | 0.25.10 | npm | MIT | `tools/dev/` (build-time only, `node_modules` not committed) | tree-shaking three.js |
 
 Fonts are inlined as data URIs into `assets/fonts.css` by `tools/build-fonts.mjs` (Chrome blocks `@font-face` files on file://).
+The font files come from npm @fontsource; each `vendor/fonts/OFL-*.txt` is that family's upstream `OFL.txt` from the
+official Google Fonts repository (`github.com/google/fonts`, `ofl/<family>/OFL.txt`), which names its real copyright
+holders: TypeTogether (Abril Fatface), the Alfa Slab One Project Authors (José María Solé), the Barlow Project Authors
+(Jeremy Tribby) and the Libre Caslon Text Project Authors. (The @fontsource packages ship a generic "Google Inc." header.)
 Map data (USGS 3DEP, NHD, Census TIGER, OSM) was read from the trivia game's download cache; see `art-src/PROMPTS.md`.
