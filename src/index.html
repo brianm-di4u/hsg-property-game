@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bathhouse Barons</title>
+<meta name="description" content="An original roll-and-move property-trading game set in Hot Springs, Arkansas: lease bathhouses, build grand resorts and ride the tourism seasons. Part of the open-source Hot Springs Games collection (MIT).">
+<link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+<div id="app" hidden>
+  <header id="topbar">
+    <button id="b-menu" class="iconbtn" aria-label="Menu (P)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+    <div id="clock" aria-live="off"></div>
+    <button id="b-sound" class="iconbtn" aria-label="Sound on (toggle)"></button>
+  </header>
+  <div id="boardwrap">
+    <canvas id="board" role="img" aria-label="Game board. Use the arrow keys to move the board cursor and Enter to read a space's deed."></canvas>
+  </div>
+  <aside id="panel" aria-label="Players and actions">
+    <div id="turnbar"></div>
+    <div id="actions" role="toolbar" aria-label="Actions"></div>
+    <ol id="players" aria-label="Barons"></ol>
+    <details id="logbox" open><summary>Town ledger</summary><ol id="log"></ol></details>
+  </aside>
+</div>
+<main id="screen"></main>
+<div id="modal" hidden></div>
+<div id="toast" aria-hidden="true"></div>
+<div id="live" class="sr-only" aria-live="polite"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
