@@ -1,0 +1,1 @@
+{"name":"property-game-dev-tools","private":true,"description":"Build-time only: tree-shakes the vendored three.js and vendors OFL fonts","devDependencies":{"esbuild":"0.25.10","three":"0.186.1","@fontsource/barlow-condensed":"5.2.5","@fontsource/alfa-slab-one":"5.2.5","@fontsource/libre-caslon-text":"5.2.5","@fontsource/abril-fatface":"5.2.5"}}

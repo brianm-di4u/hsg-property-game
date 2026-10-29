@@ -4,7 +4,10 @@ import * as E from './engine.js';
 import { aiAction } from './ai.js';
 import * as R from './render.js';
 import { audio, unlock, sfx } from './audio.js';
-import { qs, esc, money, deedHtml, cardHtml, helpHtml, aboutHtml, lotLabel } from './ui.js';
+import { art, loadArt } from './art.js';
+import { ART_LIST } from './art-list.js';
+import * as B from './board3d.js';
+import { qs, esc, money, deedHtml, cardHtml, helpHtml, aboutHtml, lotLabel, artSrc, spaceArt } from './ui.js';
 
 const $ = qs;
 const SAVE = 'hs-barons-save-v1', SETS = 'hs-barons-settings-v1';
@@ -31,13 +34,15 @@ function applySettings() {
   document.body.classList.toggle('theme-dark', dark);
   document.body.classList.toggle('reduce', reduced());
   R.view.theme = dark ? 'dark' : 'light'; R.view.cacheKey = '';
+  if (B.B3.on) B.setTheme(R.view.theme);
+  B.B3.instant = reduced();
   const sb = $('#b-sound'); if (sb) { sb.innerHTML = soundIcon(st.sound); sb.setAttribute('aria-label', st.sound ? 'Sound on (click to mute)' : 'Sound off (click to unmute)'); }
   requestAnimationFrame(layout);
 }
 const reduced = () => G.settings.motion === 'reduce' || (G.settings.motion === 'system' && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const soundIcon = (on) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>${on ? '<path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>' : '<path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'}</svg>`;
 const aiDelay = () => (G.fast ? 0 : ({ normal: 650, fast: 220, instant: 0 })[G.settings.ai] ?? 650);
-const animOn = () => !G.fast && !reduced();
+const animOn = () => !G.fast && !reduced() && !G.skip;
 
 // ---------- layout and drawing ----------
 const narrow = () => matchMedia('(max-width: 820px), (max-aspect-ratio: 1/1)').matches;
@@ -48,19 +53,31 @@ function layout() {
   if (narrow()) {
     W = Math.min(window.innerWidth - 12, 640);
     const hh = (q) => { const e = $(q); return e ? e.offsetHeight : 0; };
-    const panelNeed = Math.max(200, hh('#turnbar') + Math.max(hh('#actions'), 96) + hh('#players') + 12);
+    const panelNeed = Math.max(200, hh('#turnbar') + hh('#event') + Math.max(hh('#actions'), 96) + hh('#players') + 18);
     H = Math.max(W, Math.min(W * 1.45, window.innerHeight - hh('#topbar') - panelNeed - 26));
+    if (B.B3.on && !B.B3.closeUp) H = W * 1.04;
     wrap.style.height = H + 'px';
   } else {
     wrap.style.height = '';
     const avail = Math.min(window.innerHeight - 24, window.innerWidth - 28 - 14 - 380);
     W = H = Math.max(300, avail);
   }
-  if (Math.abs(R.view.W - W) > 0.5 || Math.abs(R.view.H - H) > 0.5 || R.view.dpr !== dpr) { R.resize(W, H, dpr); R.view.cacheKey = ''; }
+  if (B.B3.on) {
+    const gd = Math.min(narrow() ? 1.5 : 2, dpr);
+    if (Math.abs(B.B3.W - W) > 0.5 || Math.abs(B.B3.H - H) > 0.5 || B.B3.dpr !== gd) B.resize(Math.floor(W), Math.floor(H), gd);
+  } else if (Math.abs(R.view.W - W) > 0.5 || Math.abs(R.view.H - H) > 0.5 || R.view.dpr !== dpr) { R.resize(W, H, dpr); R.view.cacheKey = ''; }
   draw();
 }
 let drawQueued = false;
-function draw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; if (G.scene === 'game') R.draw(G.s); }); }
+function paint() { if (B.B3.on) B.render(G.s); else R.draw(G.s); }
+function draw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; if (G.scene === 'game') { paint(); if (B.camBusy()) camLoop(); } }); }
+// Keeps frames coming while the 3D camera eases (counts as an animation for isIdle).
+function camLoop() {
+  if (G.camLoop || !B.B3.on) return;
+  G.camLoop = true; G.anim++;
+  const tick = () => { paint(); if (B.camBusy() && B.B3.on) requestAnimationFrame(tick); else { G.camLoop = false; G.anim--; } };
+  requestAnimationFrame(tick);
+}
 
 function animate(dur, fn) {
   if (!animOn() || dur <= 0) { fn(1); draw(); return Promise.resolve(); }
@@ -68,18 +85,21 @@ function animate(dur, fn) {
   return new Promise((res) => {
     const t0 = performance.now();
     const tick = (now) => {
-      const p = Math.min(1, (now - t0) / dur);
-      fn(p); R.draw(G.s);
+      const p = G.skip ? 1 : Math.min(1, (now - t0) / dur);
+      fn(p); paint();
       if (p < 1) requestAnimationFrame(tick); else { G.anim--; res(); }
     };
     requestAnimationFrame(tick);
   });
 }
-const sleep = (ms) => (ms > 0 && !G.fast ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+const sleep = (ms) => (ms > 0 && !G.fast && !G.skip ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
 
 // ---------- live region and toasts ----------
 function announce(t) { G.liveBuf.push(t); clearTimeout(announce.t); announce.t = setTimeout(() => { $('#live').textContent = G.liveBuf.slice(-4).join(' '); G.liveBuf = []; }, 60); }
-function toast(t, ms = 1600) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), G.fast ? 300 : ms); }
+// During play, news goes to the event slip in the panel (never over the board); elsewhere a floating toast.
+function toast(t, ms = 1600) {
+  if (G.scene === 'game' && !t.startsWith('Switched')) { const ev = $('#event'); ev.textContent = t; ev.classList.add('on'); return; }
+  const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), G.fast ? 300 : ms); }
 function flushLog() {
   if (!G.s) return;
   const L = G.s.log, from = Math.max(0, Math.min(G.logSeen, L.length));
@@ -107,13 +127,14 @@ function perform(action) {
 async function pump() {
   if (G.busy) return;
   G.busy = true;
-  if (G.scene === 'game' && G.s) renderActions();
+  if (G.scene === 'game' && G.s) { renderActions(); const sub = document.querySelector('#turnbar .sub'); if (sub && animOn()) sub.textContent = 'Moving…'; }
   while (G.queue.length) {
     const e = G.queue.shift();
     try { await present(e); } catch (err) { console.warn(err); }
   }
-  G.busy = false;
+  G.busy = false; G.skip = false;
   R.view.dice.pending = false;
+  if (B.B3.on) { if (B.B3.follow) { B.unfocus(); camLoop(); } if (B.slowFrames()) fallback2D('slow'); }
   flushLog();
   refresh();
   schedule();
@@ -124,7 +145,41 @@ function pop(pid, amount) {
   const p = G.s.players[pid]; if (!p || p.out) return;
   const at = R.view.tokens[pid] || R.slot(p.pos, pid);
   R.view.pops.push({ x: at.x, y: at.y - R.tokenR() * 1.4, text: (amount > 0 ? '+' : '−') + money(Math.abs(amount)).replace('−', ''), good: amount > 0, t0: performance.now(), dur: 900 });
-  if (!G.popLoop) { G.popLoop = true; G.anim++; const tick = () => { R.draw(G.s); if (R.view.pops.length) requestAnimationFrame(tick); else { G.popLoop = false; G.anim--; } }; requestAnimationFrame(tick); }
+  fxLoop();
+}
+function fxLoop() {
+  if (G.popLoop) return;
+  G.popLoop = true; G.anim++;
+  const tick = () => { paint(); if (R.view.pops.length || R.view.coins.length || R.view.puffs.length) requestAnimationFrame(tick); else { G.popLoop = false; G.anim--; draw(); } };
+  requestAnimationFrame(tick);
+}
+// Coins fly from payer to payee (-1 = the bank, at the centre of the map).
+function coins(from, to, amount) {
+  if (!animOn() || !amount) return;
+  const at = (pid) => { if (pid == null || pid < 0) { const h = R.diceHome(); return { x: h.x, y: h.y - h.size }; } const p = G.s.players[pid]; if (!p || p.out) return null; const q = R.view.tokens[pid] || R.slot(p.pos, pid); return { x: q.x, y: q.y - R.tokenR() }; };
+  const A = at(from), B = at(to); if (!A || !B) return;
+  const n = Math.max(2, Math.min(7, Math.round(Math.log2(amount / 10 + 1) * 1.6))), now = performance.now();
+  for (let k = 0; k < n; k++) R.view.coins.push({ x0: A.x + (k % 3 - 1) * 4, y0: A.y, x1: B.x + (k % 2 ? 3 : -3), y1: B.y, t0: now, delay: k * 70, dur: 520, k });
+  fxLoop();
+}
+// Dice are thrown from the near edge of the map, tumble through pre-rendered frames, bounce and settle.
+function throwDice(a, b) {
+  const D = R.view.dice, h = R.diceHome();
+  if (!animOn()) { D.a = a; D.b = b; D.pos = null; D.tumbling = false; draw(); return Promise.resolve(); }
+  const side = Math.random() < 0.5 ? -1 : 1, start = [{ x: h.x + side * h.gap * 4, y: h.y + h.gap * 3.2 }, { x: h.x + side * h.gap * 3.2, y: h.y + h.gap * 3.8 }];
+  const end = [{ x: h.x - h.gap + (Math.random() - 0.5) * h.gap * 0.6, y: h.y + (Math.random() - 0.5) * h.gap * 0.5 }, { x: h.x + h.gap + (Math.random() - 0.5) * h.gap * 0.6, y: h.y + (Math.random() - 0.5) * h.gap * 0.6 }];
+  const rot = [Math.random() - 0.5, Math.random() - 0.5];
+  D.yawA = Math.random() < 0.5 ? 0 : 1;
+  return animate(760, (p) => {
+    const e = 1 - Math.pow(1 - p, 3);
+    D.tumbling = p < 0.82; D.frame = Math.floor(p * 26);
+    D.pos = [0, 1].map((k) => {
+      const q = Math.max(0, Math.min(1, (p - k * 0.04) / 0.96)), ee = 1 - Math.pow(1 - q, 3);
+      const bounce = Math.abs(Math.sin(q * Math.PI * 2.5)) * (1 - q) * h.size * 1.8;
+      return { x: start[k].x + (end[k].x - start[k].x) * ee, y: start[k].y + (end[k].y - start[k].y) * ee, lift: bounce, rot: rot[k] * (1 - e) * 6 + rot[k] * 0.4 };
+    });
+    if (p >= 1) { D.a = a; D.b = b; D.tumbling = false; } else if (p > 0.82) { D.a = a; D.b = b; }
+  }).then(() => { D.tumbling = false; D.a = a; D.b = b; draw(); });
 }
 
 async function present(e) {
@@ -133,12 +188,12 @@ async function present(e) {
     case 'roll': {
       sfx('dice');
       const [a, b] = e.dice;
-      await animate(480, (p) => { R.view.dice.tumbling = p < 1; R.view.dice.spin = (1 - p) * 6 * p; if (p < 1) { R.view.dice.a = 1 + ((Math.random() * 6) | 0); R.view.dice.b = 1 + ((Math.random() * 6) | 0); } else { R.view.dice.a = a; R.view.dice.b = b; } });
-      R.view.dice.tumbling = false; R.view.dice.a = a; R.view.dice.b = b;
+      await throwDice(a, b);
       break;
     }
     case 'move': {
       const k = e.pid;
+      if (B.B3.on && animOn()) { const a = R.slot(e.from, k), b = R.slot(e.to, k); B.focus((a.x + b.x) / 2, (a.y + b.y) / 2, narrow() ? 0.5 : 0.72); camLoop(); }
       if (e.jump || e.steps <= 0) {
         const from = R.view.tokens[k] || R.slot(e.from, k), to = R.slot(e.to, k);
         await animate(e.steps === 0 && e.to === e.from ? 0 : 380, (p) => { R.view.tokens[k] = { x: from.x + (to.x - from.x) * p, y: from.y + (to.y - from.y) * p, lift: Math.sin(p * Math.PI) * 20 }; });
@@ -146,7 +201,7 @@ async function present(e) {
         const per = Math.min(150, 1500 / e.steps);
         for (let st = 0; st < e.steps; st++) {
           const a = (e.from + st) % 32, b = (e.from + st + 1) % 32, A = R.slot(a, k), B = R.slot(b, k);
-          await animate(per, (p) => { R.view.tokens[k] = { x: A.x + (B.x - A.x) * p, y: A.y + (B.y - A.y) * p, lift: Math.sin(p * Math.PI) * R.tokenR() * 0.8 }; });
+          await animate(per, (p) => { R.view.tokens[k] = { x: A.x + (B.x - A.x) * p, y: A.y + (B.y - A.y) * p, lift: Math.sin(Math.min(1, p / 0.85) * Math.PI) * R.tokenR() * 1.1, squash: p > 0.85 ? Math.sin((p - 0.85) / 0.15 * Math.PI) * 0.16 : 0 }; });
           if (animOn()) sfx('step');
         }
       }
@@ -155,14 +210,19 @@ async function present(e) {
       break;
     }
     case 'land': R.view.flash = e.space; draw(); break;
-    case 'paid': if (e.why === 'rent') { pop(e.from, -e.amount); pop(e.to, e.amount); } else pop(e.from, -e.amount); break;
-    case 'payday': pop(e.pid, e.amount - e.ground); sfx('coin'); toast(`${P(e.pid).name}: Payday +${money(e.amount - e.ground)}`); break;
+    case 'paid': if (e.why === 'rent') { pop(e.from, -e.amount); pop(e.to, e.amount); coins(e.from, e.to, e.amount); } else { pop(e.from, -e.amount); coins(e.from, -1, e.amount); } break;
+    case 'payday': pop(e.pid, e.amount - e.ground); coins(-1, e.pid, e.amount); sfx('coin'); toast(`${P(e.pid).name}: Payday +${money(e.amount - e.ground)}`); break;
     case 'rent': sfx('pay'); toast(`${P(e.from).name} pays ${money(e.amount)} rent`); await sleep(250); break;
     case 'buy': sfx('coin'); toast(`${P(e.pid).name} buys ${SPACES[e.space].name}`); break;
     case 'won': sfx('gavel'); toast(`${P(e.pid).name} wins ${SPACES[e.space].name} for ${money(e.amount)}`); await sleep(350); break;
     case 'unsold': toast(`No bids for ${SPACES[e.space].name}`); break;
     case 'bid': sfx('bid'); refreshDialog(); await sleep(150); break;
-    case 'build': sfx('build'); break;
+    case 'build': sfx('build'); if (animOn()) {
+      const now = performance.now(), spots = R.buildingSpots(e.space, e.level), sp = spots[spots.length - 1];
+      R.view.drop[e.space] = { t0: now, dur: 520 };
+      if (sp) R.view.puffs.push({ x: sp.x, y: sp.y, t0: now + 380, dur: 760, seed: Math.random() * 6 });
+      await animate(560, () => {}); fxLoop();
+    } break;
     case 'burn': sfx('bust'); break;
     case 'jury': sfx('gavel'); toast(`${P(e.pid).name} is held for the Grand Jury`); await sleep(300); break;
     case 'card': await showCard(e); break;
@@ -175,8 +235,32 @@ async function present(e) {
   }
 }
 
+// A drawn card lifts off its deck on the board, flies to the middle of the screen and flips; then the dialog opens.
+async function flyCard(news) {
+  if (!animOn() || G.scene !== 'game') return;
+  const d = R.deckXY(news ? 'news' : 'talk');
+  let x, y, w;
+  if (B.B3.on) { const r = B.B3.canvas.getBoundingClientRect(), p = B.screenOf(d.x, d.y); x = r.left + p.x; y = r.top + p.y; w = d.w * r.width / B.S * 0.9; }
+  else { const r = R.view.cv.getBoundingClientRect(); x = r.left + d.x; y = r.top + d.y; w = d.w; }
+  const h = w * 1.38, back = artSrc(news ? 'back-news' : 'back-talk');
+  const el = document.createElement('div'); el.className = 'flycard ' + (news ? 'news' : 'talk'); el.setAttribute('aria-hidden', 'true');
+  el.style.cssText = `left:${x - w / 2}px;top:${y - h / 2}px;width:${w}px;height:${h}px`;
+  el.innerHTML = `<div class="fc back"${back ? ` style="background-image:url(${back})"` : ''}><span>${news ? 'HEADLINE' : 'TOWN TALK'}</span></div><div class="fc front"></div>`;
+  document.body.append(el);
+  const tx = window.innerWidth / 2 - x, ty = window.innerHeight / 2 - y, k = Math.min(3.2, (Math.min(window.innerWidth, window.innerHeight) * 0.42) / h);
+  G.anim++;
+  try {
+    await el.animate([
+      { transform: 'translate(0,0) rotateY(0deg) scale(1)', offset: 0 },
+      { transform: `translate(${tx * 0.45}px,${ty * 0.45 - 30}px) rotateY(0deg) scale(${1 + (k - 1) * 0.5}) rotateZ(-4deg)`, offset: 0.45 },
+      { transform: `translate(${tx}px,${ty}px) rotateY(180deg) scale(${k})`, offset: 1 },
+    ], { duration: 560, easing: 'cubic-bezier(.25,.7,.25,1)', fill: 'forwards' }).finished;
+  } catch (err) { /* animation cancelled */ }
+  el.remove(); G.anim--;
+}
 async function showCard(e) {
   sfx('card');
+  await flyCard(e.deck === 'news');
   const s = G.s, news = e.deck === 'news';
   const humanTable = s.players.some((p) => p.kind === 'human' && !p.out);
   const who = e.pid != null ? s.players[e.pid] : null;
@@ -219,6 +303,8 @@ function refresh() {
   const a = s.ended ? s.winner : E.actor(s), A = s.players[a];
   const sub = s.ended ? 'Game over' : s.phase === 'auction' ? `Auction: ${SPACES[s.pending.space].name}` : s.phase === 'trade' ? `Considering ${s.players[s.pending.from].name}'s offer` : s.phase === 'debt' ? `Owes ${money(s.debts[0].amount)}: must raise cash` : s.phase === 'buy' ? `Landed on ${SPACES[s.pending.space].name} (${money(SPACES[s.pending.space].price)})` : A.held && s.phase === 'roll' ? 'Held in the Grand Jury Room' : s.phase === 'roll' ? (s.players[s.turn].doubles ? 'Doubles! Roll again' : 'To roll') : 'Moved: manage, trade or end the turn';
   const tb = $('#turnbar'); tb.innerHTML = '';
+  const tface = A.kind === 'ai' ? artSrc('face-' + A.persona) : '';
+  if (tface) { const im = document.createElement('img'); im.className = 'face'; im.src = tface; im.alt = ''; tb.append(im); }
   tb.append(R.tokenCanvas(A.token, 36, a + 1));
   const w = document.createElement('div'); w.className = 'who';
   w.innerHTML = `${esc(A.name)}${A.kind === 'ai' ? ` <span class="sub" style="display:inline">(${esc(PERSONAS[A.persona].name)} AI)</span>` : ''}<span class="sub">${esc(sub)}</span>`;
@@ -259,6 +345,7 @@ function renderActions() {
     return;
   }
   const busy = G.busy;
+  if (busy && animOn() && !G.dialog) { const n = document.createElement('span'); n.className = 'ai-note moving'; n.textContent = 'Moving… tap the board or press Space to skip'; el.append(n); return; }
   const p = s.phase;
   if (p === 'roll') {
     const P0 = s.players[s.turn];
@@ -281,16 +368,34 @@ function renderActions() {
   else if (p === 'trade') el.append(btn('Review offer', '', () => openIncoming(), 'primary'));
 }
 
+const shownCash = {};
+// Counts a cash figure from its last shown value to the new one, flashing green or red.
+function countCash(el, id, to) {
+  const from = shownCash[id] ?? to; shownCash[id] = to;
+  if (from === to || !animOn()) { el.textContent = money(to); return; }
+  el.classList.add(to > from ? 'gain' : 'loss');
+  const t0 = performance.now(), dur = 650;
+  const tick = (now) => { const q = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - q, 3); el.textContent = money(Math.round(from + (to - from) * e)); if (q < 1) requestAnimationFrame(tick); else setTimeout(() => el.classList.remove('gain', 'loss'), 350); };
+  requestAnimationFrame(tick);
+}
 function renderPlayers() {
   const s = G.s, ol = $('#players'); ol.innerHTML = '';
+  ol.dataset.n = s.players.length;
   for (const p of s.players) {
     const li = document.createElement('li');
+    li.addEventListener('mouseenter', () => { R.view.hiOwner = p.id; draw(); });
+    li.addEventListener('mouseleave', () => { R.view.hiOwner = undefined; draw(); });
     li.className = (p.id === s.turn ? 'now ' : '') + (p.out ? 'out' : '');
+    li.style.setProperty('--seat', TOKENS[p.token].color);
     li.append(R.tokenCanvas(p.token, 34, p.id + 1));
     const d = document.createElement('div'); d.className = 'pinfo';
     const n = E.owned(s, p.id).length;
-    d.innerHTML = `<span class="nm">${esc(p.name)}</span><span class="cash">${p.out ? 'Bankrupt' : money(p.cash)}</span><span class="meta">${p.kind === 'ai' ? esc(PERSONAS[p.persona].name) + ' AI' : 'Human'} · ${n} lot${n === 1 ? '' : 's'} · worth ${money(E.netWorth(s, p.id))}${p.held ? ' · held' : ''}${p.pardons ? ' · pardon' : ''}</span>`;
+    const face = p.kind === 'ai' ? artSrc('face-' + p.persona) : '';
+    if (face) { const im = document.createElement('img'); im.className = 'face'; im.src = face; im.alt = ''; li.append(im); }
+    const fan = E.owned(s, p.id).map((i) => SPACES[i].d ? DISTRICTS[SPACES[i].d].color : '#355E41').map((c) => `<i style="background:${c}"></i>`).join('');
+    d.innerHTML = `<span class="nm"><span class="full">${esc(p.name)}</span><span class="first">${esc(p.name.split(' ')[0])}</span></span><span class="cash"></span>${fan ? `<span class="fan" aria-hidden="true">${fan}</span>` : ''}<span class="meta">${p.kind === 'ai' ? esc(PERSONAS[p.persona].name) + ' AI' : 'Human'} · ${n} lot${n === 1 ? '' : 's'} · worth ${money(E.netWorth(s, p.id))}${p.held ? ' · held' : ''}${p.pardons ? ' · pardon' : ''}</span>`;
     li.append(d);
+    const cashEl = d.querySelector('.cash'); if (p.out) cashEl.textContent = 'Bankrupt'; else countCash(cashEl, p.id, p.cash);
     li.setAttribute('aria-label', `${p.name}${p.id === s.turn ? ', current turn' : ''}: ${p.out ? 'bankrupt' : money(p.cash) + ' cash, ' + n + ' lots, net worth ' + money(E.netWorth(s, p.id))}`);
     ol.append(li);
   }
@@ -391,7 +496,8 @@ function auctionRender() {
   const min = A.bid > 0 ? A.bid + RULES.minBid : A.min;
   const rows = A.order.map((q) => { const P = s.players[q]; return `<li>${esc(P.name)} <span class="fine">${money(P.cash)}</span> — ${A.out.includes(q) ? 'out' : q === A.leader ? '<strong>high bid</strong>' : q === a ? '<strong>bidding…</strong>' : 'in'}</li>`; }).join('');
   const steps = [0, 40, 90].map((d) => min + d);
-  return `<h2 id="dlg-title">${isRow(A.space) ? 'Lease auction' : 'Auction'}: ${esc(sp.name)}</h2>
+  const art = artSrc(spaceArt(A.space));
+  return `<div class="aucthead">${art ? `<img src="${art}" alt="">` : ''}<div><div class="kicker">${isRow(A.space) ? 'Federal lease · auction only (game rule)' : 'Open auction · highest bid wins'}</div><h2 id="dlg-title">${isRow(A.space) ? 'Lease auction' : 'Auction'}: ${esc(sp.name)}</h2></div></div>
     <p class="fine">Game price ${money(sp.price)}${isRow(A.space) ? ` · federal lease, opening at ${money(A.min)}` : ''}</p>
     <p>High bid: <span class="bidbig">${A.bid ? money(A.bid) : '—'}</span> ${A.leader >= 0 ? `by <strong>${esc(s.players[A.leader].name)}</strong>` : ''}</p>
     <ul class="mlist">${rows}</ul>
@@ -470,6 +576,7 @@ function scene(name) {
   if (name !== 'game') { clearTimeout(G.aiTimer); G.aiTimer = 0; const tt = $('#toast'); tt.style.transition = 'none'; tt.classList.remove('show'); void tt.offsetWidth; tt.style.transition = ''; }
   if (name === 'game') {
     if (!G.s) return scene('title');
+    const ev = $('#event'); ev.textContent = ''; ev.classList.remove('on');
     scr.innerHTML = ''; app.hidden = false;
     layout(); refresh(); flushLog(); schedule();
     const f = document.querySelector('#actions .btn.primary'); if (f) f.focus({ preventScroll: true });
@@ -491,13 +598,16 @@ function hasSave() { try { const s = JSON.parse(store.get(SAVE) || 'null'); retu
 
 function screenTitle(scr) {
   const save = hasSave();
-  scr.innerHTML = `<div class="wrap title-hero"><canvas id="titleart" width="1120" height="420" aria-hidden="true"></canvas>
-    <h1>Bathhouse Barons</h1><p class="lede">Lease the bathhouses, build grand resorts and ride the seasons of Hot Springs, Arkansas.</p>
+  const lid = artSrc('title-lid'), lidTall = artSrc('title-lid-tall') || lid;
+  scr.innerHTML = `<div class="wrap title-hero">${lid ? `<div class="lid"><picture><source media="(max-aspect-ratio: 1/1)" srcset="${lidTall}"><img id="lidimg" src="${lid}" alt=""></picture>
+      <div class="lidtitle" aria-hidden="true"><span class="pre">The Hot Springs game of</span><span class="big">Bathhouse Barons</span><span class="sub">Lease · Build · Prosper</span></div></div>` : '<canvas id="titleart" width="1120" height="420" aria-hidden="true"></canvas>'}
+    <h1 class="${lid ? 'sr-only' : ''}">Bathhouse Barons</h1><p class="lede">Lease the bathhouses, build grand resorts and ride the seasons of Hot Springs, Arkansas.</p>
     <div class="menu"><button class="btn primary" data-go="setup">New game</button>
     <button class="btn" data-go="continue" ${save ? '' : 'disabled'}>Continue${save ? ` (${MONTHS[save.month]}, Year ${save.year + 1})` : ''}</button>
     <button class="btn" data-go="help">How to play</button><button class="btn" data-go="settings">Settings</button><button class="btn" data-go="about">About</button></div>
     <p class="fine" style="margin-top:18px">An original game for 2–6 barons, human or AI. Real places appear as setting and history only.</p></div>`;
-  drawTitleArt($('#titleart'));
+  if ($('#titleart')) drawTitleArt($('#titleart'));
+  const li = $('#lidimg'); if (li && !li.complete) { G.imgWait = (G.imgWait || 0) + 1; const done = () => { G.imgWait--; }; li.decode().then(done, done); }
   scr.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => {
     unlock();
     const g = b.dataset.go; G.back = 'title';
@@ -557,7 +667,8 @@ function screenSetup(scr) {
       <label>Seed (optional)<input type="number" data-seed value="${esc(st.seed)}" placeholder="random" style="width:130px"></label></div>
       <p class="fine">Common Ground: base rent, fares, the utility and taxes feed a public treasury that pays everyone a dividend each month (inspired by the public-domain Landlord's Game, 1904).</p></div>
     <div class="row"><button type="button" class="btn ghost" data-back>Back</button><button type="button" class="btn primary" data-start>Start the game</button></div></div>`;
-  scr.querySelectorAll('.seat').forEach((row, k) => row.querySelector('.tk').append(R.tokenCanvas(k, 30, k + 1)));
+  scr.querySelectorAll('.seat').forEach((row, k) => { const tk = row.querySelector('.tk'), p = st.seats[k], f = artSrc(p.kind === 'ai' && p.persona !== 'random' ? 'face-' + p.persona : p.kind === 'ai' ? '' : 'face-human');
+    if (f) { const im = document.createElement('img'); im.className = 'seatface'; im.src = f; im.alt = ''; tk.append(im); } tk.append(R.tokenCanvas(k, 30, k + 1)); });
   scr.onclick = (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.kind) { st.seats[+b.dataset.k].kind = b.dataset.kind; if (b.dataset.kind === 'human' && !st.seats[+b.dataset.k].name) st.seats[+b.dataset.k].name = `Player ${+b.dataset.k + 1}`; screenSetup(scr); }
@@ -611,12 +722,14 @@ function screenSettings(scr) {
 function screenOver(scr) {
   const s = G.s;
   const rank = s.ranking || s.players.map((p) => p.id);
-  scr.innerHTML = `<div class="wrap"><div class="row" style="flex-wrap:nowrap"><span id="wintok"></span><h2>${esc(s.players[s.winner].name)} wins!</h2></div><p class="lede">Game over: ${esc(s.endWhy || '')}. ${MONTHS[s.month]}, Year ${s.year + 1}, after ${s.round} month${s.round === 1 ? '' : 's'}.</p>
+  const wface = s.players[s.winner].kind === 'ai' ? artSrc('face-' + s.players[s.winner].persona) : '';
+  scr.innerHTML = `<div class="wrap over"><div class="extra"><div class="mast">The Barons' Gazette</div><div class="dateline"><span>Extra!</span><span>${MONTHS[s.month]}, Year ${s.year + 1}</span><span>Hot Springs, Ark.</span></div></div>
+    <div class="podium">${wface ? `<img class="winface" src="${wface}" alt="">` : ''}<div class="plinth"><span id="wintok"></span></div><div><div class="kicker">New baron of Bathhouse Row</div><h2>${esc(s.players[s.winner].name)} wins!</h2></div></div><p class="lede">Game over: ${esc(s.endWhy || '')}. ${MONTHS[s.month]}, Year ${s.year + 1}, after ${s.round} month${s.round === 1 ? '' : 's'}.</p>
     <div class="card"><table class="t"><thead><tr><th>#</th><th>Baron</th><th>Net worth</th><th>Lots</th><th>Rent collected</th><th>Trades</th></tr></thead><tbody>
     ${rank.map((id, k) => { const p = s.players[id]; return `<tr><td>${k + 1}</td><td data-tok="${id}">${esc(p.name)}${p.kind === 'ai' ? ` <span class="fine">(${esc(PERSONAS[p.persona].name)})</span>` : ''}</td><td>${p.out ? `Bankrupt (month ${p.outRound})` : money(E.netWorth(s, id))}</td><td>${E.owned(s, id).length}</td><td>${money(p.stat.rentIn)}</td><td>${p.stat.trades}</td></tr>`; }).join('')}</tbody></table>
     <p class="fine">Auctions ${s.stats.auctions} · trades ${s.stats.trades} · buildings raised ${s.stats.builds} · cards drawn ${s.stats.cards}</p></div>
     <div class="row"><button class="btn primary" data-again>Play again</button><button class="btn" data-title>Title</button></div></div>`;
-  $('#wintok').append(R.tokenCanvas(s.players[s.winner].token, 72, s.winner + 1)); $('#wintok canvas').style.cssText = 'width:72px;height:72px';
+  $('#wintok').append(R.tokenCanvas(s.players[s.winner].token, 96, s.winner + 1)); $('#wintok canvas').style.cssText = 'width:96px;height:96px';
   scr.querySelectorAll('[data-tok]').forEach((td) => td.prepend(R.tokenCanvas(s.players[+td.dataset.tok].token, 26, +td.dataset.tok + 1)));
   scr.onclick = (ev) => { if (ev.target.closest('[data-again]')) newGame(G.lastSetup); else if (ev.target.closest('[data-title]')) scene('title'); };
 }
@@ -636,6 +749,7 @@ function loadGame(s) {
   G.s = s; G.queue = []; G.busy = false; G.logSeen = s.log.length > 3 ? s.log.length - 3 : 0;
   R.view.tokens = []; R.view.flash = -1; R.view.cursor = -1;
   R.view.dice.a = s.dice[0] || 1; R.view.dice.b = s.dice[1] || 1;
+  for (const k in shownCash) delete shownCash[k]; R.view.dice.pos = null; R.view.coins = []; R.view.drop = {}; R.view.puffs = [];
 }
 
 // ---------- input ----------
@@ -652,7 +766,7 @@ function onKey(ev) {
   if (tag === 'input' || tag === 'select') return;
   const up = k.length === 1 ? k.toUpperCase() : k;
   if (up === 'P' || k === 'Escape') { ev.preventDefault(); openPause(); return; }
-  if (k.startsWith('Arrow') && (ev.target === R.view.cv || R.view.cursor >= 0)) {
+  if (k.startsWith('Arrow') && (ev.target === boardEl() || R.view.cursor >= 0)) {
     ev.preventDefault();
     const d = k === 'ArrowRight' || k === 'ArrowDown' ? 1 : -1;
     R.view.cursor = ((R.view.cursor < 0 ? (G.s ? G.s.players[G.s.turn].pos : 0) : R.view.cursor + d) + 32) % 32;
@@ -660,7 +774,8 @@ function onKey(ev) {
     announce(`${sp.name}${sp.price ? ', ' + money(sp.price) : ''}${o >= 0 ? ', owned by ' + G.s.players[o].name : sp.price ? ', unowned' : ''}. Press Enter for the deed.`);
     draw(); return;
   }
-  if ((k === 'Enter' || k === ' ') && ev.target === R.view.cv) { ev.preventDefault(); openDeed(R.view.cursor >= 0 ? R.view.cursor : G.s.players[G.s.turn].pos); return; }
+  if (k === ' ' && G.busy && !G.waitingOk) { ev.preventDefault(); G.skip = true; return; }
+  if ((k === 'Enter' || k === ' ') && ev.target === boardEl()) { ev.preventDefault(); openDeed(R.view.cursor >= 0 ? R.view.cursor : G.s.players[G.s.turn].pos); return; }
   const b = document.querySelector(`#actions .btn[data-key="${up}"]:not(:disabled)`);
   if (b) { ev.preventDefault(); b.click(); }
 }
@@ -673,20 +788,68 @@ function trapFocus(ev) {
 }
 function onBoardPointer(ev) {
   unlock();
-  const r = R.view.cv.getBoundingClientRect();
-  const i = R.hit(ev.clientX - r.left, ev.clientY - r.top);
+  if (G.busy && !G.waitingOk && !G.dialog) { G.skip = true; return; } // tap to skip the rest of a move
+  let i = -1;
+  if (B.B3.on) { const p = B.boardPoint(ev.clientX, ev.clientY); if (p) i = R.hit(p.x, p.y); }
+  else { const r = R.view.cv.getBoundingClientRect(); i = R.hit(ev.clientX - r.left, ev.clientY - r.top); }
   if (i >= 0) openDeed(i);
+}
+const boardEl = () => document.getElementById('board');
+// Screen position of space i's centre (page coordinates), in either board.
+function spaceScreen(i) {
+  const c = R.center(i);
+  if (B.B3.on) { const r = B.B3.canvas.getBoundingClientRect(), p = B.screenOf(c.x, c.y); return [r.left + p.x, r.top + p.y]; }
+  const r = R.view.cv.getBoundingClientRect(); return [r.left + c.x, r.top + c.y];
+}
+// ---------- 3D table on/off ----------
+function start3D() {
+  const q = new URLSearchParams(location.search).get('gl');
+  const pr = B.probe(q);
+  G.glWhy = pr.why || ''; G.glName = pr.name || '';
+  if (!pr.ok) return false;
+  const off = document.createElement('canvas');
+  R.setCanvas(off); R.resize(B.S, B.S, 1); R.view.pieces3d = true; R.view.cacheKey = '';
+  const flat = $('#board');
+  if (!B.init($('#boardwrap'), R.view.theme)) { R.setCanvas(flat); R.view.pieces3d = false; G.glWhy = 'init'; return false; }
+  flat.id = 'board2d'; flat.hidden = true; flat.tabIndex = -1;
+  const gl = B.B3.canvas; gl.id = 'board'; gl.tabIndex = 0; gl.setAttribute('role', 'img'); gl.setAttribute('aria-label', flat.getAttribute('aria-label'));
+  gl.addEventListener('click', onBoardPointer);
+  document.body.classList.add('gl');
+  B.B3.closeUp = false; B.B3.instant = reduced(); // phones start on the whole board; the view button zooms in
+  const vb = document.createElement('button'); vb.id = 'b-view'; vb.className = 'iconbtn'; vb.type = 'button';
+  const setVb = () => { vb.setAttribute('aria-pressed', String(!B.B3.closeUp)); vb.setAttribute('aria-label', B.B3.closeUp ? 'Show the whole board' : 'Close-up on the current baron'); vb.innerHTML = B.B3.closeUp
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" stroke="currentColor" stroke-width="2.2" fill="none"/><path d="M15 15l5 5M10.5 8v5M8 10.5h5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'; };
+  setVb();
+  vb.addEventListener('click', () => { B.setCloseUp(!B.B3.closeUp); setVb(); layout(); camLoop(); });
+  $('#b-sound').before(vb);
+  return true;
+}
+function fallback2D(why) {
+  if (!B.B3.on) return;
+  B.destroy();
+  $('#b-view')?.remove();
+  const flat = $('#board2d'); flat.id = 'board'; flat.hidden = false; flat.tabIndex = 0;
+  R.setCanvas(flat); R.view.pieces3d = false; R.view.W = 0; R.view.cacheKey = ''; R.view.texCache = null;
+  R.view.dice.pos = null; R.view.tokens = []; R.view.coins = []; R.view.puffs = []; R.view.drop = {};
+  document.body.classList.remove('gl'); G.glWhy = why;
+  if (why === 'slow') toast('Switched to the flat board to keep play smooth', 2600);
+  layout();
 }
 
 // ---------- hooks ----------
 function gameState() {
-  return { scene: G.scene, dialog: G.dialog, game: G.s ? JSON.parse(JSON.stringify(G.s)) : null, settings: { ...G.settings }, busy: G.busy, waitingOk: G.waitingOk, actor: G.s ? E.actor(G.s) : -1, legal: G.s ? E.legal(G.s) : [], sounds: audio.played.slice(-10), board: { W: R.view.W, H: R.view.H } };
+  return { scene: G.scene, dialog: G.dialog, game: G.s ? JSON.parse(JSON.stringify(G.s)) : null, settings: { ...G.settings }, busy: G.busy, waitingOk: G.waitingOk, actor: G.s ? E.actor(G.s) : -1, legal: G.s ? E.legal(G.s) : [], sounds: audio.played.slice(-10), board: { W: R.view.W, H: R.view.H, dice: [R.view.dice.a, R.view.dice.b], mode: B.B3.on ? '3d' : '2d' } };
 }
 window.__game = {
   seed(n) { G.nextSeed = n | 0; if (G.s) { G.s.rng = (n >>> 0) || 1; } return true; },
   getState: gameState,
   setState(x) { const s = x && x.game ? x.game : x; if (!s || !s.players) return false; loadGame(JSON.parse(JSON.stringify(s))); store.set(SAVE, JSON.stringify(G.s)); scene(x.scene && x.scene !== 'game' ? x.scene : 'game'); return true; },
-  isIdle() { return (!G.busy || G.waitingOk) && G.anim === 0 && !G.aiTimer && !drawQueued && !G.dlgAnim; },
+  isIdle() { return (!G.busy || G.waitingOk) && G.anim === 0 && !G.aiTimer && !drawQueued && !G.dlgAnim && !art.loading && !B.camBusy() && !G.imgWait; },
+  spaceScreen(i) { return spaceScreen(i); },
+  boardMode() { return { mode: B.B3.on ? '3d' : '2d', why: G.glWhy || '', gpu: G.glName || '' }; },
+  force2D() { fallback2D('forced'); return !B.B3.on; },
+  art() { return { list: ART_LIST.slice(), ready: art.ready, ms: art.readyMs || null, wanted: art.want.slice(), loaded: Object.keys(art.imgs), failed: art.failed.slice() }; },
   scene(n) { if (n === 'game' && !G.s) return false; G.back = G.s ? 'game' : 'title'; scene(n); return G.scene; },
   newGame(opts = {}) { const s = newGame(opts); return E.summary(s); },
   act(name, ...args) {
@@ -714,6 +877,7 @@ window.__game = {
       }
       case 'close': closeDialog(true); return true;
       case 'cursor': R.view.cursor = args[0]; draw(); return true;
+      case 'pins': return Object.keys(G.s ? G.s.lots : {}).filter((i) => R.pinXY(+i)).map(Number);
       case 'tradeSet': { const st = G.trade; if (!st) return false; Object.assign(st, { to: args[0].to ?? st.to, give: new Set(args[0].give || []), get: new Set(args[0].get || []), giveCash: args[0].giveCash || 0, getCash: args[0].getCash || 0 }); refreshDialog(); return true; }
     }
     return null;
@@ -723,17 +887,24 @@ window.__game = {
 // ---------- boot ----------
 function boot() {
   R.setCanvas($('#board'));
+  $('#board').tabIndex = 0; $('#board').addEventListener('click', onBoardPointer);
   loadSettings();
+  start3D();
+  loadArt(() => {
+    R.view.cacheKey = '';
+    if (B.B3.on) B.setTheme(R.view.theme);
+    if (art.on) document.body.classList.add('art');
+    if (G.scene === 'game') { refresh(); layout(); } // the title already has its art (the image list is known up front)
+  });
   $('#modal').addEventListener('click', onModalClick);
   $('#modal').addEventListener('click', onManageClick);
   $('#b-menu').addEventListener('click', () => openPause());
   $('#b-sound').addEventListener('click', () => { unlock(); G.settings.sound = !G.settings.sound; saveSettings(); if (G.settings.sound) sfx('coin'); });
-  R.view.cv.tabIndex = 0;
-  R.view.cv.addEventListener('click', onBoardPointer);
   document.addEventListener('keydown', onKey);
   window.addEventListener('resize', () => { layout(); });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applySettings);
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', applySettings);
   scene('title');
 }
+window.__B3frames = () => { const a = B.B3.frames.slice().sort((x, y) => x - y); return a.length ? a[a.length >> 1] : null; };
 boot();

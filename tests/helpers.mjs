@@ -44,21 +44,5 @@ export async function centerOf(t, sel) {
   return b ? [b.x + b.width / 2, b.y + b.height / 2] : null;
 }
 export async function click(t, sel) { const c = await centerOf(t, sel); if (!c) { t.fail(`no element ${sel}`); return false; } await t.page.mouse.click(c[0], c[1]); return true; }
-// Center of board space i in page coordinates.
-export async function spaceAt(t, i) {
-  return t.page.evaluate((i) => {
-    const cv = document.getElementById('board'), r = cv.getBoundingClientRect(), v = window.__G && cv;
-    const W = r.width, H = r.height, ux = W / 10, uy = H / 10, cw = 1.5 * ux, ch = 1.5 * uy;
-    let x, y, w, h;
-    if (i === 0) [x, y, w, h] = [W - cw, H - ch, cw, ch];
-    else if (i < 8) [x, y, w, h] = [W - cw - i * ux, H - ch, ux, ch];
-    else if (i === 8) [x, y, w, h] = [0, H - ch, cw, ch];
-    else if (i < 16) [x, y, w, h] = [0, H - ch - (i - 8) * uy, cw, uy];
-    else if (i === 16) [x, y, w, h] = [0, 0, cw, ch];
-    else if (i < 24) [x, y, w, h] = [cw + (i - 17) * ux, 0, ux, ch];
-    else if (i === 24) [x, y, w, h] = [W - cw, 0, cw, ch];
-    else [x, y, w, h] = [W - cw, ch + (i - 25) * uy, cw, uy];
-    void v;
-    return [r.left + x + w / 2, r.top + y + h / 2];
-  }, i);
-}
+// Centre of board space i in page coordinates, from the game (it knows whether the flat or the 3D board is showing).
+export async function spaceAt(t, i) { return t.game('spaceScreen', i); }

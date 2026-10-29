@@ -1,0 +1,625 @@
+{
+ "quality": 0.82,
+ "items": [
+  {
+   "name": "table-oak",
+   "src": "table-oak.png",
+   "w": 1280,
+   "h": 853,
+   "quality": 0.72
+  },
+  {
+   "name": "table-oak-tall",
+   "src": "table-oak-tall.png",
+   "w": 853,
+   "h": 1280,
+   "quality": 0.72
+  },
+  {
+   "name": "board-stock",
+   "src": "board-stock.png",
+   "w": 512,
+   "h": 512,
+   "quality": 0.82
+  },
+  {
+   "name": "map",
+   "src": "map-painted.png",
+   "w": 1024,
+   "h": 1024,
+   "quality": 0.8
+  },
+  {
+   "name": "vig-depot",
+   "src": "vig-depot.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-cabins",
+   "src": "vig-cabins.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-talk",
+   "src": "vig-talk.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-belding",
+   "src": "vig-belding.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-railroad",
+   "src": "vig-railroad.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-ostrich",
+   "src": "pilot-vig-ostrich.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-gators",
+   "src": "vig-gators.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-iqzoo",
+   "src": "vig-iqzoo.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-jury",
+   "src": "vig-jury.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-whittington",
+   "src": "vig-whittington.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-waterco",
+   "src": "vig-waterco.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-fogel",
+   "src": "vig-fogel.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-majesticpark",
+   "src": "vig-majesticpark.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-motorcourts",
+   "src": "vig-motorcourts.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-drivein",
+   "src": "vig-drivein.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-tower",
+   "src": "vig-tower.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-freebath",
+   "src": "vig-freebath.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-pythian",
+   "src": "vig-pythian.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-woodmen",
+   "src": "vig-woodmen.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-streetcar",
+   "src": "vig-streetcar.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-southern",
+   "src": "vig-southern.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-ohio",
+   "src": "vig-ohio.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-vapors",
+   "src": "vig-vapors.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-summoned",
+   "src": "vig-summoned.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-eastman",
+   "src": "vig-eastman.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-majestic",
+   "src": "vig-majestic.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-arlington",
+   "src": "vig-arlington.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-watertax",
+   "src": "vig-watertax.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-hale",
+   "src": "vig-hale.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-buckstaff",
+   "src": "vig-buckstaff.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "vig-fordyce",
+   "src": "pilot-vig-fordyce.png",
+   "w": 320,
+   "h": 320,
+   "quality": 0.72,
+   "crop": [
+    0.06,
+    0.06,
+    0.88,
+    0.88
+   ]
+  },
+  {
+   "name": "title-lid",
+   "src": "title-lid.png",
+   "w": 1280,
+   "h": 853,
+   "quality": 0.76
+  },
+  {
+   "name": "title-lid-tall",
+   "src": "title-lid-tall.png",
+   "w": 720,
+   "h": 1080,
+   "quality": 0.76
+  },
+  {
+   "name": "back-news",
+   "src": "back-news.png",
+   "w": 300,
+   "h": 450,
+   "quality": 0.78
+  },
+  {
+   "name": "back-talk",
+   "src": "back-talk.png",
+   "w": 300,
+   "h": 450,
+   "quality": 0.78
+  },
+  {
+   "name": "news-fire",
+   "src": "news-fire.png",
+   "w": 380,
+   "h": 380,
+   "quality": 0.62
+  },
+  {
+   "name": "news-flood",
+   "src": "news-flood.png",
+   "w": 380,
+   "h": 380,
+   "quality": 0.62
+  },
+  {
+   "name": "news-racing",
+   "src": "news-racing.png",
+   "w": 380,
+   "h": 380,
+   "quality": 0.62
+  },
+  {
+   "name": "news-baths",
+   "src": "news-baths.png",
+   "w": 380,
+   "h": 380,
+   "quality": 0.62
+  },
+  {
+   "name": "news-park",
+   "src": "news-park.png",
+   "w": 380,
+   "h": 380,
+   "quality": 0.62
+  },
+  {
+   "name": "news-army",
+   "src": "news-army.png",
+   "w": 380,
+   "h": 380,
+   "quality": 0.62
+  },
+  {
+   "name": "news-raid",
+   "src": "news-raid.png",
+   "w": 380,
+   "h": 380,
+   "quality": 0.62
+  },
+  {
+   "name": "news-train",
+   "src": "news-train.png",
+   "w": 380,
+   "h": 380,
+   "quality": 0.62
+  },
+  {
+   "name": "news-dam",
+   "src": "news-dam.png",
+   "w": 380,
+   "h": 380,
+   "quality": 0.62
+  },
+  {
+   "name": "news-baseball",
+   "src": "news-baseball.png",
+   "w": 380,
+   "h": 380,
+   "quality": 0.62
+  },
+  {
+   "name": "face-speculator",
+   "src": "face-speculator.png",
+   "w": 128,
+   "h": 128,
+   "quality": 0.8,
+   "crop": [
+    0.16,
+    0.1,
+    0.68,
+    0.68
+   ]
+  },
+  {
+   "name": "face-hotelier",
+   "src": "face-hotelier.png",
+   "w": 128,
+   "h": 128,
+   "quality": 0.8,
+   "crop": [
+    0.16,
+    0.1,
+    0.68,
+    0.68
+   ]
+  },
+  {
+   "name": "face-banker",
+   "src": "face-banker.png",
+   "w": 128,
+   "h": 128,
+   "quality": 0.8,
+   "crop": [
+    0.16,
+    0.1,
+    0.68,
+    0.68
+   ]
+  },
+  {
+   "name": "face-showman",
+   "src": "face-showman.png",
+   "w": 128,
+   "h": 128,
+   "quality": 0.8,
+   "crop": [
+    0.16,
+    0.1,
+    0.68,
+    0.68
+   ]
+  },
+  {
+   "name": "face-preservationist",
+   "src": "face-preservationist.png",
+   "w": 128,
+   "h": 128,
+   "quality": 0.8,
+   "crop": [
+    0.16,
+    0.1,
+    0.68,
+    0.68
+   ]
+  },
+  {
+   "name": "face-gambler",
+   "src": "face-gambler.png",
+   "w": 128,
+   "h": 128,
+   "quality": 0.8,
+   "crop": [
+    0.16,
+    0.1,
+    0.68,
+    0.68
+   ]
+  },
+  {
+   "name": "face-human",
+   "src": "face-human.png",
+   "w": 128,
+   "h": 128,
+   "quality": 0.8,
+   "crop": [
+    0.16,
+    0.1,
+    0.68,
+    0.68
+   ]
+  }
+ ]
+}

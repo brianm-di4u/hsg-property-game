@@ -5,9 +5,14 @@ export const tests = [
     name: 'fps while animating, size and load',
     async run(t) {
       t.expect(t.loadMs < 2000, `hooks ready in ${t.loadMs} ms`);
-      const size = await t.page.evaluate(async () => (await (await fetch(location.href)).text()).length);
+      const size = await t.page.evaluate(() => document.documentElement.outerHTML.length); // no fetch: works on file:// too
       t.log(`index.html ${(size / 1024).toFixed(1)} KB`);
       t.expect(size < 2 * 1024 * 1024, 'index.html under 2 MB');
+      await t.waitForStable();
+      const A = await t.game('art');
+      t.log(`painted art ready ${A.ms} ms after navigation (${A.loaded.length}/${A.wanted.length} images; the HTML title shows first)`);
+      t.equal(A.failed.length, 0, 'no art failed to load');
+      t.expect(A.wanted.every((n) => A.loaded.includes(n)), 'every wanted image decoded');
       await start(t, { seats: ['speculator', 'hotelier', 'banker', 'showman'].map((p) => ({ kind: 'ai', persona: p })) }, { fast: false, pauseAI: true });
       await t.page.evaluate(() => { window.__G.settings.ai = 'fast'; });
       await t.game('act', 'aiPause', false);

@@ -1,0 +1,9 @@
+{
+ "x0": -3250.0,
+ "x1": 2350.0,
+ "y0": -3550.0,
+ "y1": 2050.0,
+ "px": 1600,
+ "origin": "Fordyce Bathhouse 34.5136, -93.0533",
+ "note": "metres east (x) and north (y) of the origin; image x = (x - x0) / (x1 - x0), image y = (y1 - y) / (y1 - y0)"
+}

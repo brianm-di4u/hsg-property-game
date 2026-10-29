@@ -1,0 +1,338 @@
+{
+ "table-oak": {
+  "file": "table-oak.webp",
+  "w": 1280,
+  "h": 853,
+  "bytes": 140122
+ },
+ "table-oak-tall": {
+  "file": "table-oak-tall.webp",
+  "w": 853,
+  "h": 1280,
+  "bytes": 132212
+ },
+ "board-stock": {
+  "file": "board-stock.webp",
+  "w": 512,
+  "h": 512,
+  "bytes": 40242
+ },
+ "map": {
+  "file": "map.webp",
+  "w": 1024,
+  "h": 1024,
+  "bytes": 371900
+ },
+ "vig-ostrich": {
+  "file": "vig-ostrich.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 30418
+ },
+ "vig-tower": {
+  "file": "vig-tower.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 29840
+ },
+ "vig-freebath": {
+  "file": "vig-freebath.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 27710
+ },
+ "vig-pythian": {
+  "file": "vig-pythian.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 28804
+ },
+ "vig-woodmen": {
+  "file": "vig-woodmen.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 29642
+ },
+ "vig-streetcar": {
+  "file": "vig-streetcar.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 30052
+ },
+ "vig-southern": {
+  "file": "vig-southern.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 28250
+ },
+ "vig-ohio": {
+  "file": "vig-ohio.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 27718
+ },
+ "vig-vapors": {
+  "file": "vig-vapors.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 26734
+ },
+ "vig-summoned": {
+  "file": "vig-summoned.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 27744
+ },
+ "vig-eastman": {
+  "file": "vig-eastman.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 35042
+ },
+ "vig-majestic": {
+  "file": "vig-majestic.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 31060
+ },
+ "vig-arlington": {
+  "file": "vig-arlington.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 31122
+ },
+ "vig-watertax": {
+  "file": "vig-watertax.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 33338
+ },
+ "vig-hale": {
+  "file": "vig-hale.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 29398
+ },
+ "vig-buckstaff": {
+  "file": "vig-buckstaff.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 31632
+ },
+ "vig-fordyce": {
+  "file": "vig-fordyce.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 27354
+ },
+ "vig-depot": {
+  "file": "vig-depot.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 31278
+ },
+ "vig-cabins": {
+  "file": "vig-cabins.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 33388
+ },
+ "vig-talk": {
+  "file": "vig-talk.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 32426
+ },
+ "vig-belding": {
+  "file": "vig-belding.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 34134
+ },
+ "vig-railroad": {
+  "file": "vig-railroad.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 33634
+ },
+ "vig-gators": {
+  "file": "vig-gators.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 31902
+ },
+ "vig-iqzoo": {
+  "file": "vig-iqzoo.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 28652
+ },
+ "vig-jury": {
+  "file": "vig-jury.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 20338
+ },
+ "vig-whittington": {
+  "file": "vig-whittington.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 29614
+ },
+ "vig-waterco": {
+  "file": "vig-waterco.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 27622
+ },
+ "vig-fogel": {
+  "file": "vig-fogel.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 29360
+ },
+ "vig-majesticpark": {
+  "file": "vig-majesticpark.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 30356
+ },
+ "vig-motorcourts": {
+  "file": "vig-motorcourts.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 27624
+ },
+ "vig-drivein": {
+  "file": "vig-drivein.webp",
+  "w": 320,
+  "h": 320,
+  "bytes": 27650
+ },
+ "title-lid": {
+  "file": "title-lid.webp",
+  "w": 1280,
+  "h": 853,
+  "bytes": 231904
+ },
+ "title-lid-tall": {
+  "file": "title-lid-tall.webp",
+  "w": 720,
+  "h": 1080,
+  "bytes": 184076
+ },
+ "back-news": {
+  "file": "back-news.webp",
+  "w": 300,
+  "h": 450,
+  "bytes": 46804
+ },
+ "back-talk": {
+  "file": "back-talk.webp",
+  "w": 300,
+  "h": 450,
+  "bytes": 28058
+ },
+ "news-fire": {
+  "file": "news-fire.webp",
+  "w": 380,
+  "h": 380,
+  "bytes": 37140
+ },
+ "news-flood": {
+  "file": "news-flood.webp",
+  "w": 380,
+  "h": 380,
+  "bytes": 42438
+ },
+ "news-racing": {
+  "file": "news-racing.webp",
+  "w": 380,
+  "h": 380,
+  "bytes": 36644
+ },
+ "news-baths": {
+  "file": "news-baths.webp",
+  "w": 380,
+  "h": 380,
+  "bytes": 32274
+ },
+ "news-park": {
+  "file": "news-park.webp",
+  "w": 380,
+  "h": 380,
+  "bytes": 40460
+ },
+ "news-army": {
+  "file": "news-army.webp",
+  "w": 380,
+  "h": 380,
+  "bytes": 36116
+ },
+ "news-raid": {
+  "file": "news-raid.webp",
+  "w": 380,
+  "h": 380,
+  "bytes": 36274
+ },
+ "news-train": {
+  "file": "news-train.webp",
+  "w": 380,
+  "h": 380,
+  "bytes": 34714
+ },
+ "news-dam": {
+  "file": "news-dam.webp",
+  "w": 380,
+  "h": 380,
+  "bytes": 37104
+ },
+ "news-baseball": {
+  "file": "news-baseball.webp",
+  "w": 380,
+  "h": 380,
+  "bytes": 33992
+ },
+ "face-speculator": {
+  "file": "face-speculator.webp",
+  "w": 128,
+  "h": 128,
+  "bytes": 4948
+ },
+ "face-hotelier": {
+  "file": "face-hotelier.webp",
+  "w": 128,
+  "h": 128,
+  "bytes": 5004
+ },
+ "face-banker": {
+  "file": "face-banker.webp",
+  "w": 128,
+  "h": 128,
+  "bytes": 4818
+ },
+ "face-showman": {
+  "file": "face-showman.webp",
+  "w": 128,
+  "h": 128,
+  "bytes": 6320
+ },
+ "face-preservationist": {
+  "file": "face-preservationist.webp",
+  "w": 128,
+  "h": 128,
+  "bytes": 5290
+ },
+ "face-gambler": {
+  "file": "face-gambler.webp",
+  "w": 128,
+  "h": 128,
+  "bytes": 5912
+ },
+ "face-human": {
+  "file": "face-human.webp",
+  "w": 128,
+  "h": 128,
+  "bytes": 3510
+ }
+}

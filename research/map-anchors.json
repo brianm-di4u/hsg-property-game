@@ -1,0 +1,370 @@
+{
+  "_meta": {
+    "description": "Pin anchors for the period (1880s-1950s) illustrated map of Hot Springs, Arkansas at the center of the property-game board. WGS84 decimal degrees.",
+    "compiled": "2026-10-29",
+    "confidence": {
+      "surveyed": "coordinate published by NRHP/NPGallery, Wikipedia, GNIS or HMdb GPS (or an NRHP UTM reference converted by NGS NCAT)",
+      "derived": "computed by us from an address (OpenStreetMap/Nominatim interpolation) or an OSM footprint; typically +/- 15-40 m",
+      "approximate": "narrative location only; the pin is a reasoned placement, +/- 100-300 m"
+    },
+    "datumNote": "Wikipedia NRHP-list coordinates rounded to whole arc-seconds come from NRIS and are effectively NAD27. Here NAD27 to WGS84 is about +9 m north and -17 m west (dLat +0.000085, dLon -0.00018); NGS NCAT measured it at the depot's UTM point. That is below pin precision at board scale, so those values are kept as published unless OSM or an NCAT conversion gives a better point. NCAT conversions use NAD83(2011), which is within about 1-2 m of WGS84.",
+    "osmLicense": "OSM-derived points (c) OpenStreetMap contributors, ODbL 1.0. Every entry with osm=true must carry this attribution.",
+    "reusedFrom": "C:/Video Game Projects/games/trivia/research/geo-anchors.json (compiled 2026-10-28). Entries with reused=true are copied unchanged, with their original source."
+  },
+
+  "reused": {
+    "rowRef":          { "lat": 34.513889, "lon": -93.053611, "name": "Bathhouse Row NHL district (NRHP point)", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/National_Register_of_Historic_Places_listings_in_Garland_County,_Arkansas", "reused": true },
+    "superior":        { "lat": 34.514870, "lon": -93.053311, "name": "Superior Bathhouse, 329 Central Ave", "confidence": "derived", "source": "https://www.openstreetmap.org/way/1002548146", "osm": true, "reused": true },
+    "hale":            { "lat": 34.514551, "lon": -93.053363, "name": "Hale Bathhouse, 341 Central Ave", "confidence": "derived", "source": "https://www.openstreetmap.org/way/1002531001", "osm": true, "reused": true },
+    "maurice":         { "lat": 34.514091, "lon": -93.053400, "name": "Maurice Bathhouse, 359 Central Ave", "confidence": "derived", "source": "https://www.openstreetmap.org/way/1213679525", "osm": true, "reused": true },
+    "fordyce":         { "lat": 34.513714, "lon": -93.053473, "name": "Fordyce Bathhouse, 369 Central Ave", "confidence": "derived", "source": "https://www.openstreetmap.org/way/999352516", "osm": true, "reused": true },
+    "quapaw":          { "lat": 34.513245, "lon": -93.053581, "name": "Quapaw Bathhouse, 413 Central Ave", "confidence": "derived", "source": "https://www.openstreetmap.org/way/1002546215", "osm": true, "reused": true },
+    "ozark":           { "lat": 34.512765, "lon": -93.053622, "name": "Ozark Bathhouse, 425 Central Ave", "confidence": "derived", "source": "https://www.openstreetmap.org/way/1213679527", "osm": true, "reused": true },
+    "buckstaff":       { "lat": 34.512428, "lon": -93.053597, "name": "Buckstaff Bathhouse, 509 Central Ave", "confidence": "derived", "source": "https://www.openstreetmap.org/way/999348743", "osm": true, "reused": true },
+    "lamar":           { "lat": 34.512151, "lon": -93.053563, "name": "Lamar Bathhouse, 515 Central Ave", "confidence": "derived", "source": "https://www.openstreetmap.org/way/1213679526", "osm": true, "reused": true },
+    "arlington":       { "lat": 34.516667, "lon": -93.053056, "name": "Arlington Hotel (1924-25 building), 239 Central Ave", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/Arlington_Hotel_(Hot_Springs_National_Park)", "reused": true },
+    "southernClub":    { "lat": 34.516103, "lon": -93.053511, "name": "Southern Club, 250 Central Ave", "confidence": "derived", "source": "https://www.openstreetmap.org/way/1002532568", "osm": true, "reused": true },
+    "ohioClub":        { "lat": 34.514916, "lon": -93.053751, "name": "Ohio Club, 336 Central Ave", "confidence": "derived", "source": "https://nominatim.openstreetmap.org/search?q=336+Central+Avenue,+Hot+Springs,+Arkansas", "osm": true, "reused": true },
+    "federalBuilding": { "lat": 34.511667, "lon": -93.053889, "name": "Federal Building / Post Office, 100 Reserve St (Eastman Hotel site)", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/Federal_Building%E2%80%93U.S._Post_Office_and_Court_House_(Hot_Springs,_Arkansas)", "reused": true },
+    "armyNavyHospital": { "lat": 34.512022, "lon": -93.050383, "name": "Army and Navy Hospital HD, Reserve St", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/National_Register_of_Historic_Places_listings_in_Garland_County,_Arkansas", "reused": true },
+    "velda":           { "lat": 34.521000, "lon": -93.055500, "name": "Velda Rose Tower Motor Hotel, 218 Park Ave", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/National_Register_of_Historic_Places_listings_in_Garland_County,_Arkansas", "reused": true },
+    "parkAveCourtsS":  { "lat": 34.521389, "lon": -93.054722, "name": "Park Ave motor-court strip, south end (Langdon Filling Station, 311 Park Ave)", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/National_Register_of_Historic_Places_listings_in_Garland_County,_Arkansas", "reused": true },
+    "parkAveCourtsN":  { "lat": 34.531389, "lon": -93.045833, "name": "Park Ave strip, north end (1011 Park Ave)", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/National_Register_of_Historic_Places_listings_in_Garland_County,_Arkansas", "reused": true },
+    "mountainaire":    { "lat": 34.530556, "lon": -93.042222, "name": "Mountainaire Hotel HD, 1100 Park Ave", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/Mountainaire_Hotel_Historic_District", "reused": true },
+    "parkWhittingtonY": { "lat": 34.518767, "lon": -93.055844, "name": "The Y: Central Ave ends; Park Ave goes N, Whittington Ave goes W", "confidence": "derived", "source": "https://www.openstreetmap.org/way/1302627169", "osm": true, "reused": true },
+    "whittingtonPark": { "lat": 34.516620, "lon": -93.065770, "name": "Whittington Park Historic District", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/National_Register_of_Historic_Places_listings_in_Garland_County,_Arkansas", "reused": true },
+    "banJohnson":      { "lat": 34.515100, "lon": -93.074030, "name": "Whittington Park ballpark / Ban Johnson Park site, 870 Whittington Ave", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/Ban_Johnson_Park", "reused": true },
+    "fogelField":      { "lat": 34.515083, "lon": -93.073217, "name": "Fogel Field site, 847 Whittington Ave (on Alligator Farm property, adjacent to the farm; see alligatorFarm)", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/Fogel_Field", "reused": true },
+    "majesticPark":    { "lat": 34.495457, "lon": -93.051642, "name": "Majestic Park, 109 W Belding St", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/Majestic_Park", "reused": true },
+    "oaklawn":         { "lat": 34.484999, "lon": -93.057096, "name": "Oaklawn, 2705 Central Ave", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/Oaklawn_Racing_Casino_Resort", "reused": true },
+    "tower":           { "lat": 34.517228, "lon": -93.046106, "name": "Hot Springs Mountain Tower", "confidence": "surveyed", "source": "https://en.wikipedia.org/wiki/Hot_Springs_Mountain_Tower", "reused": true },
+    "northMountain":   { "lat": 34.526479, "lon": -93.041568, "name": "North Mountain summit (GNIS 58276)", "confidence": "surveyed", "source": "https://carto.nationalmap.gov/arcgis/rest/services/geonames/MapServer/5", "reused": true },
+    "westMountain":    { "lat": 34.506650, "lon": -93.101058, "name": "West Mountain summit (GNIS 58856)", "confidence": "surveyed", "source": "https://carto.nationalmap.gov/arcgis/rest/services/geonames/MapServer/5", "reused": true },
+    "sugarloaf":       { "lat": 34.520191, "lon": -93.080752, "name": "Sugarloaf Mountain summit (GNIS 78487)", "confidence": "surveyed", "source": "https://carto.nationalmap.gov/arcgis/rest/services/geonames/MapServer/5", "reused": true },
+    "lakeHamiltonShore": { "lat": 34.463510, "lon": -93.044330, "name": "Lake Hamilton shore nearest the Row (lake did not exist before 1931-32)", "confidence": "derived", "source": "https://www.openstreetmap.org/relation/1950316", "osm": true, "reused": true },
+    "lakeCatherineShore": { "lat": 34.472170, "lon": -92.986580, "name": "Lake Catherine shore nearest the Row (lake dates from 1924)", "confidence": "derived", "source": "https://www.openstreetmap.org/relation/3368421", "osm": true, "reused": true },
+    "lakeOuachitaShore": { "lat": 34.574100, "lon": -93.193590, "name": "Lake Ouachita shore nearest the Row (lake dates from 1953)", "confidence": "derived", "source": "https://www.openstreetmap.org/relation/1909083", "osm": true, "reused": true }
+  },
+
+  "anchors": {
+    "pythian": {
+      "name": "Pythian Bathhouse and Sanitarium (site; earlier Crystal Bathhouse)",
+      "lat": 34.50775, "lon": -93.05065,
+      "address": "415 Malvern Ave (Green Book: 415 1/2), Block 66, east side of Malvern",
+      "years": "Crystal opened 1904-04-01; Knights of Pythias bought it 1908; burned 1913-09-05. Pythian opened 1914 (two stories); enlarged to four stories by W. T. Bailey, completed about mid-1923; closed 1974 (EOA; one secondary source says 1965); later demolished (date unknown)",
+      "confidence": "derived",
+      "osm": true,
+      "sources": [
+        "https://nominatim.openstreetmap.org/search?q=415+Malvern+Avenue,+Hot+Springs,+Arkansas",
+        "https://encyclopediaofarkansas.net/entries/crystal-bathhouse-4253/",
+        "https://www.loc.gov/item/ar0041",
+        "https://community.village.virginia.edu/greenbooks/content/pythian-baths",
+        "https://npgallery.nps.gov/NRHP/GetAsset/NRHP/97000616_text"
+      ],
+      "note": "Nominatim interpolates 415 Malvern onto the street centerline at 34.507712,-93.050882. Odd numbers are on the east side here (the Woodmen Building at 501 lies 80 m east of its interpolated point), so the pin is nudged about 20 m east. The nearest OSM building is a parking structure (way 1214363392, 34.507897,-93.050648); the lot is unverified. The building is demolished (Green Book; SAH Archipedia AR-01-GA2). The 4-story date is from Bailey's 1924-01-04 letter quoted in the Woodmen NRHP nomination. Search snippets give the LOC HABS record as AR-29, not AR-41; unverified because loc.gov blocked the fetch."
+    },
+    "woodmenOfUnion": {
+      "name": "Woodmen of Union Building / National Baptist Hotel and Bath House",
+      "lat": 34.506933, "lon": -93.049477,
+      "address": "501 Malvern Ave (Malvern between Gulpha and Garden; Block 65)",
+      "years": "Built 1923, dedicated 1924-01-17; National Baptist Hotel 1950 to 1981 (closed); NRHP 1997-06-27 (97000616); still standing, vacant",
+      "confidence": "surveyed",
+      "osm": true,
+      "sources": [
+        "https://www.openstreetmap.org/node/359023445",
+        "https://en.wikipedia.org/wiki/Woodmen_of_Union_Building",
+        "https://npgallery.nps.gov/NRHP/GetAsset/NRHP/97000616_text"
+      ],
+      "note": "OSM node (tagged wikidata Q24041112) agrees with Wikipedia (34.506944,-93.049444) to about 4 m. The NRHP UTM 15 495470E 3818180N (NAD27), converted with NCAT, gives 34.507098,-93.049529, about 18 m north. Any of the three works."
+    },
+    "pleasantStreetHD": {
+      "name": "Pleasant Street Historic District (center of the Black community)",
+      "lat": 34.507109, "lon": -93.047722,
+      "address": "Roughly bounded by Malvern Ave (W), Gulpha/Church (N), Laurel/Mound (E), Kirk/Shiloh (S); core is 4 blocks of Pleasant St between Jefferson and Church",
+      "years": "Developed c.1900-1950 (period of significance 1900-1950); NRHP 2003-06-20 (03000532); about 30 acres, 93 buildings",
+      "confidence": "surveyed",
+      "bbox": { "south": 34.505214, "north": 34.509055, "west": -93.050674, "east": -93.045238 },
+      "polygonNad83": [[34.505350,-93.046565],[34.506035,-93.047132],[34.505214,-93.048613],[34.506954,-93.049682],[34.507549,-93.049235],[34.508649,-93.050674],[34.509055,-93.049792],[34.508966,-93.047341],[34.508326,-93.045238],[34.507045,-93.045684],[34.506630,-93.046686],[34.505530,-93.046020]],
+      "sources": [
+        "https://npgallery.nps.gov/NRHP/GetAsset/NRHP/03000532_text",
+        "https://en.wikipedia.org/wiki/Pleasant_Street_Historic_District_(Hot_Springs,_Arkansas)",
+        "https://www.hotspringsar.gov/DocumentCenter/View/22341/Pleasant-Street-Historic-District-Resurvey-Report_March-2024"
+      ],
+      "note": "The pin is the mean of the 12 NRHP UTM boundary vertices (NAD27, each converted with NCAT). The vertex order in the PDF is garbled, so treat polygonNad83 as a point set, not an ordered ring. Wikipedia gives 34.507222,-93.047778, which agrees to about 13 m. The nomination names streets the Wikipedia summary leaves out (Cottage, Laurel, Mound, Shiloh)."
+    },
+    "vapors": {
+      "name": "The Vapors (nightclub and casino; earlier the Phillips Drive-In)",
+      "lat": 34.521724, "lon": -93.055138,
+      "address": "315 Park Ave",
+      "years": "Built 1959, opened 1960; bombed 1963-01-04; casino ran until about 1967; nightclub until 1998; church (Tower of Strength Ministries) 1998-2013; bought 2017 and reopened as Vapors Live",
+      "confidence": "derived",
+      "osm": true,
+      "sources": [
+        "https://nominatim.openstreetmap.org/search?q=315+Park+Avenue,+Hot+Springs,+Arkansas",
+        "https://encyclopediaofarkansas.net/entries/vapors-3998/"
+      ],
+      "note": "Address interpolation on the Park Ave centerline (OSM way 1302627170). Untagged OSM buildings sit about 20 m to the west (way 1314529103) and 60 m to the east (way 1314529101); which side of Park Ave the club is on was not confirmed. It is across from or next to the Langdon Filling Station (311) and the Taylor Rosamond Motel (316)."
+    },
+    "majesticHotel": {
+      "name": "Majestic Hotel (site)",
+      "lat": 34.519162, "lon": -93.056484,
+      "address": "101 Park Ave, at the Park/Central/Whittington Y",
+      "years": "1882 Avenue Hotel (on the old Hiram Whittington house site); renamed Majestic 1888; yellow-brick building 1892; 4-story domed building 1902; 8-story red-brick annex 1926; Lanai Tower 1963; closed 2006; fire 2014-02-27; demolished late 2016",
+      "confidence": "derived",
+      "osm": true,
+      "sources": [
+        "https://www.openstreetmap.org/way/1214138575",
+        "https://www.openstreetmap.org/way/1314529079",
+        "https://encyclopediaofarkansas.net/entries/majestic-hotel-8351/",
+        "https://www.hmdb.org/m.asp?m=211201"
+      ],
+      "note": "Center of the OSM 'Majestic Hotel' outline. The OSM 'Majestic Hotel Site' brownfield is at 34.519260,-93.056473, and the HMdb baseball-trail marker is at 34.519283,-93.055967. The sources disagree on dates. The EOA Majestic entry gives the 1882/1892/1902/1926 sequence above. The EOA Hot Springs entry says the hotel opened in 1893 as the yellow-brick building. The HMdb marker says 'constructed in 1902 and expanded in 1926'."
+    },
+    "eastmanHotel": {
+      "name": "Eastman Hotel (site = Federal Building, 100 Reserve St)",
+      "lat": 34.511667, "lon": -93.053889,
+      "address": "100 Reserve St (south side of Reserve, opposite the Army and Navy Hospital)",
+      "years": "Built 1890 (about 500 rooms, a Samuel W. Fordyce project); used as an Army-Navy Hospital annex in WWII; demolished 1946 or in the 1950s (sources disagree); Federal Building built on the site 1959-60",
+      "confidence": "surveyed",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Federal_Building%E2%80%93U.S._Post_Office_and_Court_House_(Hot_Springs,_Arkansas)",
+        "https://www.hmdb.org/m.asp?m=211010",
+        "https://islandora.marmot.org/islandora/object/evld%3A17320",
+        "https://www.shorpy.com/node/22089"
+      ],
+      "note": "Wikipedia confirms the courthouse stands 'on the site of the Eastman Hotel'. The pin reuses federalBuilding; the HMdb Eastman marker is at 34.511217,-93.053450 on Post Office Ct. The hotel was larger than the federal building, so on a period map draw it across the whole block. Demolition date: 1946 per the Marmot record and Shorpy caption; a search summary attributes 'the 1950s' to an HMdb page, but the 211010 inscription itself gives no date."
+    },
+    "ostrichFarm": {
+      "name": "Hot Springs Ostrich Farm (Cockburn's)",
+      "lat": 34.5146, "lon": -93.0750,
+      "address": "Upper Whittington Ave, south side, across from the Whittington Park amusement park, just west of the 1920s 'Leap the Dips' coaster site",
+      "years": "1900-1953 (renamed Hot Springs Ostrich and Wild Animal Farm in 1944)",
+      "confidence": "approximate",
+      "sources": [
+        "https://encyclopediaofarkansas.net/entries/ostrich-farm-in-hot-springs-4429/",
+        "https://www.arkansasheritage.com/docs/default-source/ahpp-documents/sandwiching-tour-scripts/whittington-park-hd-hot-springs-tour-script-2013d4f82089-4189-413f-bd33-64d6c5cd965a.pdf?sfvrsn=d7fbb9_5",
+        "http://www.hsnp.com/zz-ostrichfarm.htm",
+        "https://www.hotsr.com/news/2020/jul/01/time-tour-ostrich-farm/",
+        "https://www.hmdb.org/m.asp?m=264196"
+      ],
+      "note": "No address was found. The AHPP tour script says the farm opened 'across from the amusement park', and the amusement park was west of the ballpark. hsnp.com says '27 acres ... just west of the Leap the Dips'. The pin is about 150 m WSW of the Alligator Farm on the south side of the avenue and is a placement, not a survey. The sources disagree: 7 acres and 200 birds (Sentinel-Record) vs 27 acres and 300+ birds (EOA, Butler Center); founder Thomas A. vs Charles Cockburn; Cockburn died 1930 (Sentinel-Record) vs 1936 (EOA). The HMdb 'Ostrich Farm' marker at 101 Central Ave is a downtown sidewalk plaque, not the site."
+    },
+    "alligatorFarm": {
+      "name": "Arkansas Alligator Farm and Petting Zoo (Hot Springs Gator Farm)",
+      "lat": 34.515000, "lon": -93.073330,
+      "address": "847 Whittington Ave, SW corner of Whittington Ave and Woodfin St",
+      "years": "1902-present (founded by H. L. Campbell; Bridges family since 1945, or 1947 per EOA)",
+      "confidence": "surveyed",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Arkansas_Alligator_Farm_and_Petting_Zoo",
+        "https://encyclopediaofarkansas.net/entries/arkansas-alligator-farm-and-petting-zoo-20827/",
+        "https://www.arkansasheritage.com/docs/default-source/ahpp-documents/sandwiching-tour-scripts/whittington-park-hd-hot-springs-tour-script-2013d4f82089-4189-413f-bd33-64d6c5cd965a.pdf?sfvrsn=d7fbb9_5"
+      ],
+      "note": "Confirmed at 847 Whittington. Nominatim gives 34.515073,-93.073322 (agrees). A correction to geo-anchors.json: Fogel Field is not the farm itself. It is a field on the farm's property next to its parking lot ('just adjacent', Wikipedia), so the two share the address. Babe Ruth's 1918 573-ft home run from Whittington Park landed in the farm."
+    },
+    "iqZoo": {
+      "name": "IQ Zoo (Keller and Marian Breland)",
+      "lat": 34.516717, "lon": -93.062935,
+      "address": "380 Whittington Ave (not Central Ave)",
+      "years": "1955 to about 1990 (the Brelands' Animal Behavior Enterprises farm was at Lonsdale from about 1950)",
+      "confidence": "derived",
+      "osm": true,
+      "sources": [
+        "https://encyclopediaofarkansas.net/entries/iq-zoo-2538/",
+        "https://www.arkansasheritage.com/docs/default-source/ahpp-documents/sandwiching-tour-scripts/whittington-park-hd-hot-springs-tour-script-2013d4f82089-4189-413f-bd33-64d6c5cd965a.pdf?sfvrsn=d7fbb9_5",
+        "https://nominatim.openstreetmap.org/search?q=380+Whittington+Avenue,+Hot+Springs,+Arkansas"
+      ],
+      "note": "The EOA and the AHPP tour script both give 380 Whittington; no source found for 380 Central. Nominatim returns two interpolations about 85 m apart: 34.516717,-93.062935 and 34.516151,-93.062326. The first is used. Per the 2013 tour script, the 376-380 Whittington buildings are demolished (later Santa's Workshop and the Arkansas House of Crystals). The site faces the federal Whittington Park."
+    },
+    "percivalCabins": {
+      "name": "Earliest settler cabins (Prudhomme, John Perciful/Percival, Isaac Gates)",
+      "lat": 34.513889, "lon": -93.053611,
+      "address": "At the springs on Hot Springs Creek (today's Bathhouse Row); no exact site known",
+      "years": "1807 (NPS 1920: Prudhomme cabin, joined by Perciful and Gates) or 1809 (EOA: Perciful); Dunbar-Hunter found 'an open log cabin and a few huts' in Dec 1804",
+      "confidence": "approximate",
+      "sources": [
+        "https://encyclopediaofarkansas.net/entries/hot-springs-887/",
+        "https://npshistory.com/publications/hosp/brochures/1920/sec1.htm",
+        "https://www.hmdb.org/m.asp?m=211119"
+      ],
+      "note": "No source places the cabins more precisely than 'there' (at the springs). The pin reuses rowRef. Perciful's widow Sarah's 1838 claim to the springs was rejected. The 1804 marker (HMdb 211119, 118 Central Ave) is a sidewalk plaque near the Y, not the site."
+    },
+    "beldingInn": {
+      "name": "Belding's inn (Ludovicus and Lydia Belding)",
+      "lat": 34.5140, "lon": -93.0535,
+      "address": "At the springs (Bathhouse Row valley); exact site unknown",
+      "years": "About 1828 (an Arkansas Gazette notice praised it in 1828) until Ludovicus's death on 1833-10-09; the Belding family pressed its claim 1849-1887",
+      "confidence": "approximate",
+      "sources": [
+        "https://www.genealogy.com/forum/surnames/topics/belding/316/",
+        "https://www.pressreader.com/usa/arkansas-democrat-gazette/20130915/283515088598860",
+        "https://encyclopediaofarkansas.net/entries/hot-springs-887/"
+      ],
+      "note": "Weakly sourced (a genealogy forum and a newspaper column quoting Sharon Shugart): Belding improved the existing cabins and opened 'the first inn'. The EOA says only that the first hotel-like building opened in 1825. A related marker (HMdb 211117, 128 Central Ave) says Josiah and Nancy Mellard arrived in 1820 and ran a double log cabin as a hotel, so 'first inn' is disputed. On the map, show a cabin cluster along the creek at the foot of Hot Springs Mountain."
+    },
+    "moPacDepot": {
+      "name": "Missouri-Pacific Railroad Depot (now the Hot Springs Transportation Depot)",
+      "lat": 34.507457, "lon": -93.052689,
+      "address": "Broadway at Market St (V-shaped lot between Broadway, Market and Valley St)",
+      "years": "c.1917 (MoPac, after taking over the Iron Mountain); last passenger train 1964; NRHP 1992-06-11 (92000611)",
+      "confidence": "surveyed",
+      "sources": [
+        "https://npgallery.nps.gov/NRHP/GetAsset/NRHP/92000611_text",
+        "https://en.wikipedia.org/wiki/Hot_Springs_station",
+        "https://www.openstreetmap.org/way/1213970866"
+      ],
+      "note": "NRHP UTM 15 495180E 3818220N (NAD27), converted with NCAT. It matches the OSM 'Transportation Depot' footprint center (34.507487,-93.052693) within about 4 m. Wikipedia's 34.5075,-93.0525 is the unconverted NAD27 value, about 17 m east. The 1915 MoPac freight depot is at 421 Broadway (Railroad Warehouse HD)."
+    },
+    "diamondJoTerminus": {
+      "name": "Hot Springs Railroad ('Diamond Jo' line from Malvern): Hot Springs terminus",
+      "lat": 34.5075, "lon": -93.0527,
+      "address": "Unknown; placed at the Broadway/Market rail yard, where the Malvern branch still ends",
+      "years": "Built 1875-76 as 3-ft narrow gauge (the HMdb marker says completed 1875); standard gauge 1889-10-16; Reynolds died 1891; passenger service to 1964",
+      "confidence": "approximate",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Hot_Springs_Railroad",
+        "https://encyclopediaofarkansas.net/entries/hot-springs-railroad-14157",
+        "https://www.hmdb.org/m.asp?m=211166"
+      ],
+      "note": "No source found for the site of the 1876 station. The EOA says the line's 'rail station in Hot Springs still stands' as the Transportation Depot, but the NRHP says that building is a c.1917 MoPac depot, so the EOA may be conflating the two. Ownership also conflicts: the EOA says the Choctaw, Oklahoma and Gulf took the line in 1901, then the Rock Island in 1902; Wikipedia says the trackage ended up in the Union Pacific (that is, MoPac/Iron Mountain) system. The Little Rock and Hot Springs Western (Rock Island) had its own depot (Shorpy photo c.1900, https://www.shorpy.com/node/23257), location not found. A Sanborn sheet (1886-1915) will show the original depot; check before drawing."
+    },
+    "streetcarHub": {
+      "name": "Streetcar lines' convergence point: Central Ave at Ouachita Ave",
+      "lat": 34.508417, "lon": -93.054550,
+      "address": "Central Ave and Ouachita Ave",
+      "years": "Horse/mule cars 1874-75; electric about 1893-95; streetcars replaced by buses 1938-10-16 (one source says 1939)",
+      "confidence": "surveyed",
+      "sources": ["https://www.hmdb.org/m.asp?m=264082", "https://www.hmdb.org/m.asp?m=211154", "https://chicagorailfan.com/aatar2.html"],
+      "note": "HMdb marker GPS (34 30.505 N, 93 3.273 W). The marker says Ouachita and Central 'was the convergence point of the streetcar lines'."
+    },
+    "streetcarBarnWhittington": {
+      "name": "Hot Springs Street Railway car barn (Whittington Ave)",
+      "lat": 34.515432, "lon": -93.072378,
+      "address": "About 810 Whittington Ave (later the Dierks/Weyerhaeuser office), just east of the old Whittington Park ballfield",
+      "years": "From about 1900 (Whittington extension) to 1938",
+      "confidence": "approximate",
+      "osm": true,
+      "sources": [
+        "https://www.arkansasheritage.com/docs/default-source/ahpp-documents/sandwiching-tour-scripts/whittington-park-hd-hot-springs-tour-script-2013d4f82089-4189-413f-bd33-64d6c5cd965a.pdf?sfvrsn=d7fbb9_5",
+        "https://nominatim.openstreetmap.org/search?q=810+Whittington+Avenue,+Hot+Springs,+Arkansas"
+      ],
+      "note": "Address interpolation for 810 Whittington. An 1894 Street Railway Journal piece says the office and principal car barn were on Park Ave 'near the terminal of the line on this avenue' (Wikimedia Commons File:The_Street_railway_journal_(1894)_(14758518742).jpg). The barn probably moved; the Park Ave barn site was not found."
+    },
+    "streetcarRoutes": {
+      "name": "Hot Springs streetcar routes (schematic)",
+      "confidence": "approximate",
+      "years": "1875-1938",
+      "lines": {
+        "centralTrunk": { "desc": "Central Ave from the Y south past Bathhouse Row and the Ouachita convergence to the Oaklawn race track, which had a loading yard with storage for 25 cars (race-track line reported as planned in 1894).", "waypoints": [[34.518767,-93.055844],[34.516248,-93.053389],[34.511616,-93.054023],[34.508417,-93.054550],[34.484999,-93.057096]] },
+        "whittington": { "desc": "West on Whittington Ave from the Y to Whittington Park, the ballpark and the amusement park (extended about 1900; 1901 ad: 'One mile from heart of city, reached by electric cars running every three minutes'). A 1910 act of Congress granted a right-of-way along the south edge of Whittington Lake Reserve.", "waypoints": [[34.518767,-93.055844],[34.516717,-93.062935],[34.515432,-93.072378],[34.515100,-93.074030]] },
+        "parkAve": { "desc": "North on Park Ave from the Y; an 1894 source places the principal car barn 'near the terminal of the line on this avenue'. Terminus not located.", "waypoints": [[34.518767,-93.055844],[34.521389,-93.054722]] },
+        "ouachita": { "desc": "Ouachita Ave line(s) implied by the 'convergence point' marker; extent not found.", "waypoints": [[34.508417,-93.054550],[34.504812,-93.058513]] }
+      },
+      "sources": [
+        "https://www.hmdb.org/m.asp?m=211154",
+        "https://www.hmdb.org/m.asp?m=264082",
+        "https://en.wikipedia.org/wiki/Hot_Springs_Street_Railroad",
+        "https://chicagorailfan.com/aatar2.html",
+        "https://www.arkansasheritage.com/docs/default-source/ahpp-documents/sandwiching-tour-scripts/whittington-park-hd-hot-springs-tour-script-2013d4f82089-4189-413f-bd33-64d6c5cd965a.pdf?sfvrsn=d7fbb9_5"
+      ],
+      "note": "Operators: Hot Springs Railroad Co. 1874-87 (David Butterfield; 2 cars, about 2 miles of track); Hot Springs Street Railroad Co. 1887-1910 (Fordyce, Stitt and Maurice invested in 1893 and electrified it); Hot Springs Street Railway Co. 1910-66. The 1913 fire destroyed the power plant, and mules ran the cars until power was restored. Only the Central trunk, Whittington line and race-track service are sourced. Park Ave is implied by the 1894 car-barn note. The Ouachita branch is inferred, and its ending at the courthouse is a placeholder. Trace exact tracks from the 1908 or 1915 Sanborn sheets."
+    },
+    "waterCompany": {
+      "name": "Hot Springs Water Company (works and reservoir)",
+      "lat": null, "lon": null,
+      "address": "Unknown",
+      "years": "Charter and franchise 1881-11-07 (reported); 1882 start not confirmed",
+      "confidence": "approximate",
+      "sources": [
+        "https://files.usgwarchives.us/ar/garland/history/1922/centenni/citizens4ms.txt",
+        "https://www.nps.gov/hosp/learn/nature/collection-history.htm"
+      ],
+      "note": "No location found; leave unpinned or use a generic waterworks vignette. A search summary of a 1922 county history (the file could not be opened directly) says the supply came from 'two lakes north of the city' and the pump-station grounds were landscaped as a park; unverified. Do not confuse it with the federal thermal-water reservoirs (first reservoir 1880; 1891 pump station and reservoir never used) or with the 1910s consolidation of the water, electric, gas and street-railway utilities."
+    },
+    "freeBathhouse1878": {
+      "name": "Government Free Bathhouse, first and second buildings (over the Mud Hole Spring)",
+      "lat": 34.5126, "lon": -93.0520,
+      "address": "Behind Bathhouse Row, roughly between today's Quapaw Bathhouse and the Hot Springs Rehabilitation Center (former Army and Navy Hospital)",
+      "years": "Wooden 4-room bathhouse 1878; replaced in 1891 by a 2-story brick building on the same site; used until 1921 (NPS) or 1922 (EOA); Mud Hole spring capped",
+      "confidence": "approximate",
+      "sources": [
+        "https://encyclopediaofarkansas.net/entries/government-free-bathhouse-14771/",
+        "https://www.nps.gov/places/mud-hole.htm"
+      ],
+      "note": "The pin is a placement between the two named landmarks; neither source gives coordinates."
+    },
+    "freeBathhouse1922": {
+      "name": "Government Free Bathhouse (Reserve St building; later the Libbey Memorial Physical Medicine Center)",
+      "lat": 34.512079, "lon": -93.049903,
+      "address": "500 Reserve St, about a quarter mile east of Bathhouse Row",
+      "years": "Opened 1921 (NPS, dedicated with Director Mather present) or 1922 (EOA); free baths ended 1957 (NPS bio says converted to a physical therapy center in 1953); named for Supt. Donald Libbey about 1959-60; closed 2001 (E. coli); building standing (2019, 2021)",
+      "confidence": "derived",
+      "osm": true,
+      "sources": [
+        "https://encyclopediaofarkansas.net/entries/government-free-bathhouse-14771/",
+        "https://www.nps.gov/hosp/learn/news/libbey-physical-medicine-center-thermal-water-jug-fountain-to-close-temporarily.htm",
+        "https://home.nps.gov/hosp/learn/historyculture/donald-s-libbey.htm",
+        "https://www.nps.gov/hosp/learn/historyculture/roberta-jackson.htm",
+        "https://nominatim.openstreetmap.org/search?q=500+Reserve+Street,+Hot+Springs,+Arkansas"
+      ],
+      "note": "Nominatim address interpolation for 500 Reserve St, about 45 m east of the armyNavyHospital point. The opening year conflicts: 1921 (NPS) vs 1922 (EOA). So do the conversion dates: 1953 (NPS Libbey bio) vs 1957 (EOA)."
+    },
+    "courthouse": {
+      "name": "Garland County Courthouse",
+      "lat": 34.504812, "lon": -93.058513,
+      "address": "501 Ouachita Ave (Ouachita Ave at Hawthorne St)",
+      "years": "Cornerstone 1905-08-15; gutted in the 1913 fire and rebuilt inside the shell; additions 1930 and 1977; NRHP 1979-12-06",
+      "confidence": "derived",
+      "osm": true,
+      "sources": [
+        "https://www.openstreetmap.org/node/367128821",
+        "https://en.wikipedia.org/wiki/Garland_County_Courthouse",
+        "https://encyclopediaofarkansas.net/entries/garland-county-courthouse-7953/"
+      ],
+      "note": "OSM amenity=courthouse node. Wikipedia/NRIS gives 34.504722,-93.058889 (NAD27-rounded), about 35 m west. No source names a 'Grand Jury Room'. For that board space, pin the courthouse."
+    },
+    "motorCourts": {
+      "name": "NRHP-listed 1920s-1960s roadside properties on Park Ave and Central Ave",
+      "confidence": "surveyed",
+      "source": "https://en.wikipedia.org/wiki/National_Register_of_Historic_Places_listings_in_Garland_County,_Arkansas",
+      "note": "Coordinates as published in the Wikipedia NRHP list (2004 Park Ave listings are arc-second-rounded NRIS values; see datumNote). Langdon Filling Station (311) and Taylor Rosamond Motel (316) share one published point, so it is a block-level point only.",
+      "items": [
+        { "name": "Taylor Rosamond Motel HD", "address": "316 Park Ave", "lat": 34.521389, "lon": -93.054722, "nrhp": "2004-05-26" },
+        { "name": "Langdon Filling Station", "address": "311 Park Ave", "lat": 34.521389, "lon": -93.054722, "nrhp": "2004-02-11" },
+        { "name": "Butchie's Drive-In", "address": "534 Park Ave", "lat": 34.523056, "lon": -93.053611, "nrhp": "2004-02-11" },
+        { "name": "Cottage Courts HD", "address": "609 Park Ave", "lat": 34.523889, "lon": -93.053333, "nrhp": "2004-02-11" },
+        { "name": "Bellaire Court HD", "address": "637 Park Ave", "lat": 34.524444, "lon": -93.053056, "nrhp": "2004-02-11" },
+        { "name": "Cove Tourist Court", "address": "771 Park Ave", "lat": 34.527222, "lon": -93.051389, "nrhp": "2004-02-11" },
+        { "name": "Wheatley Courts / Kloss Motel (demolished 2015, delisted)", "address": "811 Park Ave", "lat": 34.528333, "lon": -93.050556, "nrhp": "2004-02-11 (removed 2015-09-29)" },
+        { "name": "Parkway Courts HD", "address": "815 Park Ave", "lat": 34.526389, "lon": -93.051944, "nrhp": "2004-02-11" },
+        { "name": "Lynwood Tourist Court HD", "address": "857 Park Ave", "lat": 34.529167, "lon": -93.049444, "nrhp": "2004-02-11" },
+        { "name": "Opal's Steak House", "address": "871 Park Ave", "lat": 34.529722, "lon": -93.048889, "nrhp": "2004-02-11" },
+        { "name": "Perry Plaza Court HD", "address": "1007 Park Ave", "lat": 34.530556, "lon": -93.045278, "nrhp": "2004-02-11" },
+        { "name": "Hill Wheatley Downtowner Motor Inn", "address": "135 Central Ave", "lat": 34.517916, "lon": -93.054905, "nrhp": "2016-09-27" },
+        { "name": "Aristocrat Motor Inn", "address": "240 Central Ave", "lat": 34.516351, "lon": -93.053634, "nrhp": "2017-01-24" }
+      ]
+    }
+  },
+
+  "periodMaps": {
+    "sanborn": [
+      { "date": "1886-06", "sheets": 8,  "url": "https://www.loc.gov/item/sanborn00269_001/" },
+      { "date": "1890-02", "sheets": 12, "url": "https://www.loc.gov/item/sanborn00269_002/" },
+      { "date": "1892-06", "sheets": 14, "url": "https://www.loc.gov/item/sanborn00269_003/" },
+      { "date": "1896-06", "sheets": 21, "url": "https://www.loc.gov/item/sanborn00269_004/" },
+      { "date": "1901-02", "sheets": 25, "url": "https://www.loc.gov/item/sanborn00269_005/" },
+      { "date": "1908-04", "sheets": 33, "url": "https://www.loc.gov/item/sanborn00269_006/" },
+      { "date": "1915-06", "sheets": 35, "url": "https://www.loc.gov/item/sanborn00269_007/" },
+      { "date": "1925", "sheets": 46, "url": null, "note": "Listed in LOC search results (bound volume) but not among the online items; the Pleasant St nomination also cites 1925 and 1945 editions" }
+    ],
+    "birdsEye": [
+      { "title": "Bird's eye view of Hot Springs, Ark.", "date": "1888?", "publisher": "Henry Wellge & Co., Milwaukee", "url": "https://www.loc.gov/item/75693081/", "image": "https://hdl.loc.gov/loc.gmd/g4004h.pm000120" },
+      { "title": "Hot Springs, Arkansas (bird's-eye view)", "date": "c.1890", "publisher": "Woodward & Tiernan, St. Louis; copyright 1890 H. C. Townsend (Iron Mountain Route)", "url": "https://www.loc.gov/item/2001622065/", "image": "https://www.loc.gov/resource/g4004h.pm010910/" }
+    ],
+    "usgs": [
+      { "title": "Hot Springs, AR 30' x 30' (1:125,000)", "date": "1890", "url": "https://ngmdb.usgs.gov/topoview/viewer/#12/34.51/-93.05", "note": "Edition known only from a reseller listing (mapstore.mytopo.com); confirm in topoView" },
+      { "title": "Hot Springs North / Hot Springs South 7.5' (1:24,000)", "date": "1966 (North, per ScienceBase); earlier editions not verified", "url": "https://ngmdb.usgs.gov/topoview/viewer/#13/34.51/-93.05" }
+    ],
+    "laterNpsMaps": "LOC also holds NPS park maps from 1965 onward (e.g. https://www.loc.gov/item/73695970/); useful for the park road network, not for the period look."
+  }
+}

@@ -148,7 +148,7 @@ export const PERSONA_KEYS = Object.keys(PERSONAS);
 
 export const TOKENS = [
   { shape: 'jug', label: 'Jug', color: '#D55E00' },
-  { shape: 'hat', label: 'Top hat', color: '#0072B2' },
+  { shape: 'tub', label: 'Bathtub', color: '#0072B2' },
   { shape: 'shoe', label: 'Horseshoe', color: '#009E73' },
   { shape: 'parasol', label: 'Parasol', color: '#CC79A7' },
   { shape: 'fish', label: 'Sculpin', color: '#E69F00' },

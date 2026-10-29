@@ -56,3 +56,17 @@ many rollouts per decision, which would cost a lot in the browser and in a 1,000
 - RNG: mulberry32 (bryc, public domain), state saved with the game.
 - AI: bundle valuation as in OpenSpiel's bargaining (value, liquidity, threat) with personality
   weights; open ascending auctions with private maximums.
+
+## Vendored for the visual campaign (2026-10-29)
+
+| Package | Version | Source | License | Where | Use |
+|---|---|---|---|---|---|
+| three.js | 0.186.1 (r186) | npm `three` | MIT (`vendor/three/LICENSE`) | `vendor/three/` | 3D table; tree-shaken by `tools/build-three.mjs` into `src/js/three-lib.js` |
+| Barlow Condensed 600/700 | @fontsource 5.2.5 | npm `@fontsource/barlow-condensed` | SIL OFL 1.1 | `vendor/fonts/` | board labels, buttons |
+| Alfa Slab One 400 | @fontsource 5.2.5 | npm `@fontsource/alfa-slab-one` | SIL OFL 1.1 | `vendor/fonts/` | title, prices, deed names |
+| Libre Caslon Text 400/italic | @fontsource 5.2.5 | npm `@fontsource/libre-caslon-text` | SIL OFL 1.1 | `vendor/fonts/` | fact text, newspaper body |
+| Abril Fatface 400 | @fontsource 5.2.5 | npm `@fontsource/abril-fatface` | SIL OFL 1.1 | `vendor/fonts/` | newspaper mastheads |
+| esbuild | 0.25.10 | npm | MIT | `tools/dev/` (build-time only, `node_modules` not committed) | tree-shaking three.js |
+
+Fonts are inlined as data URIs into `assets/fonts.css` by `tools/build-fonts.mjs` (Chrome blocks `@font-face` files on file://).
+Map data (USGS 3DEP, NHD, Census TIGER, OSM) was read from the trivia game's download cache; see `art-src/PROMPTS.md`.

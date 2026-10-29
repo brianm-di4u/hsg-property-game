@@ -1,6 +1,7 @@
 // DOM helpers and the text content of deeds, cards, help and about. No game state lives here.
 import { SPACES, DISTRICTS, DISTRICT_ORDER, LOTS_BY_D, RULES, SEASONS, NEWS, TALK, CARD, MONTHS, PERSONAS, isRow } from './data.js';
 import { rentOf, multFor, ownerOf, buildCost, unmortgageCost } from './engine.js';
+import { art, has } from './art.js';
 
 export const qs = (q, el = document) => el.querySelector(q);
 export const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -29,6 +30,20 @@ export function spaceRules(sp) {
   return ({ depot: `Collect ${money(RULES.payday)} Payday whenever you pass or land here.`, jury: 'Just visiting, unless you were summoned. Held barons leave by paying $50, a Pardon, or rolling doubles.', free: 'A public rest stop. Nothing to pay.', gojury: 'Go straight to the Grand Jury Room. No Payday.' })[sp.kind] || '';
 }
 
+// Painted picture for a space or card, when the art is on (never requested otherwise, so no 404s).
+const VIG = ['depot', 'cabins', 'talk', 'belding', 'railroad', 'ostrich', 'gators', 'iqzoo', 'jury', 'whittington', 'waterco', 'fogel', 'majesticpark', 'motorcourts', 'drivein', 'tower',
+  'freebath', 'pythian', 'talk', 'woodmen', 'streetcar', 'southern', 'ohio', 'vapors', 'summoned', 'eastman', 'majestic', 'arlington', 'watertax', 'hale', 'buckstaff', 'fordyce'];
+export const artSrc = (name) => (art.on && has(name) ? `assets/${name}.webp` : '');
+const pic = (name, cls, alt = '') => { const src = artSrc(name); return src ? `<img class="${cls}" src="${src}" alt="${esc(alt)}" decoding="async">` : ''; };
+export const spaceArt = (i) => 'vig-' + VIG[i];
+const NEWS_ART = { 'n-railroad': 'vig-railroad', 'n-capital': 'vig-cabins', 'n-badenbaden': 'news-baths', 'n-freebath': 'vig-freebath', 'n-fire1878': 'news-fire', 'n-fire1905': 'news-fire',
+  'n-fire1913': 'news-fire', 'n-creek': 'news-flood', 'n-training': 'news-baseball', 'n-opening': 'news-racing', 'n-park': 'news-park', 'n-rowdone': 'news-park', 'n-arlington': 'news-fire',
+  'n-flood1923': 'news-flood', 'n-dam': 'news-dam', 'n-derby': 'news-racing', 'n-army': 'news-army', 'n-gi': 'news-raid', 'n-record': 'news-baths', 'n-vapors': 'vig-vapors',
+  'n-closure': 'news-baths', 'n-lasttrain': 'news-train', 'n-shutdown': 'news-raid', 'n-register': 'news-park', 'n-majestic': 'news-fire', 'n-maurice': 'news-park' };
+const TALK_ART = { 't-narrow': 'vig-railroad', 't-waters': 'vig-freebath', 't-streetcar': 'vig-streetcar', 't-water': 'vig-watertax', 't-street': 'vig-talk', 't-course': 'vig-buckstaff',
+  't-merman': 'vig-gators', 't-ostrich': 'vig-ostrich', 't-radio': 'vig-talk', 't-cornedbeef': 'vig-talk', 't-batter': 'vig-fogel', 't-sulky': 'vig-streetcar', 't-testify': 'vig-summoned',
+  't-pardon': 'vig-jury', 't-inspector': 'vig-majestic', 't-payday': 'vig-depot' };
+
 export function deedHtml(s, i) {
   const sp = SPACES[i];
   const color = sp.type === 'lot' ? DISTRICTS[sp.d].color : sp.type === 'line' || sp.type === 'util' ? '#355E41' : '#5A4C38';
@@ -36,19 +51,28 @@ export function deedHtml(s, i) {
   let owner = '';
   if (s && s.lots[i]) {
     const lot = s.lots[i], o = lot.owner;
-    owner = o < 0 ? `<p><strong>Unowned.</strong> ${isRow(i) ? 'Leased only by auction (opening bid ' + money(sp.price / 2) + ').' : 'Price ' + money(sp.price) + '.'}</p>`
-      : `<p><strong>Owner:</strong> ${esc(s.players[o].name)}${lot.mortgaged ? ' · <strong>mortgaged</strong> (no rent)' : ''}${lot.level ? ` · ${lot.level === 4 ? 'Grand Resort' : lot.level + ' bathhouse' + (lot.level > 1 ? 's' : '')}` : ''}<br><strong>Rent now:</strong> ${money(rentOf(s, i, 7))}${sp.type === 'util' ? ' (on a roll of 7)' : ''}${(() => { const m = multFor(s, i); return Math.abs(m - 1) > 0.01 ? ` (season and card multiplier ×${+m.toFixed(2)})` : ''; })()}</p>`;
+    owner = o < 0 ? `<p class="deedown"><strong>Unowned.</strong> ${isRow(i) ? 'Leased only by auction (opening bid ' + money(sp.price / 2) + ').' : 'Price ' + money(sp.price) + '.'}</p>`
+      : `<p class="deedown"><strong>Owner:</strong> ${esc(s.players[o].name)}${lot.mortgaged ? ' · <strong>mortgaged</strong> (no rent)' : ''}${lot.level ? ` · ${lot.level === 4 ? 'Grand Resort' : lot.level + ' bathhouse' + (lot.level > 1 ? 's' : '')}` : ''}<br><strong>Rent now:</strong> ${money(rentOf(s, i, 7))}${sp.type === 'util' ? ' (on a roll of 7)' : ''}${(() => { const m = multFor(s, i); return Math.abs(m - 1) > 0.01 ? ` (season and card multiplier ×${+m.toFixed(2)})` : ''; })()}</p>`;
   }
-  return `<div class="deedhead" style="background:${color}"><span class="dname">${esc(dname)}</span><h2 id="dlg-title">${esc(sp.name)}</h2></div>
-    ${sp.price ? `<p><span class="gamelogic">Game price</span> <strong>${money(sp.price)}</strong></p>` : `<p>${esc(spaceRules(sp))}</p>`}
-    ${rentTable(i)}${owner}${sp.fact ? factHtml(sp.fact) : ''}`;
+  return `<div class="deed${isRow(i) ? ' lease' : ''}" style="--dc:${color}"><div class="deedhead"><span class="dname">${esc(dname)}${isRow(i) ? ' · Federal lease' : ''}</span><h2 id="dlg-title">${esc(sp.name)}</h2></div>
+    ${pic(spaceArt(i), 'deedart', 'Illustration: ' + sp.name)}
+    ${sp.price ? `<p class="deedprice"><span class="gamelogic">Game price</span> <strong>${money(sp.price)}</strong></p>` : `<p>${esc(spaceRules(sp))}</p>`}
+    ${rentTable(i)}${owner}${sp.fact ? factHtml(sp.fact) : ''}</div>`;
 }
 
 export function cardHtml(id, s, who) {
   const c = CARD[id], news = id.startsWith('n-');
-  const kicker = news ? `Headline · ${s ? MONTHS[s.month] + ', Year ' + (s.year + 1) : ''}` : `Town Talk${who ? ' · ' + esc(who) : ''}`;
-  return `<div class="postcard"><div class="kicker">${kicker}</div><h3 id="dlg-title">${esc(c.title)}</h3>${factHtml(c.fact)}
-    <div class="effect"><span class="gamelogic">Game effect</span> ${esc(c.effect)}</div></div>`;
+  if (news) {
+    const when = s ? `${MONTHS[s.month]}, Year ${s.year + 1}` : '';
+    return `<article class="news"><div class="mast">The Barons' Gazette</div>
+      <div class="dateline"><span>Headline</span><span>${esc(when)}</span><span>Hot Springs, Ark.</span></div>
+      <h3 id="dlg-title" class="hed">${esc(c.title)}</h3>${pic(NEWS_ART[id], 'cut', 'Illustration')}
+      ${factHtml(c.fact)}<div class="effect"><span class="gamelogic">Game effect</span> ${esc(c.effect)}</div>
+      <p class="newsnote">The Barons' Gazette is the game's own newspaper; the fact above is sourced history.</p></article>`;
+  }
+  return `<article class="postcard"><div class="pc-top"><div class="kicker">Town Talk${who ? ' · ' + esc(who) : ''}</div><div class="stamp" aria-hidden="true">2¢</div></div>
+    ${pic(TALK_ART[id], 'pcart', 'Illustration')}<h3 id="dlg-title">${esc(c.title)}</h3>${factHtml(c.fact)}
+    <div class="effect"><span class="gamelogic">Game effect</span> ${esc(c.effect)}</div></article>`;
 }
 
 export function seasonsTable() {
@@ -85,7 +109,8 @@ export function aboutHtml() {
   <p>Real places appear as setting and history only. No logos are used and nothing implies endorsement by any business, park or organization. The AI barons are fictional archetypes.</p>
   <p>Every historical line in the game shows its source. Facts come from the collection's audited trivia bank and research corpus (Encyclopedia of Arkansas, National Park Service, Wikipedia and others). Prices, rents, seasons as rent rules and card effects are <span class="gamelogic">Game logic</span>.</p>
   <p>Rules heritage: the Common Ground variant is inspired by the anti-monopolist rules of <em>The Landlord's Game</em> (Elizabeth Magie, U.S. patent 748,626, 1904), which is in the public domain. This game uses none of any commercial game's names, board, cards or wording.</p>
-  <p>Code: dice use the public-domain mulberry32 generator. Everything else, including all art and sound, is drawn and synthesized in code.</p></div>`;
+  <p>Art: the board pictures, map painting, card art, portraits and title are original illustrations made for this game (AI-assisted image generation, then reviewed); the people in them are fictional. The tokens, buildings and dice are our own 3D models. The 3D table uses three.js (MIT). Fonts: Barlow Condensed, Alfa Slab One, Libre Caslon Text and Abril Fatface (SIL Open Font License). Sounds are synthesized in code; dice use the public-domain mulberry32 generator.</p>
+  <p>Map: the centre map is painted over real geography: USGS 3DEP elevation and NHD water, U.S. Census TIGER/Line streets and rail (public domain), and Bathhouse Row and Oaklawn outlines from OpenStreetMap, © OpenStreetMap contributors, ODbL. Pins mark each space's real place; places known only from old accounts are marked "approx.". The map labels are game captions, not survey names.</p></div>`;
 }
 
 export function districtOf(i) { const sp = SPACES[i]; return sp.type === 'lot' ? sp.d : sp.type; }

@@ -178,3 +178,23 @@ tables: median 50 months, 8.7% stalls, seats 12–21% (all within ±8 pp of 1/6)
 `SAMPLES.md`, `research/town-content.md`, `tools/balance.mjs`, `tools/check-facts.mjs`,
 `tools/sim.mjs` (Node loader), `tests/*.test.mjs` (15 files plus helpers), `src/` (8 modules +
 CSS). `reference-samples/` holds the six downloaded single files (git-ignored, never run).
+
+## Visual campaign (2026-10-29)
+The visual enhancement campaign is written up in [VISUAL-REPORT.md](VISUAL-REPORT.md) (plan: [VISUAL-PLAN.md](VISUAL-PLAN.md)).
+In short:
+- **The board** is now a printed 1930s board on an oak card table: a three.js 3D table on real GPUs, and a flat canvas
+  fallback with the same art.
+- **Art and pieces:** 31 painted space vignettes, a painted period map of the real valley with a pin at each lot's
+  real place, and Blender die-cast tokens, bathhouse and resort pieces and dice.
+- **Cards and portraits:** newspaper Headlines, postcard Town Talk cards, deeds with pictures, and persona portraits.
+- **Game feel:** coin flights and counting cash, card flights, and tap-to-skip.
+
+The rules, AI and saves are unchanged. The suite now has 93 tests (10 new) and passes 93/93 in each of three runs:
+- on the GPU (`--gpu`);
+- in software GL;
+- from file:// (`--file-url`).
+
+The single-file note in "What was built" no longer holds. `index.html` is 1.16 MB and loads painted art, fonts and the
+piece atlas from `assets/`. Builds:
+- `tools/build-art.mjs`, `build-fonts.mjs`, `build-sprites.mjs` and `build-three.mjs`;
+- then `node shared/tools/inline.mjs games/property-game`.
