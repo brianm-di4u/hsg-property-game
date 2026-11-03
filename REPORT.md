@@ -198,3 +198,11 @@ The single-file note in "What was built" no longer holds. `index.html` is 1.16 M
 piece atlas from `assets/`. Builds:
 - `tools/build-art.mjs`, `build-fonts.mjs`, `build-sprites.mjs` and `build-three.mjs`;
 - then `node shared/tools/inline.mjs games/property-game`.
+
+## Update: repainted backgrounds (2026-11-02)
+
+The title box-lid paintings (wide and tall) were repainted. The new source PNGs replace the `art-src/art.json` sources
+(git-ignored; the workspace keeps copies of the old and new paintings in `reference/backgrounds/`) and were packed
+with the usual tools. Older descriptions of these paintings in VISUAL-REPORT.md refer to the previous art.
+
+`npm test`: 93/93 passed.

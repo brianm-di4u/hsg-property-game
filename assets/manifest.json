@@ -213,13 +213,13 @@
   "file": "title-lid.webp",
   "w": 1280,
   "h": 853,
-  "bytes": 231904
+  "bytes": 374990
  },
  "title-lid-tall": {
   "file": "title-lid-tall.webp",
   "w": 720,
   "h": 1080,
-  "bytes": 184076
+  "bytes": 273248
  },
  "back-news": {
   "file": "back-news.webp",
