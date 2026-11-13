@@ -114,4 +114,41 @@ export const tests = [
       t.equal(m.why, 'slow', 'because frames were slow');
     },
   },
+  {
+    name: 'S2-11 starting a new game asks before replacing a saved one',
+    async run(t) {
+      await start(t);
+      await rollTo(t, 2, 3); await act(t, { type: 'buy' });
+      const saved = await g(t);
+      await t.reload();
+      await click(t, '[data-go="setup"]');
+      await click(t, '[data-start]');
+      t.equal((await t.state()).dialog, 'replace', 'asks first');
+      t.expect(/March|January|February|April|May|June|July|August|September|October|November|December/.test(await t.page.locator('#modal').innerText()), 'names the saved month');
+      await t.shot('60-replace-save');
+      await t.checkLayout();
+      await click(t, '#modal [data-ok]');
+      t.equal((await t.state()).dialog, null, 'dialog closed');
+      t.equal((await t.state()).scene, 'setup', 'still on setup');
+      const kept = await t.page.evaluate(() => JSON.parse(localStorage.getItem('hs-barons-save-v1')));
+      t.equal(JSON.stringify(kept.log), JSON.stringify(saved.log), 'Cancel keeps the saved game');
+      await click(t, '[data-start]');
+      await click(t, '#modal [data-replace]');
+      await t.waitForStable();
+      t.equal((await t.state()).scene, 'game', 'Replace starts the new game');
+      t.expect((await g(t)).log.length <= 2, 'a fresh game');
+    },
+  },
+  {
+    name: 'S2-11 no prompt when there is no saved game',
+    async run(t) {
+      await t.page.evaluate(() => localStorage.clear());
+      await t.reload();
+      await t.game('act', 'aiPause', true);
+      await click(t, '[data-go="setup"]');
+      await click(t, '[data-start]');
+      await t.waitForStable();
+      t.equal((await t.state()).scene, 'game', 'starts straight away');
+    },
+  },
 ];
