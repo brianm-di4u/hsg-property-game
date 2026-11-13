@@ -3,7 +3,7 @@ import { SPACES, DISTRICTS, DISTRICT_ORDER, LOTS_BY_D, MONTHS, PERSONAS, PERSONA
 import * as E from './engine.js';
 import { aiAction } from './ai.js';
 import * as R from './render.js';
-import { audio, unlock, suspendAudio, sfx } from './audio.js';
+import { audio, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAudio, audioList, audioRender, audioState } from './audio.js';
 import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
@@ -18,18 +18,25 @@ const store = {
 };
 
 const G = {
-  s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, motion: 'system', text: 1, theme: 'auto', ai: 'normal' },
+  s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal' },
   queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, hidden: false, stale: false, fast: false, waitingOk: false,
   dialog: null, dialogRender: null, nextSeed: null, lastSetup: null, helpTab: 'rules', setup: null, liveBuf: [], logSeen: 0,
 };
 window.__G = G;
 
 // ---------- settings ----------
-function loadSettings() { try { Object.assign(G.settings, JSON.parse(store.get(SETS) || '{}')); } catch (e) { /* defaults */ } applySettings(); }
+function loadSettings() {
+  try { Object.assign(G.settings, JSON.parse(store.get(SETS) || '{}')); } catch (e) { /* defaults */ }
+  const st = G.settings; // the sound fields added with music and ambience: a missing or damaged one falls back to its default
+  for (const k of ['sfx', 'music', 'amb']) if (typeof st[k] !== 'boolean') st[k] = true;
+  if (typeof st.vol !== 'number' || !(st.vol >= 0 && st.vol <= 1)) st.vol = 0.35;
+  for (const k of ['mvol', 'avol']) if (typeof st[k] !== 'number' || !(st[k] >= 0 && st[k] <= 1)) st[k] = 0.7;
+  applySettings();
+}
 function saveSettings() { store.set(SETS, JSON.stringify(G.settings)); applySettings(); }
 function applySettings() {
   const st = G.settings;
-  audio.on = !!st.sound; audio.vol = st.vol;
+  audio.on = !!st.sound; audio.vol = st.vol; audio.sfx = st.sfx; audio.music = st.music; audio.amb = st.amb; audio.mvol = st.mvol; audio.avol = st.avol; applyAudio();
   document.documentElement.style.setProperty('--ts', st.text);
   const dark = st.theme === 'dark' || (st.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.body.classList.toggle('theme-dark', dark);
@@ -348,6 +355,7 @@ function refreshView() {
     if (s.phase === 'debt' && h && G.dialog !== 'debt' && G.dialog !== 'card') openDebt();
     if (s.phase !== 'debt' && G.dialog === 'debt') closeDialog(true);
   }
+  setCrowd(s.phase === 'auction' ? 1 : 0.2);
   refreshDialog();
   if (narrow()) layout(); else draw();
 }
@@ -438,6 +446,8 @@ function openDialog(html, opts = {}) {
   m.hidden = false;
   if (animOn()) { G.dlgAnim = true; const d = m.querySelector('.dlg'); d.addEventListener('animationend', () => { G.dlgAnim = false; }, { once: true }); setTimeout(() => { G.dlgAnim = false; }, 400); }
   wireDialog();
+  if (G.dialog === 'pause') holdAudio('pause', true);
+  else if (['manage', 'trade', 'ledger'].includes(G.dialog)) sfx('open');
   const f = m.querySelector('[data-ok], .btn.primary, button, input, select');
   if (f) f.focus({ preventScroll: true });
 }
@@ -450,6 +460,7 @@ function closeDialog(force) {
   if (!G.dialog) return;
   if (!force && !G.dialogClosable) return;
   const was = G.dialog;
+  if (was === 'pause') holdAudio('pause', false);
   G.dialog = null; G.dialogRender = null;
   const m = $('#modal'); m.hidden = true; m.innerHTML = '';
   if (was === 'card' && G.cardDone) { const d = G.cardDone; G.cardDone = null; d(); }
@@ -469,6 +480,7 @@ function refreshDialog() {
 }
 
 function openDeed(i) {
+  sfx('deed');
   openDialog(`${deedHtml(G.s, i)}<div class="btns"><button class="btn primary" data-ok>Close</button></div>`, { name: 'deed' });
   R.view.cursor = i; draw();
 }
@@ -624,8 +636,16 @@ function onModalClick(ev) {
 }
 
 // ---------- scenes ----------
+// Music and ambience follow the screen: the Gazette has its own piece and place; screens opened from a game keep the game's.
+function moodFor(name) {
+  if (name === 'over') return ['results', 'bathhouse'];
+  if (name === 'game' || (name !== 'title' && G.back === 'game' && G.s)) return ['play', 'town'];
+  return ['title', 'town'];
+}
 function scene(name) {
   G.scene = name;
+  setMood(...moodFor(name));
+  if (name !== 'game') setCrowd(0.2);
   const scr = $('#screen'), app = $('#app');
   if (name !== 'game') { clearTimeout(G.aiTimer); G.aiTimer = 0; const tt = $('#toast'); tt.style.transition = 'none'; tt.classList.remove('show'); void tt.offsetWidth; tt.style.transition = ''; }
   if (name === 'game') {
@@ -777,7 +797,10 @@ function screenSettings(scr) {
   const st = G.settings;
   const seg = (key, opts) => `<div class="seg" role="group" aria-label="${key}">${opts.map(([v, l]) => `<button type="button" data-set="${key}" data-v="${v}" aria-pressed="${String(st[key]) === String(v)}">${l}</button>`).join('')}</div>`;
   scr.innerHTML = `<div class="wrap"><h2>Settings</h2><div class="card">
-    <p><strong>Sound</strong><br>${seg('sound', [[true, 'On'], [false, 'Off']])} <label class="chk" style="display:inline-flex">Volume <input type="range" min="0" max="1" step="0.05" value="${st.vol}" data-vol aria-label="Volume" style="width:150px"></label></p>
+    <p><strong>Sound</strong> <span class="fine">(the master switch)</span><br>${seg('sound', [[true, 'On'], [false, 'Off']])}</p>
+    <p><strong>Sound effects</strong><br>${seg('sfx', [[true, 'On'], [false, 'Off']])} <label class="chk" style="display:inline-flex">Volume <input type="range" min="0" max="1" step="0.05" value="${st.vol}" data-vol aria-label="Sound effects volume" style="width:150px"></label></p>
+    <p><strong>Music</strong><br>${seg('music', [[true, 'On'], [false, 'Off']])} <label class="chk" style="display:inline-flex">Volume <input type="range" min="0" max="1" step="0.05" value="${st.mvol}" data-mvol aria-label="Music volume" style="width:150px"></label></p>
+    <p><strong>Ambience</strong><br>${seg('amb', [[true, 'On'], [false, 'Off']])} <label class="chk" style="display:inline-flex">Volume <input type="range" min="0" max="1" step="0.05" value="${st.avol}" data-avol aria-label="Ambience volume" style="width:150px"></label></p>
     <p><strong>Motion</strong><br>${seg('motion', [['system', 'Follow system'], ['reduce', 'Reduced'], ['full', 'Full']])}</p>
     <p><strong>Text size</strong><br>${seg('text', [[1, '100%'], [1.25, '125%'], [1.5, '150%']])}</p>
     <p><strong>Theme</strong><br>${seg('theme', [['auto', 'Follow system'], ['light', 'Gilded day'], ['dark', 'Neon night']])}</p>
@@ -785,10 +808,10 @@ function screenSettings(scr) {
     <button class="btn primary" data-back>Back</button></div>`;
   scr.onclick = (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.set) { const k = b.dataset.set; let v = b.dataset.v; if (k === 'sound') v = v === 'true'; if (k === 'text') v = +v; st[k] = v; saveSettings(); unlock(); if (k === 'sound' && v) sfx('coin'); screenSettings(scr); scr.querySelector(`[data-set="${k}"][aria-pressed="true"]`).focus(); }
+    if (b.dataset.set) { const k = b.dataset.set; let v = b.dataset.v; if (k === 'sound' || k === 'sfx' || k === 'music' || k === 'amb') v = v === 'true'; if (k === 'text') v = +v; st[k] = v; saveSettings(); unlock(); if ((k === 'sound' || k === 'sfx') && v) sfx('coin'); screenSettings(scr); scr.querySelector(`[data-set="${k}"][aria-pressed="true"]`).focus(); }
     else if (b.dataset.back != null) scene(G.back === 'game' && G.s ? 'game' : 'title');
   };
-  scr.oninput = (ev) => { if (ev.target.dataset.vol != null) { st.vol = +ev.target.value; saveSettings(); } };
+  scr.oninput = (ev) => { const d = ev.target.dataset, k = d.vol != null ? 'vol' : d.mvol != null ? 'mvol' : d.avol != null ? 'avol' : null; if (k) { st[k] = +ev.target.value; saveSettings(); } };
 }
 function screenOver(scr) {
   const s = G.s;
@@ -823,10 +846,18 @@ function loadGame(s) {
   for (const k in shownCash) delete shownCash[k]; R.view.dice.pos = null; R.view.coins = []; R.view.drop = {}; R.view.puffs = [];
 }
 
+// Every button gets a small tick (a different one for Close and OK); the first gesture also wakes the audio.
+function onAnyClick(ev) {
+  unlock();
+  const b = ev.target.closest && ev.target.closest('button');
+  if (!b || b.disabled || b.id === 'b-sound') return;
+  sfx(b.matches('[data-ok], [data-close]') ? 'close' : 'click');
+}
+
 // A hidden tab stops the AI clock and the sound; coming back picks both up again.
 function onVisibility() {
   G.hidden = document.hidden === true;
-  if (G.hidden) { clearTimeout(G.aiTimer); G.aiTimer = 0; suspendAudio(); } else { if (audio.ctx) unlock(); schedule(); }
+  if (G.hidden) { clearTimeout(G.aiTimer); G.aiTimer = 0; suspendAudio(); } else { holdAudio('hidden', false); if (audio.ctx) unlock(); schedule(); }
 }
 
 // Another tab writing the save while this game is open: stop saving here and offer the way back to the newest save.
@@ -841,6 +872,7 @@ function onStorage(ev) {
 // ---------- input ----------
 function onKey(ev) {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  unlock();
   const k = ev.key;
   if (G.dialog) {
     if (k === 'Escape') { ev.preventDefault(); closeDialog(); }
@@ -931,6 +963,9 @@ function gameState() {
 window.__game = {
   seed(n) { G.nextSeed = n | 0; if (G.s) { G.s.rng = (n >>> 0) || 1; } return true; },
   getState: gameState,
+  audioList,
+  audioRender,
+  audioState,
   setState(x) { const s = x && x.game ? x.game : x; if (!s || !s.players) return false; loadGame(JSON.parse(JSON.stringify(s))); store.set(SAVE, JSON.stringify(G.s)); scene(x.scene && x.scene !== 'game' ? x.scene : 'game'); return true; },
   isIdle() { return (!G.busy || G.waitingOk) && G.anim === 0 && !G.aiTimer && !drawQueued && !G.dlgAnim && !art.loading && !B.camBusy() && !G.imgWait; },
   spaceScreen(i) { return spaceScreen(i); },
@@ -989,6 +1024,7 @@ function boot() {
   $('#b-menu').addEventListener('click', () => openPause());
   $('#b-ledger').addEventListener('click', () => openLedger());
   $('#b-sound').addEventListener('click', () => { unlock(); G.settings.sound = !G.settings.sound; saveSettings(); if (G.settings.sound) sfx('coin'); });
+  document.addEventListener('click', onAnyClick, true);
   document.addEventListener('keydown', onKey);
   document.addEventListener('visibilitychange', onVisibility);
   window.addEventListener('error', (ev) => { if (G.scene === 'game' && G.s && ev.error) recover(ev.error); });
