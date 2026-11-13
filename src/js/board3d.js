@@ -21,7 +21,7 @@ const wz = (py) => (py / VH() - 0.5) * BD;
 const len = (px) => px / VW() * BW; // board px -> world length
 
 export const B3 = { on: false, reason: '', renderer: null, scene: null, camera: null, gl: null, overlay: null, octx: null,
-  W: 0, H: 0, dpr: 1, texKey: '', cam: { cur: null, vel: { tx: 0, tz: 0, dist: 0 }, settled: true, last: 0 }, follow: null, slow: 0, frames: [] };
+  W: 0, H: 0, dpr: 1, texKey: '', cam: { cur: null, vel: { tx: 0, tz: 0, dist: 0 }, settled: true, last: 0 }, follow: null, slow: 0, frames: [], lastFrame: 0 };
 
 // ---------- capability ----------
 export function probe(force) {
@@ -335,7 +335,7 @@ function place(obj, px, py, lift = 0) { obj.position.set(wx(px), TOP + lift, wz(
 
 export function render(s) {
   if (!B3.on) return;
-  const now = performance.now(), t0 = now;
+  const now = performance.now();
   const v = R.view;
   // board face
   const key = texKey(s);
@@ -363,7 +363,9 @@ export function render(s) {
   B3.renderer.render(B3.scene, B3.camera);
   drawOverlay();
   // watchdog: sustained slow frames switch to the 2D board (main.js decides)
-  const dt = performance.now() - t0; B3.frames.push(dt); if (B3.frames.length > 90) B3.frames.shift();
+  // (the gap between successive frames, so a GPU-bound device shows up; a long pause with nothing drawn is not a slow frame)
+  const gap = now - B3.lastFrame; B3.lastFrame = now;
+  if (gap > 0 && gap < 250) { B3.frames.push(gap); if (B3.frames.length > 90) B3.frames.shift(); }
 }
 export function slowFrames() { if (B3.frames.length < 60) return false; const a = B3.frames.slice().sort((x, y) => x - y); return a[a.length >> 1] > 34; }
 

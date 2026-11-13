@@ -852,6 +852,7 @@ function start3D() {
   flat.id = 'board2d'; flat.hidden = true; flat.tabIndex = -1;
   const gl = B.B3.canvas; gl.id = 'board'; gl.tabIndex = 0; gl.setAttribute('role', 'img'); gl.setAttribute('aria-label', flat.getAttribute('aria-label'));
   gl.addEventListener('click', onBoardPointer);
+  gl.addEventListener('webglcontextlost', (ev) => { ev.preventDefault(); fallback2D('lost'); });
   document.body.classList.add('gl');
   B.B3.closeUp = false; B.B3.instant = reduced(); // phones start on the whole board; the view button zooms in
   const vb = document.createElement('button'); vb.id = 'b-view'; vb.className = 'iconbtn'; vb.type = 'button';

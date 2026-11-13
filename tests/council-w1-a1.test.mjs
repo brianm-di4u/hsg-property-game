@@ -72,4 +72,46 @@ export const tests = [
       t.expect((await g(t)).log.length > before.log.length, 'the AI acted once visible');
     },
   },
+  {
+    name: 'S6-06 lost WebGL context falls back to the flat board',
+    url: 'index.html?gl=3d',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.waitForStable();
+      t.equal((await t.game('boardMode')).mode, '3d', '3D table on');
+      const prevented = await t.page.evaluate(() => {
+        const ev = new Event('webglcontextlost', { cancelable: true });
+        document.getElementById('board').dispatchEvent(ev);
+        return ev.defaultPrevented;
+      });
+      t.expect(prevented, 'context loss is claimed so a restore could follow');
+      await t.waitForStable();
+      const m = await t.game('boardMode');
+      t.equal(m.mode, '2d', 'flat board after the loss');
+      t.equal(m.why, 'lost', 'reason recorded');
+    },
+  },
+  {
+    name: 'S6-06 slow-frame watchdog measures the gap between frames, not CPU submit time',
+    url: 'index.html?gl=3d',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.waitForStable();
+      t.equal((await t.game('boardMode')).mode, '3d', '3D table on');
+      await start(t);
+      // a clock where every animation frame is 60 ms after the last (a GPU-bound phone): draw calls stay cheap
+      await t.page.evaluate(() => {
+        let fake = performance.now();
+        const raf = window.requestAnimationFrame.bind(window);
+        window.requestAnimationFrame = (cb) => raf(() => { fake += 60; cb(fake); });
+        performance.now = () => fake;
+      });
+      for (let k = 0; k < 75; k++) await t.page.evaluate((k) => { window.__game.act('cursor', k % 40); return new Promise((r) => requestAnimationFrame(() => r())); }, k);
+      await t.game('act', 'do', { type: 'roll' });
+      await t.waitForStable();
+      const m = await t.game('boardMode');
+      t.equal(m.mode, '2d', 'fell back to the flat board');
+      t.equal(m.why, 'slow', 'because frames were slow');
+    },
+  },
 ];
