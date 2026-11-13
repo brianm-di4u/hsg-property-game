@@ -128,7 +128,7 @@ table.t th, table.t td { text-align: left; padding: 5px 6px; border-bottom: 1px 
 @media (max-width: 820px), (max-aspect-ratio: 1/1) {
   #app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; grid-template-areas: "top" "board" "panel"; padding: 6px 6px 8px; gap: 6px; }
   #topbar { min-height: 44px; }
-  #clock .month { font-size: 1em; }
+  #clock .month { font-size: .92em; white-space: nowrap; }
   #turnbar { padding: 6px 10px; min-height: 48px; }
   #actions .btn { flex: 1 1 auto; padding: 6px 10px; }
   #players { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
@@ -216,7 +216,10 @@ body.art #turnbar { background: linear-gradient(180deg, rgba(255,255,255,.35), r
 #event::before { content: "✦"; font-style: normal; color: var(--primary); flex: none; }
 #event:not(.on) { color: var(--muted); }
 #event:not(.on)::after { content: "The town is quiet."; }
-@media (max-width: 820px), (max-aspect-ratio: 1/1) { #event { min-height: 30px; font-size: .88em; padding: 3px 10px; } }
+#b-ledger { display: none; min-height: 36px; padding: 2px 8px; font-family: var(--font-deco); font-size: .85em; flex: none; }
+.ledger { margin: 0 0 8px; padding: 0; list-style: none; font-size: .92em; line-height: 1.35; }
+.ledger li { padding: 4px 0; border-bottom: 1px dotted var(--border); }
+@media (max-width: 820px), (max-aspect-ratio: 1/1) { #event { min-height: 30px; font-size: .88em; padding: 3px 10px; display: block; white-space: normal; line-height: 1.25; max-height: 2.9em; } #event::before { display: inline; margin-right: 6px; } #b-ledger { display: inline-flex; } }
 /* printed cards keep their own paper and ink in either theme */
 .news, .postcard { --text: #2A2219; --muted: #5C4D38; --highlight: #B8862B; --surface: #FBF6E8; --bg: #F3ECDA; }
 

@@ -223,7 +223,7 @@ async function present(e) {
     case 'land': R.view.flash = e.space; draw(); break;
     case 'paid': if (e.why === 'rent') { pop(e.from, -e.amount); pop(e.to, e.amount); coins(e.from, e.to, e.amount); } else { pop(e.from, -e.amount); coins(e.from, -1, e.amount); } break;
     case 'payday': pop(e.pid, e.amount - e.ground); coins(-1, e.pid, e.amount); sfx('coin'); toast(`${P(e.pid).name}: Payday +${money(e.amount - e.ground)}`); break;
-    case 'rent': sfx('pay'); toast(`${P(e.from).name} pays ${money(e.amount)} rent`); await sleep(250); break;
+    case 'rent': sfx('pay'); toast(`${P(e.from).name} pays ${money(e.amount)} to ${e.to >= 0 ? P(e.to).name : 'the treasury'} for ${SPACES[e.space].name}`); await sleep(250); break;
     case 'buy': sfx('coin'); toast(`${P(e.pid).name} buys ${SPACES[e.space].name}`); break;
     case 'won': sfx('gavel'); toast(`${P(e.pid).name} wins ${SPACES[e.space].name} for ${money(e.amount)}`); await sleep(350); break;
     case 'unsold': toast(`No bids for ${SPACES[e.space].name}`); break;
@@ -295,7 +295,7 @@ function schedule() {
   if (!s || s.ended || G.scene !== 'game' || G.busy || G.aiPaused || G.hidden || G.stale) return;
   const a = E.actor(s);
   if (a < 0 || s.players[a].kind !== 'ai') return;
-  if (G.dialog && G.dialog !== 'auction' && G.dialog !== 'deed') return;
+  if (G.dialog && G.dialog !== 'auction' && G.dialog !== 'deed' && G.dialog !== 'ledger') return;
   G.aiTimer = setTimeout(() => { G.aiTimer = 0; if (G.busy || !G.s || G.s.ended || G.aiPaused || G.hidden) return; const act = aiAction(G.s); if (act) { const r = perform(act); if (!r.ok) { console.warn('AI action failed', act, r.error); perform({ type: legalFallback() }); } } }, aiDelay());
 }
 function legalFallback() { const L = E.legal(G.s); return (L.find((a) => ['end', 'roll', 'pass', 'decline', 'bankrupt'].includes(a.type)) || L[0]).type; }
@@ -471,6 +471,14 @@ function refreshDialog() {
 function openDeed(i) {
   openDialog(`${deedHtml(G.s, i)}<div class="btns"><button class="btn primary" data-ok>Close</button></div>`, { name: 'deed' });
   R.view.cursor = i; draw();
+}
+
+// The Town ledger as a sheet, for phones where the panel has no room for it.
+const ledgerRender = () => `<h2 id="dlg-title">Town ledger</h2><ol class="ledger">${G.s.log.slice(-60).map((t) => `<li>${esc(t)}</li>`).join('')}</ol><div class="btns"><button class="btn primary" data-ok>Close</button></div>`;
+function openLedger() {
+  if (!G.s) return;
+  openDialog(ledgerRender(), { name: 'ledger', render: ledgerRender });
+  const box = $('#modal .dlg'); if (box) box.scrollTop = box.scrollHeight;
 }
 
 function openPause() {
@@ -978,6 +986,7 @@ function boot() {
   $('#modal').addEventListener('click', onModalClick);
   $('#modal').addEventListener('click', onManageClick);
   $('#b-menu').addEventListener('click', () => openPause());
+  $('#b-ledger').addEventListener('click', () => openLedger());
   $('#b-sound').addEventListener('click', () => { unlock(); G.settings.sound = !G.settings.sound; saveSettings(); if (G.settings.sound) sfx('coin'); });
   document.addEventListener('keydown', onKey);
   document.addEventListener('visibilitychange', onVisibility);
