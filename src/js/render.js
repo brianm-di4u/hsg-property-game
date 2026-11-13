@@ -815,7 +815,8 @@ function drawDice(ctx) {
       const sc = (h.size * 1.05) / unitPx(name);
       const shName = `die-${v}-${k % 2}-shadow`;
       const ss = 1 / (1 + p.lift / (h.size * 2));
-      ctx.save(); ctx.translate(p.x, p.y); ctx.scale(ss, ss); sprite(ctx, shName, 0, 0, sc, Math.max(0.3, ss)); ctx.restore();
+      // the shadow falls on the tray only, never on the Gazette or the map beside it
+      ctx.save(); const T = trayRect(); ctx.beginPath(); ctx.rect(T.x, T.y, T.w, T.h); ctx.clip(); ctx.translate(p.x, p.y); ctx.scale(ss, ss); sprite(ctx, shName, 0, 0, sc, Math.max(0.3, ss)); ctx.restore();
       ctx.save(); ctx.translate(p.x, p.y - p.lift); ctx.rotate(tumbling ? 0 : (p.rot || 0) * 0.4); sprite(ctx, name, 0, 0, sc); ctx.restore();
     } else drawDie(ctx, p.x, p.y - p.lift - h.size * 0.5, h.size, v, tumbling ? D.spin || 0 : p.rot);
   });

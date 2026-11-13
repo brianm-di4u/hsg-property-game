@@ -77,4 +77,28 @@ export const tests = [
       t.expect(E.rentParts(s, line, 7).notes[0].includes('lines'), 'a transit line names how many lines the owner holds');
     },
   },
+  {
+    name: 'S1-17 a tumbling die casts no shadow on the Gazette',
+    viewports: ['desktop'],
+    async run(t) {
+      await start(t);
+      await t.game('force2D');
+      await t.waitForStable();
+      const sample = async () => t.page.evaluate(() => {
+        const c = document.querySelector('#board'), k = c.width / c.clientWidth, ctx = c.getContext('2d');
+        return new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => {
+          const h = window.__game.act('dicePos', window.__shadowPos || null);
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            const r = c.getBoundingClientRect(), x = Math.round((h.x - h.size * 1.6) * k), y = Math.round((h.y + h.gap * 3.4 - h.size * 1.2) * k), w = Math.round(h.size * 3.2 * k), hh = Math.round(h.size * 2.4 * k);
+            res(Array.from(ctx.getImageData(x, y, w, hh).data));
+          }));
+        })));
+      });
+      const clean = await sample();
+      await t.page.evaluate(() => { window.__shadowPos = [{ x: 0, y: 3.4, lift: 12 }, { x: 0.2, y: 3.4, lift: 12 }]; });
+      const shaded = await sample();
+      let diff = 0; for (let i = 0; i < clean.length; i += 4) diff += Math.abs(clean[i] - shaded[i]) + Math.abs(clean[i + 1] - shaded[i + 1]) + Math.abs(clean[i + 2] - shaded[i + 2]);
+      t.expect(diff === 0, "the Gazette area is unchanged by a high die's shadow (pixel difference " + diff + ")");
+    },
+  },
 ];

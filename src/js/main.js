@@ -947,6 +947,7 @@ window.__game = {
       case 'card': if (s) E.forceCard(s, args[0], args[1]); return true;
       case 'ai': { if (!s) return false; const a = aiAction(s); return a ? perform(a) : false; }
       case 'aiPause': G.aiPaused = !!args[0]; if (!G.aiPaused) schedule(); else { clearTimeout(G.aiTimer); G.aiTimer = 0; } return G.aiPaused;
+      case 'dicePos': { const D = R.view.dice, h = R.diceHome(); D.pos = args[0] ? args[0].map((p) => ({ x: h.x + p.x * h.gap, y: h.y + p.y * h.gap, lift: p.lift * h.size, rot: 0 })) : null; draw(); return h; }
       case 'fast': G.fast = !!args[0]; return G.fast;
       case 'autoplay': {
         if (!s) return null; const n = args[0] || 1000;
