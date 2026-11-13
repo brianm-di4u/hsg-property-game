@@ -104,7 +104,7 @@ export function rentParts(s, i, diceTotal) {
 }
 export const rentOf = (s, i, d) => rentParts(s, i, d).total;
 
-export function buildCost(i) { return DISTRICTS[SPACES[i].d].build; }
+export function buildCost(i) { const d = SPACES[i].d; return d === undefined ? 0 : DISTRICTS[d].build; }
 export function lotWorth(s, i) {
   const sp = SPACES[i], lot = s.lots[i];
   let w = lot.mortgaged ? sp.price * RULES.mortgageRate : sp.price;

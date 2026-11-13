@@ -1,4 +1,6 @@
 import { start, g, act, mod, rollTo, TWO_HUMANS, click } from './helpers.mjs';
+import * as E from '../src/js/engine.js';
+import { OWNABLE, SPACES } from '../src/js/data.js';
 
 // Debt for Ada with only a transit line (4) or the Water Co. (10) to sell: the Raise cash dialog must open.
 const debtOwning = (space) => async (t) => {
@@ -30,6 +32,20 @@ export const tests = [
       t.equal(await t.page.locator('#modal [data-act="mortgage"][data-i="10"]').count(), 1, 'utility can be mortgaged');
       t.equal(await t.page.locator('#modal [data-act="build"][data-i="1"]').count(), 1, 'lots keep Build');
       await t.checkLayout();
+    },
+  },
+  {
+    name: 'S6-01 engine cost and worth helpers accept every ownable space',
+    node: true,
+    async run(t) {
+      const s = E.createGame({ seed: 3, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'human', name: 'Ben' }] });
+      for (const i of OWNABLE) {
+        let cost;
+        try { cost = E.buildCost(i); } catch (e) { t.fail(`buildCost(${i}) threw: ${e.message}`); continue; }
+        if (SPACES[i].type !== 'lot') t.equal(cost, 0, `${SPACES[i].name} has no build cost`);
+        s.lots[i].owner = 0;
+        t.expect(Number.isFinite(E.lotWorth(s, i)) && Number.isFinite(E.netWorth(s, 0)), `worth of ${SPACES[i].name} is a number`);
+      }
     },
   },
 ];
