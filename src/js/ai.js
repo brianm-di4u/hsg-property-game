@@ -23,8 +23,10 @@ export function reserveFor(s, pid) {
 export function lotValue(s, pid, i, extra = [], minus = []) {
   const sp = SPACES[i], per = persona(s, pid);
   const holds = (j) => (extra.includes(j) || ownerOf(s, j) === pid) && !minus.includes(j);
-  if (sp.type === 'line') { const n = LINES.filter((j) => j !== i && holds(j)).length; return sp.price * (1 + 0.6 * n); }
-  if (sp.type === 'util') return sp.price * 0.85;
+  // A mortgaged lot costs its holder the price of lifting the mortgage.
+  const owed = s.lots[i].mortgaged ? unmortgageCost(i) : 0;
+  if (sp.type === 'line') { const n = LINES.filter((j) => j !== i && holds(j)).length; return sp.price * (1 + 0.6 * n) - owed; }
+  if (sp.type === 'util') return sp.price * 0.85 - owed;
   const group = LOTS_BY_D[sp.d];
   const mine = group.filter((j) => j !== i && holds(j)).length;
   const blockers = new Set(group.filter((j) => j !== i && !holds(j) && ownerOf(s, j) >= 0).map((j) => ownerOf(s, j)));
@@ -33,7 +35,7 @@ export function lotValue(s, pid, i, extra = [], minus = []) {
   let v = sp.price * (1 + 0.5 * share * (blockers.size ? 0.4 : 1) + (completes ? 1.1 : 0));
   // Rent potential of a full district with buildings, discounted.
   if (completes) v += DISTRICTS[sp.d].build * 1.2;
-  return v * (per.taste[sp.d] || 1);
+  return v * (per.taste[sp.d] || 1) - owed;
 }
 
 // Threat: how much lot i is worth to opponent q (completing or nearly completing their district).
