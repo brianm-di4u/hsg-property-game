@@ -223,7 +223,7 @@ async function present(e) {
     case 'land': R.view.flash = e.space; draw(); break;
     case 'paid': if (e.why === 'rent') { pop(e.from, -e.amount); pop(e.to, e.amount); coins(e.from, e.to, e.amount); } else { pop(e.from, -e.amount); coins(e.from, -1, e.amount); } break;
     case 'payday': pop(e.pid, e.amount - e.ground); coins(-1, e.pid, e.amount); sfx('coin'); toast(`${P(e.pid).name}: Payday +${money(e.amount - e.ground)}`); break;
-    case 'rent': sfx('pay'); toast(`${P(e.from).name} pays ${money(e.amount)} to ${e.to >= 0 ? P(e.to).name : 'the treasury'} for ${SPACES[e.space].name}`); await sleep(250); break;
+    case 'rent': sfx('pay'); toast(`${P(e.from).name} pays ${money(e.amount)} to ${e.to >= 0 ? P(e.to).name : 'the treasury'} for ${SPACES[e.space].name}${e.notes && e.notes.length ? ` (${e.notes.join(', ')})` : ''}`); await sleep(250); break;
     case 'buy': sfx('coin'); toast(`${P(e.pid).name} buys ${SPACES[e.space].name}`); break;
     case 'won': sfx('gavel'); toast(`${P(e.pid).name} wins ${SPACES[e.space].name} for ${money(e.amount)}`); await sleep(350); break;
     case 'unsold': toast(`No bids for ${SPACES[e.space].name}`); break;

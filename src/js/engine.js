@@ -101,22 +101,23 @@ export function rentParts(s, i, diceTotal) {
   const sp = SPACES[i], lot = s.lots[i];
   if (!lot || lot.owner < 0 || lot.mortgaged) return { total: 0, base: 0 };
   const m = multFor(s, i);
+  const mult = m === 1 ? [] : [`season/news x${Number(m.toFixed(2))}`];
   if (sp.type === 'line') {
     const n = LINES.filter((j) => s.lots[j].owner === lot.owner).length;
     const t = roundRent(RULES.lineRent[n] * m);
-    return { total: t, base: t };
+    return { total: t, base: t, notes: [`${n} of ${LINES.length} lines`, ...mult] };
   }
   if (sp.type === 'util') {
     const t = roundRent((diceTotal || 7) * (isFestival(s) ? RULES.utilFestival : RULES.utilMult) * m);
-    return { total: t, base: t };
+    return { total: t, base: t, notes: [...(isFestival(s) ? ['festival'] : []), ...mult] };
   }
   const base = sp.price / 10;
   const full = ownsDistrict(s, sp.d, lot.owner);
   if (lot.level === 0) {
     const t = roundRent(base * (full ? RULES.fullBonus : 1) * m);
-    return { total: t, base: t };
+    return { total: t, base: t, notes: [...(full ? ['whole district'] : []), ...mult] };
   }
-  return { total: roundRent(base * RULES.M[lot.level] * m), base: roundRent(base * m) };
+  return { total: roundRent(base * RULES.M[lot.level] * m), base: roundRent(base * m), notes: [lot.level === 4 ? 'Grand Resort' : `${lot.level} bathhouse${lot.level > 1 ? 's' : ''}`, ...mult] };
 }
 export const rentOf = (s, i, d) => rentParts(s, i, d).total;
 
@@ -384,8 +385,9 @@ function payRent(s, p, owner, r, i, ev) {
   const common = s.opts.variant === 'common';
   const toOwner = common ? r.total - r.base : r.total;
   const toPublic = common ? r.base : 0;
-  log(s, `${p.name} owes $${r.total} rent on ${SPACES[i].name}${common && toPublic ? ` ($${toPublic} to the treasury)` : ''}.`);
-  ev.push({ t: 'rent', from: p.id, to: owner, space: i, amount: r.total, public: toPublic });
+  const notes = r.notes || [];
+  log(s, `${p.name} owes $${r.total} rent on ${SPACES[i].name}${common && toPublic ? ` ($${toPublic} to the treasury)` : ''}${notes.length ? ` (${notes.join(', ')})` : ''}.`);
+  ev.push({ t: 'rent', from: p.id, to: owner, space: i, amount: r.total, public: toPublic, notes });
   if (toOwner > 0) charge(s, p.id, owner, toOwner, 'rent', ev);
   if (toPublic > 0) charge(s, p.id, -2, toPublic, 'rent', ev);
 }

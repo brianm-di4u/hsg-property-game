@@ -1,4 +1,5 @@
 import { start, g, mod } from './helpers.mjs';
+import * as E from '../src/js/engine.js';
 
 // Ben (seat 1) owns lot; Ada (seat 0) is sent to roll onto it.
 async function ownedLot(t, lot, level = 0) {
@@ -47,6 +48,33 @@ export const tests = [
       t.expect(/Ada pays \$\d+ to .+ for /.test(text), `toast names payer, owner and lot: "${text}"`);
       const s = await g(t);
       t.expect(text.includes(s.players[1].name), 'the toast names the owner');
+    },
+  },
+  {
+    name: 'S4-31 the rent event carries the breakdown, and the log and toast show it',
+    async run(t) {
+      await ownedLot(t, 13, 3);
+      await t.game('act', 'dice', 1, 2);
+      await t.game('act', 'do', { type: 'roll' });
+      await t.waitForStable();
+      const text = await t.page.locator('#event').textContent();
+      t.expect(text.includes('3 bathhouses'), `toast shows the building level: "${text}"`);
+      const s = await g(t);
+      t.expect(s.log.some((l) => /owes \$\d+ rent on .*\(3 bathhouses/.test(l)), 'the ledger line carries the same breakdown');
+    },
+  },
+  {
+    name: 'S4-31 rentParts reports whole district, Grand Resort, lines and season notes',
+    node: true,
+    async run(t) {
+      const s = E.createGame({ seed: 5, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'human', name: 'Ben' }] });
+      s.lots[1].owner = 1;
+      t.expect(E.rentParts(s, 1, 7).notes.length === 0 || E.rentParts(s, 1, 7).notes.every((n) => n.startsWith('season')), 'a lone lot has no building note');
+      s.lots[1].level = 4;
+      t.expect(E.rentParts(s, 1, 7).notes.includes('Grand Resort'), 'Grand Resort named');
+      const line = 4;
+      s.lots[line].owner = 1;
+      t.expect(E.rentParts(s, line, 7).notes[0].includes('lines'), 'a transit line names how many lines the owner holds');
     },
   },
 ];
