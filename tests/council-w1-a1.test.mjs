@@ -151,4 +151,37 @@ export const tests = [
       t.equal((await t.state()).scene, 'game', 'starts straight away');
     },
   },
+  {
+    name: 'S6-08 a save written by another tab stops this tab from overwriting it',
+    async run(t) {
+      await start(t);
+      const mine = await t.page.evaluate(() => localStorage.getItem('hs-barons-save-v1'));
+      const other = await t.page.evaluate(() => {
+        const o = JSON.parse(localStorage.getItem('hs-barons-save-v1')); o.log.push('Written by another tab.');
+        const v = JSON.stringify(o); localStorage.setItem('hs-barons-save-v1', v);
+        window.dispatchEvent(new StorageEvent('storage', { key: 'hs-barons-save-v1', newValue: v, oldValue: null, storageArea: localStorage }));
+        return v;
+      });
+      t.expect(other !== mine, 'the other tab changed the save');
+      t.equal((await t.state()).dialog, 'stale', 'warning shown');
+      await t.shot('61-save-changed');
+      await t.checkLayout();
+      const r = await act(t, { type: 'roll' });
+      t.expect(!r.ok, 'this tab can no longer act');
+      t.equal(await t.page.evaluate(() => localStorage.getItem('hs-barons-save-v1')), other, "the other tab's save is untouched");
+      await t.page.keyboard.press('Escape');
+      t.equal((await t.state()).dialog, 'stale', 'the warning cannot be dismissed');
+      await click(t, '#modal [data-stale]');
+      t.equal((await t.state()).scene, 'title', 'back on the title');
+      t.expect(!(await t.page.locator('[data-go="continue"]').isDisabled()), 'Continue offers the newest save');
+    },
+  },
+  {
+    name: 'S6-08 an unrelated storage event is ignored',
+    async run(t) {
+      await start(t);
+      await t.page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'hs-barons-settings-v1', newValue: '{}' })));
+      t.equal((await t.state()).dialog, null, 'no warning');
+    },
+  },
 ];
