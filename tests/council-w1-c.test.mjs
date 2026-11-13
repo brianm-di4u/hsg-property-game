@@ -101,4 +101,21 @@ export const tests = [
       t.expect(diff === 0, "the Gazette area is unchanged by a high die's shadow (pixel difference " + diff + ")");
     },
   },
+  {
+    name: 'S2-15 guard: after the last title button no hidden control takes a Tab stop',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('scene', 'title');
+      await t.waitForStable();
+      const stops = [];
+      for (let k = 0; k < 8; k++) {
+        stops.push(await t.page.evaluate(() => { const a = document.activeElement; return a === document.body ? 'body' : (a.textContent || a.tagName).trim().slice(0, 14); }));
+        await t.page.keyboard.press('Tab');
+      }
+      const first = stops.indexOf('body');
+      t.expect(first === -1 || stops[first - 1] === 'About', 'Tab only leaves the page after the last title button: ' + stops.join(' | '));
+      t.expect(stops.filter((s) => s === 'body').length <= 2, 'the body is not a stop in the middle of the buttons: ' + stops.join(' | '));
+      t.expect(!stops.includes('Ledger') && !stops.includes('Menu'), 'no control from the hidden game screen is reachable');
+    },
+  },
 ];
