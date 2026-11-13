@@ -3,7 +3,7 @@ import { SPACES, DISTRICTS, DISTRICT_ORDER, LOTS_BY_D, MONTHS, PERSONAS, PERSONA
 import * as E from './engine.js';
 import { aiAction } from './ai.js';
 import * as R from './render.js';
-import { audio, unlock, sfx } from './audio.js';
+import { audio, unlock, suspendAudio, sfx } from './audio.js';
 import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
@@ -18,7 +18,7 @@ const store = {
 
 const G = {
   s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, motion: 'system', text: 1, theme: 'auto', ai: 'normal' },
-  queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, fast: false, waitingOk: false,
+  queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, hidden: false, fast: false, waitingOk: false,
   dialog: null, dialogRender: null, nextSeed: null, lastSetup: null, helpTab: 'rules', setup: null, liveBuf: [], logSeen: 0,
 };
 window.__G = G;
@@ -290,11 +290,11 @@ async function showCard(e) {
 function schedule() {
   clearTimeout(G.aiTimer); G.aiTimer = 0;
   const s = G.s;
-  if (!s || s.ended || G.scene !== 'game' || G.busy || G.aiPaused) return;
+  if (!s || s.ended || G.scene !== 'game' || G.busy || G.aiPaused || G.hidden) return;
   const a = E.actor(s);
   if (a < 0 || s.players[a].kind !== 'ai') return;
   if (G.dialog && G.dialog !== 'auction' && G.dialog !== 'deed') return;
-  G.aiTimer = setTimeout(() => { G.aiTimer = 0; if (G.busy || !G.s || G.s.ended || G.aiPaused) return; const act = aiAction(G.s); if (act) { const r = perform(act); if (!r.ok) { console.warn('AI action failed', act, r.error); perform({ type: legalFallback() }); } } }, aiDelay());
+  G.aiTimer = setTimeout(() => { G.aiTimer = 0; if (G.busy || !G.s || G.s.ended || G.aiPaused || G.hidden) return; const act = aiAction(G.s); if (act) { const r = perform(act); if (!r.ok) { console.warn('AI action failed', act, r.error); perform({ type: legalFallback() }); } } }, aiDelay());
 }
 function legalFallback() { const L = E.legal(G.s); return (L.find((a) => ['end', 'roll', 'pass', 'decline', 'bankrupt'].includes(a.type)) || L[0]).type; }
 
@@ -784,6 +784,12 @@ function loadGame(s) {
   for (const k in shownCash) delete shownCash[k]; R.view.dice.pos = null; R.view.coins = []; R.view.drop = {}; R.view.puffs = [];
 }
 
+// A hidden tab stops the AI clock and the sound; coming back picks both up again.
+function onVisibility() {
+  G.hidden = document.hidden === true;
+  if (G.hidden) { clearTimeout(G.aiTimer); G.aiTimer = 0; suspendAudio(); } else { if (audio.ctx) unlock(); schedule(); }
+}
+
 // ---------- input ----------
 function onKey(ev) {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
@@ -933,6 +939,7 @@ function boot() {
   $('#b-menu').addEventListener('click', () => openPause());
   $('#b-sound').addEventListener('click', () => { unlock(); G.settings.sound = !G.settings.sound; saveSettings(); if (G.settings.sound) sfx('coin'); });
   document.addEventListener('keydown', onKey);
+  document.addEventListener('visibilitychange', onVisibility);
   window.addEventListener('resize', () => { layout(); });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applySettings);
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', applySettings);

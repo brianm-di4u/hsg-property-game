@@ -2,9 +2,11 @@
 export const audio = { ctx: null, on: true, vol: 0.35, played: [] };
 
 export function unlock() {
-  if (audio.ctx) { if (audio.ctx.state === 'suspended') audio.ctx.resume(); return; }
+  if (audio.ctx) { if (audio.ctx.state !== 'running' && audio.ctx.state !== 'closed') audio.ctx.resume().catch(() => {}); return; }
   try { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audio.ctx = new AC(); } catch (e) { audio.ctx = null; }
 }
+
+export function suspendAudio() { if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend().catch(() => {}); }
 
 function tone(f, t0, dur, type = 'sine', g = 0.3, slide = 0) {
   const c = audio.ctx, o = c.createOscillator(), a = c.createGain();

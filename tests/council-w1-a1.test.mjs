@@ -48,4 +48,28 @@ export const tests = [
       }
     },
   },
+  {
+    name: 'S6-07 AI turns wait while the tab is hidden and resume when it returns',
+    async run(t) {
+      await start(t, { seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }] });
+      await rollTo(t, 2, 3); await act(t, { type: 'buy' }); await act(t, { type: 'end' });
+      await t.waitForStable();
+      const vis = (hidden) => t.page.evaluate((h) => {
+        Object.defineProperty(document, 'hidden', { value: h, configurable: true });
+        Object.defineProperty(document, 'visibilityState', { value: h ? 'hidden' : 'visible', configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+      }, hidden);
+      const before = await g(t);
+      t.equal((await t.state()).game.players[(await t.state()).actor].kind, 'ai', 'an AI is to act');
+      await vis(true);
+      await t.game('act', 'aiPause', false);
+      await t.page.waitForTimeout(800);
+      const during = await g(t);
+      t.equal(JSON.stringify(during.log), JSON.stringify(before.log), 'no AI move while hidden');
+      t.equal(during.turn, before.turn, 'still the AI turn');
+      await vis(false);
+      await t.page.waitForFunction((n) => window.__game.getState().game.log.length > n, before.log.length, { timeout: 8000 });
+      t.expect((await g(t)).log.length > before.log.length, 'the AI acted once visible');
+    },
+  },
 ];
