@@ -7,6 +7,22 @@ import { seedState, rand, die, shuffle } from './rng.js';
 
 export const VERSION = 1;
 
+// True when a parsed save has the shape the game reads: a corrupt or foreign v1 save must not enable Continue.
+export function validateSave(s) {
+  const isObj = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+  const int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi;
+  if (!isObj(s) || s.v !== VERSION || !isObj(s.opts) || !isObj(s.lots) || !isObj(s.decks)) return false;
+  if (!Array.isArray(s.players) || s.players.length < 2 || s.players.length > 6) return false;
+  for (const p of s.players) if (!isObj(p) || typeof p.name !== 'string' || (p.kind !== 'human' && p.kind !== 'ai') || !Number.isFinite(p.cash) || !int(p.pos, 0, N_SPACES - 1) || !int(p.token, 0, TOKENS.length - 1) || !isObj(p.stat) || (p.kind === 'ai' && !PERSONAS[p.persona])) return false;
+  for (const i of OWNABLE) { const l = s.lots[i]; if (!isObj(l) || !int(l.owner, -1, s.players.length - 1) || !int(l.level, 0, 4) || typeof l.mortgaged !== 'boolean') return false; }
+  if (!Array.isArray(s.log) || !Array.isArray(s.debts) || !Array.isArray(s.mods) || !Array.isArray(s.decks.news) || !Array.isArray(s.decks.talk)) return false;
+  if (!Array.isArray(s.dice) || s.dice.length !== 2 || !int(s.month, 0, 11) || !int(s.year, 0, 1e6) || !int(s.round, 0, 1e6) || !int(s.turn, 0, s.players.length - 1)) return false;
+  if (!['roll', 'buy', 'post', 'auction', 'trade', 'debt', 'over'].includes(s.phase)) return false;
+  if (s.phase === 'debt' && !(s.debts[0] && int(s.debts[0].pid, 0, s.players.length - 1) && Number.isFinite(s.debts[0].amount))) return false;
+  if ((s.phase === 'buy' || s.phase === 'auction' || s.phase === 'trade') && !isObj(s.pending)) return false;
+  return true;
+}
+
 export function createGame(opts = {}) {
   const seed = opts.seed ?? 1;
   const s = {

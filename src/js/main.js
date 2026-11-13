@@ -14,6 +14,7 @@ const SAVE = 'hs-barons-save-v1', SETS = 'hs-barons-settings-v1';
 const store = {
   get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+  remove(k) { try { window.localStorage.removeItem(k); return true; } catch (e) { return false; } },
 };
 
 const G = {
@@ -639,7 +640,7 @@ function scene(name) {
   const f = scr.querySelector('.btn.primary, .btn'); if (f) f.focus({ preventScroll: true });
 }
 
-function hasSave() { try { const s = JSON.parse(store.get(SAVE) || 'null'); return s && s.v === E.VERSION && !s.ended ? s : null; } catch (e) { return null; } }
+function hasSave() { try { const s = JSON.parse(store.get(SAVE) || 'null'); return E.validateSave(s) && !s.ended ? s : null; } catch (e) { return null; } }
 
 function screenTitle(scr) {
   const save = hasSave();
@@ -656,7 +657,13 @@ function screenTitle(scr) {
   scr.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => {
     unlock();
     const g = b.dataset.go; G.back = 'title';
-    if (g === 'continue') { const sv = hasSave(); if (sv) { loadGame(sv); scene('game'); } }
+    if (g === 'continue') {
+      const sv = hasSave();
+      if (sv) {
+        try { loadGame(sv); scene('game'); }
+        catch (err) { console.warn('Saved game could not be opened', err); store.remove(SAVE); G.s = null; scene('title'); toast('That saved game could not be opened and was discarded.', 3200); }
+      }
+    }
     else scene(g);
   }));
 }

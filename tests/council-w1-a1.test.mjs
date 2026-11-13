@@ -214,4 +214,48 @@ export const tests = [
       t.equal((await t.state()).dialog, 'error', 'unhandled rejection handled');
     },
   },
+  {
+    name: 'S6-05 a save with the wrong shape does not enable Continue',
+    viewports: ['desktop'],
+    async run(t) {
+      await start(t);
+      const good = await t.page.evaluate(() => localStorage.getItem('hs-barons-save-v1'));
+      const cases = {
+        'players missing': (o) => { delete o.players; },
+        'lots null': (o) => { o.lots = null; },
+        'a lot missing': (o) => { delete o.lots[5]; },
+        'log missing': (o) => { delete o.log; },
+        'month text': (o) => { o.month = 'x'; },
+        'year missing': (o) => { delete o.year; },
+        'position out of range': (o) => { o.players[0].pos = 99; },
+        'unknown phase': (o) => { o.phase = 'dancing'; },
+        'debt phase without a debt': (o) => { o.phase = 'debt'; o.debts = []; },
+        'AI with no persona': (o) => { o.players[1].persona = 'nobody'; },
+        'bare version': () => ({ v: 1 }),
+      };
+      for (const [name, f] of Object.entries(cases)) {
+        const o = JSON.parse(good); const r = f(o);
+        await t.page.evaluate((v) => localStorage.setItem('hs-barons-save-v1', v), JSON.stringify(r || o));
+        await t.reload();
+        t.expect(await t.page.locator('[data-go="continue"]').isDisabled(), `Continue disabled: ${name}`);
+        t.expect(!/undefined|NaN/.test(await t.page.locator('[data-go="continue"]').innerText()), `no undefined in the label: ${name}`);
+      }
+      await t.page.evaluate((v) => localStorage.setItem('hs-barons-save-v1', v), good);
+      await t.reload();
+      t.expect(!(await t.page.locator('[data-go="continue"]').isDisabled()), 'a good save still enables Continue');
+    },
+  },
+  {
+    name: 'S6-05 engine validateSave accepts played games and rejects junk',
+    node: true,
+    async run(t) {
+      const { aiAction } = await import('../src/js/ai.js');
+      const s = E.createGame({ seed: 5, seats: [{ kind: 'ai' }, { kind: 'ai' }, { kind: 'ai' }] });
+      for (let k = 0; k < 600 && !s.ended; k++) {
+        E.apply(s, aiAction(s));
+        if (k % 25 === 0) t.expect(E.validateSave(JSON.parse(JSON.stringify(s))), `played state ${k} is valid`);
+      }
+      for (const junk of [null, [], 'x', 3, {}, { v: 1 }, { ...s, players: [] }]) t.expect(!E.validateSave(junk), 'junk rejected');
+    },
+  },
 ];
