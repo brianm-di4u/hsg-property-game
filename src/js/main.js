@@ -303,7 +303,20 @@ function legalFallback() { const L = E.legal(G.s); return (L.find((a) => ['end',
 function humanActor() { const s = G.s; if (!s || s.ended) return null; const a = E.actor(s); return a >= 0 && s.players[a].kind === 'human' ? s.players[a] : null; }
 const can = (type) => G.s && E.legal(G.s).some((a) => a.type === type);
 
+// A throw while drawing the HUD or a dialog must not leave a half-drawn screen with no way out.
+function recover(err) {
+  console.warn('Recovered from an error', err);
+  if (G.dialog === 'error') return;
+  if (G.dialog) closeDialog(true);
+  sfx('error');
+  openDialog(`<h2 id="dlg-title">Something went wrong</h2><p>The game hit an unexpected error. Your game is saved up to your last move.</p>
+    <div class="btns"><button class="btn primary" data-title>Return to title</button><button class="btn" data-ok>Keep playing</button></div>`, { name: 'error' });
+  $('#modal').querySelector('[data-title]').addEventListener('click', () => { closeDialog(true); G.back = null; scene('title'); });
+}
 function refresh() {
+  try { refreshView(); } catch (err) { recover(err); }
+}
+function refreshView() {
   const s = G.s;
   if (!s || G.scene !== 'game') return;
   // clock
@@ -326,7 +339,7 @@ function refresh() {
   renderPlayers();
   // dialogs driven by phase
   const h = humanActor();
-  if (!G.busy) {
+  if (!G.busy && G.dialog !== 'error') {
     if (s.phase === 'auction' && G.dialog !== 'auction' && G.dialog !== 'card') openAuction();
     else if (s.phase !== 'auction' && G.dialog === 'auction') closeDialog(true);
     if (s.phase === 'trade' && h && G.dialog !== 'incoming' && G.dialog !== 'card') openIncoming();
@@ -961,6 +974,8 @@ function boot() {
   $('#b-sound').addEventListener('click', () => { unlock(); G.settings.sound = !G.settings.sound; saveSettings(); if (G.settings.sound) sfx('coin'); });
   document.addEventListener('keydown', onKey);
   document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('error', (ev) => { if (G.scene === 'game' && G.s && ev.error) recover(ev.error); });
+  window.addEventListener('unhandledrejection', (ev) => { if (G.scene === 'game' && G.s) recover(ev.reason); });
   window.addEventListener('storage', onStorage);
   window.addEventListener('resize', () => { layout(); });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applySettings);

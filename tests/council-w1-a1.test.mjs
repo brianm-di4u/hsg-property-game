@@ -184,4 +184,34 @@ export const tests = [
       t.equal((await t.state()).dialog, null, 'no warning');
     },
   },
+  {
+    name: 'S6-03 a throw while drawing the game shows a way out instead of freezing',
+    allowConsoleErrors: true,
+    async run(t) {
+      await start(t, { seats: TWO_HUMANS });
+      // a state the screen cannot draw: a baron with a token that does not exist
+      await mod(t, (s) => { s.players[0].token = 99; });
+      await t.waitForStable();
+      t.equal((await t.state()).dialog, 'error', 'error dialog shown');
+      const txt = await t.page.locator('#modal').innerText();
+      t.expect(/Something went wrong/.test(txt) && /saved/i.test(txt), 'says what happened');
+      await t.shot('62-error-dialog');
+      await t.checkLayout();
+      await click(t, '#modal [data-title]');
+      t.equal((await t.state()).scene, 'title', 'Return to title works');
+    },
+  },
+  {
+    name: 'S6-03 an uncaught error or rejected promise during play shows the same way out',
+    allowConsoleErrors: true,
+    async run(t) {
+      await start(t);
+      await t.page.evaluate(() => window.dispatchEvent(new ErrorEvent('error', { error: new Error('boom'), message: 'boom' })));
+      t.equal((await t.state()).dialog, 'error', 'window error handled');
+      await click(t, '#modal [data-ok]');
+      t.equal((await t.state()).dialog, null, 'Keep playing closes it');
+      await t.page.evaluate(() => { const p = Promise.resolve(); p.catch(() => {}); window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', { promise: p, reason: new Error('nope') })); });
+      t.equal((await t.state()).dialog, 'error', 'unhandled rejection handled');
+    },
+  },
 ];
