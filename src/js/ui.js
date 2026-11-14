@@ -80,6 +80,9 @@ export function seasonsTable() {
   <p class="fine">Festival months (March, June, October, November, December) also raise the Water Co. to ${RULES.utilFestival} × the dice. Multipliers are game rules, not history.</p>`;
 }
 
+// The goal, in one sentence: the first line of the Rules, and on the setup card and the pause card (S2-02).
+export const GOAL_TEXT = 'Goal: bankrupt the other barons, or hold the most net worth when time runs out.';
+
 export function helpHtml(tab) {
   if (tab === 'seasons') return `<h3>The tourism calendar</h3><p class="prose">Every time play passes the first baron, a new month begins and a Headline is drawn. Seasons multiply rents in their districts; the board shows a green ▲ or red ▼ badge with the multiplier.</p>${seasonsTable()}`;
   if (tab === 'cards') return `<h3>Headlines (one each new month)</h3><ul class="prose">${NEWS.map((c) => `<li><strong>${esc(c.title)}.</strong> ${esc(c.effect)} <span class="src">${esc(c.fact.text)} (${esc(c.fact.src)})</span></li>`).join('')}</ul>
@@ -89,7 +92,7 @@ export function helpHtml(tab) {
     <tr><th>E</th><td>End turn</td></tr><tr><th>M</th><td>Manage lots: build, sell, mortgage</td></tr><tr><th>T</th><td>Propose a trade</td></tr>
     <tr><th>P / Esc</th><td>Menu / close a dialog</td></tr><tr><th>Arrow keys</th><td>Move the board cursor (focus the board first with Tab)</td></tr><tr><th>Enter</th><td>Read the deed under the cursor</td></tr></tbody></table>
     <p class="prose">Touch: tap any space to read its deed. Every action has a button.</p>`;
-  return `<h3>Rules</h3><ol class="prose">
+  return `<h3>Rules</h3><p class="goal"><strong>${esc(GOAL_TEXT)}</strong></p><ol class="prose">
     <li>Each baron starts with ${money(RULES.startCash)} at the Depot. Roll two dice and move clockwise. Doubles roll again; a third double sends you to the Grand Jury Room.</li>
     <li>Pass or land on the Depot: collect ${money(RULES.payday)} Payday. Bathhouse Row lease holders pay $10 per lease then.</li>
     <li>Land on an unowned lot: buy it at the game price, or send it to auction. Everyone bids up from $10; the highest bid wins.</li>

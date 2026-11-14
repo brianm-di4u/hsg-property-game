@@ -7,7 +7,7 @@ import { audio, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAu
 import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
-import { qs, esc, money, deedHtml, cardHtml, helpHtml, aboutHtml, lotLabel, artSrc, spaceArt } from './ui.js';
+import { qs, esc, money, deedHtml, cardHtml, helpHtml, aboutHtml, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
 import { CAREER_KEY, CAREER_VERSION, ACH, ACH_BY_ID, FELTS, FELT_BY_ID, feltOpen, blankCareer, cleanCareer, localDate, playAchievements, recordGame, unlockFelts } from './career.js';
 
 const $ = qs;
@@ -19,8 +19,8 @@ const store = {
 };
 
 const G = {
-  s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal', felt: 'green' },
-  career: null, careerLocked: false, gameRes: null, news: [],
+  s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal', felt: 'green', tipsSeen: null, tipsDone: [] },
+  career: null, careerLocked: false, gameRes: null, news: [], tipsOn: false, input: 'mouse', coach: { rent: false, month: false, turns: 0, shown: null, key: '', timer: 0 },
   queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, hidden: false, stale: false, fast: false, waitingOk: false,
   dialog: null, dialogRender: null, nextSeed: null, lastSetup: null, helpTab: 'rules', setup: null, liveBuf: [], logSeen: 0,
 };
@@ -28,8 +28,11 @@ window.__G = G;
 
 // ---------- settings ----------
 function loadSettings() {
+  const had = store.get(SETS) !== null || store.get(SAVE) !== null || store.get(CAREER_KEY) !== null; // a player who has been here before is not a newcomer
   try { const o = JSON.parse(store.get(SETS) || '{}'); if (o && typeof o === 'object' && !Array.isArray(o)) Object.assign(G.settings, o); } catch (e) { /* defaults */ }
   const st = G.settings;
+  if (typeof st.tipsSeen !== 'boolean') st.tipsSeen = had; // first-run tips (S2-02): an older save never sees them unless it asks
+  st.tipsDone = Array.isArray(st.tipsDone) ? st.tipsDone.filter((x) => typeof x === 'string').slice(0, 20) : [];
   if (typeof st.felt !== 'string' || !feltOpen(G.career, st.felt)) st.felt = 'green'; // a felt that is not open falls back to the original // the sound fields added with music and ambience: a missing or damaged one falls back to its default
   for (const k of ['sfx', 'music', 'amb']) if (typeof st[k] !== 'boolean') st[k] = true;
   if (typeof st.vol !== 'number' || !(st.vol >= 0 && st.vol <= 1)) st.vol = 0.35;
@@ -88,6 +91,63 @@ function showNews() {
   sfx('ach'); toast(msg, 2600); announce(msg);
 }
 
+// ---------- first-run coach (S2-02) ----------
+// A strip above the action bar teaches one idea at a time in play: the goal, then Roll, Buy or Auction, End turn, and the
+// first rent, the first time Manage can build and the first season change. Each idea ends when the player does what it
+// says, taps it, or after a while. A player with an earlier save is not shown it unless they ask (Settings).
+const GOAL_TIP = 'Goal: bankrupt the others, or hold the most net worth.';
+const tapWord = () => (G.input === 'touch' ? 'Tap' : 'Click');
+const TIPS = [
+  { id: 'goal', ttl: 6500, when: () => true, text: () => GOAL_TIP },
+  { id: 'roll', ttl: 15000, hi: 'R', acts: ['roll'], when: (s, h) => !!h && s.phase === 'roll', text: () => (G.input === 'key' ? 'Press R to roll the dice and move.' : `${tapWord()} Roll to throw the dice and move.`) },
+  { id: 'buy', ttl: 15000, hi: 'B', acts: ['buy', 'decline'], when: (s, h) => !!h && s.phase === 'buy', text: () => (G.input === 'key' ? 'Press B to buy this lot, or A to auction it.' : `${tapWord()} Buy to own this lot, or Auction to let all bid.`) },
+  { id: 'end', ttl: 15000, hi: 'E', acts: ['end'], when: (s, h) => !!h && s.phase === 'post' && !s.again, text: () => (G.input === 'key' ? 'Press E to end your turn.' : `${tapWord()} End turn when you are done.`) },
+  { id: 'rent', ttl: 10000, when: () => G.coach.rent, text: () => 'Landing on a lot someone owns means paying its owner rent.' },
+  { id: 'build', ttl: 14000, hi: 'M', when: (s, h) => !!h && can('build'), text: () => (G.input === 'key' ? 'You own a whole district: press M to build.' : `You own a whole district: ${tapWord().toLowerCase()} Manage to build.`) },
+  { id: 'season', ttl: 10000, when: () => G.coach.month, text: () => 'Seasons change rents: green ▲ is up, red ▼ is down.' },
+];
+const coachActive = () => G.tipsOn && !G.settings.tipsSeen && !!G.s && G.scene === 'game' && !G.s.ended && G.s.players.some((p) => p.kind === 'human');
+function coachWanted() {
+  const done = new Set(G.settings.tipsDone), h = humanActor();
+  return TIPS.find((x) => !done.has(x.id) && x.when(G.s, h)) || null;
+}
+function coachDone(id) {
+  if (!G.tipsOn || G.settings.tipsSeen || !TIPS.some((x) => x.id === id) || G.settings.tipsDone.includes(id)) return;
+  G.settings.tipsDone.push(id);
+  if (TIPS.every((x) => G.settings.tipsDone.includes(x.id))) G.settings.tipsSeen = true;
+  saveSettings(); coachRender();
+}
+// The human did something: the tips that describe it are done.
+function coachAction(type) {
+  if (!coachActive()) return;
+  for (const x of TIPS) if (x.acts && x.acts.includes(type)) coachDone(x.id);
+  if (type === 'roll') coachDone('goal');
+  if (type === 'end' && ++G.coach.turns >= 10) { G.settings.tipsSeen = true; saveSettings(); coachRender(); } // ten turns in: they know the table
+}
+function coachRender() {
+  const el = $('#coach'); if (!el) return;
+  const C = G.coach;
+  if (!coachActive()) {
+    clearTimeout(C.timer); C.timer = 0; C.shown = null; C.key = '';
+    if (!el.hidden) { el.hidden = true; el.innerHTML = ''; document.querySelectorAll('.coachhi').forEach((b) => b.classList.remove('coachhi')); if (G.scene === 'game') { G.h3d = null; layout(); } }
+    return;
+  }
+  const x = coachWanted(), text = x ? x.text() : GOAL_TIP, key = (x ? x.id : '') + '|' + text;
+  if (el.hidden) el.hidden = false;
+  if (C.key !== key) {
+    C.key = key; clearTimeout(C.timer); C.timer = 0;
+    el.innerHTML = `<button type="button" class="coach-text${x ? '' : ' quiet'}" ${x ? `data-tip="${x.id}" aria-label="${esc(text)} Tap to dismiss."` : 'tabindex="-1"'}>${esc(text)}</button><button type="button" class="btn coach-skip" data-skip-tips>Skip tips</button>`;
+    if (x) { C.shown = x.id; C.timer = setTimeout(() => coachDone(x.id), x.ttl); announce(text); } else C.shown = null;
+  }
+  document.querySelectorAll('.coachhi').forEach((b) => b.classList.remove('coachhi'));
+  if (x && x.hi) { const b = document.querySelector(`#actions .btn[data-key="${x.hi}"]:not(:disabled)`); if (b) b.classList.add('coachhi'); }
+}
+function onCoachClick(ev) {
+  const b = ev.target.closest('button'); if (!b) return;
+  if (b.dataset.tip) coachDone(b.dataset.tip);
+  else if (b.dataset.skipTips != null) { G.settings.tipsSeen = true; saveSettings(); coachRender(); }
+}
+
 // ---------- layout and drawing ----------
 const narrow = () => matchMedia('(max-width: 820px), (max-aspect-ratio: 1/1)').matches;
 function layout() {
@@ -97,7 +157,7 @@ function layout() {
   if (narrow()) {
     W = Math.min(window.innerWidth - 12, 640);
     const hh = (q) => { const e = $(q); return e ? e.offsetHeight : 0; };
-    const panelNeed = Math.max(200, hh('#turnbar') + hh('#event') + Math.max(hh('#actions'), 96) + hh('#players') + 18);
+    const panelNeed = Math.max(200, hh('#turnbar') + hh('#event') + hh('#coach') + Math.max(hh('#actions'), 96) + hh('#players') + 18);
     H = Math.max(W, Math.min(W * 1.45, window.innerHeight - hh('#topbar') - panelNeed - 26));
     // the 3D table keeps one height per screen size and game: a new face height means a new texture and slab, so it
     // must not follow the panel as the turn bar's text changes
@@ -166,8 +226,10 @@ function flushLog() {
 function perform(action) {
   if (!G.s || G.s.ended && action.type !== 'noop') return { ok: false, error: 'no game' };
   if (G.stale) return { ok: false, error: 'saved game changed in another tab' };
+  const byHuman = !!humanActor();
   const r = E.apply(G.s, action);
   if (!r.ok) { sfx('error'); return r; }
+  if (byHuman) coachAction(action.type);
   afterAction(r.events);
   // Keep moving tokens at their old place until their move animation runs.
   for (const e of r.events) if (e.t === 'move' && !R.view.tokens[e.pid]) R.view.tokens[e.pid] = R.slot(e.from, e.pid);
@@ -277,7 +339,7 @@ async function present(e) {
       break;
     }
     case 'land': cue('land', e.pid); R.view.flash = e.space; draw(); break;
-    case 'paid': if (e.why === 'rent') { pop(e.from, -e.amount); pop(e.to, e.amount); coins(e.from, e.to, e.amount); } else { cue('tax', e.from); pop(e.from, -e.amount); coins(e.from, -1, e.amount); } break;
+    case 'paid': if (e.why === 'rent') { G.coach.rent = true; pop(e.from, -e.amount); pop(e.to, e.amount); coins(e.from, e.to, e.amount); } else { cue('tax', e.from); pop(e.from, -e.amount); coins(e.from, -1, e.amount); } break;
     case 'payday': pop(e.pid, e.amount - e.ground); coins(-1, e.pid, e.amount); cue('coin', e.pid, { pitch: sumPitch(e.amount) }); toast(`${P(e.pid).name}: Payday +${money(e.amount - e.ground)}`); break;
     case 'rent': cue('pay', e.from); toast(`${P(e.from).name} pays ${money(e.amount)} to ${e.to >= 0 ? P(e.to).name : 'the treasury'} for ${SPACES[e.space].name}${e.notes && e.notes.length ? ` (${e.notes.join(', ')})` : ''}`); await sleep(250); break;
     case 'buy': cue('coin', e.pid, { pitch: sumPitch(e.price) }); toast(`${P(e.pid).name} buys ${SPACES[e.space].name}`); break;
@@ -293,7 +355,7 @@ async function present(e) {
     case 'burn': sfx('bust'); break;
     case 'jury': cue('gavel', e.pid); toast(`${P(e.pid).name} is held for the Grand Jury`); await sleep(300); break;
     case 'card': await showCard(e); break;
-    case 'month': sfx('month', { m: e.month }); toast(`${MONTHS[e.month]}, Year ${e.year + 1}`); break;
+    case 'month': G.coach.month = true; sfx('month', { m: e.month }); toast(`${MONTHS[e.month]}, Year ${e.year + 1}`); break;
     case 'trade': cue('coin', e.from); toast('Trade accepted'); break;
     case 'declined': sfx('declined'); toast(`${P(e.to).name} declines the offer`); break;
     case 'bankrupt': cue('bust', e.pid); toast(`${P(e.pid).name} is bankrupt`, 2400); await sleep(500); break;
@@ -404,6 +466,7 @@ function refreshView() {
   const cash = document.createElement('div'); cash.innerHTML = `<strong>${money(A.cash)}</strong>`; tb.append(cash);
   renderActions();
   renderPlayers();
+  coachRender();
   // dialogs driven by phase
   const h = humanActor();
   if (!G.busy && G.dialog !== 'error') {
@@ -554,7 +617,7 @@ function openLedger() {
 
 function openPause() {
   if (!G.s) return;
-  openDialog(`<h2 id="dlg-title">Menu</h2><div class="menu">
+  openDialog(`<h2 id="dlg-title">Menu</h2><p class="fine goal">${esc(GOAL_TEXT)}</p><div class="menu">
     <button class="btn primary" data-ok>Resume</button>
     <button class="btn" data-go="help">How to play</button>
     <button class="btn" data-go="settings">Settings</button>
@@ -593,7 +656,7 @@ function onManageClick(ev) {
   if (t === 'bankrupt') { if (!b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'Confirm bankruptcy'; b.classList.add('primary'); return; } perform({ type: 'bankrupt' }); return; }
   perform({ type: t, space: +b.dataset.i });
 }
-function openManage() { if (!humanActor() || !(can('build') || can('sell') || can('mortgage') || can('unmortgage') || can('end') || can('roll'))) return; openDialog(manageRender(false), { name: 'manage', render: () => manageRender(false) }); }
+function openManage() { if (!humanActor() || !(can('build') || can('sell') || can('mortgage') || can('unmortgage') || can('end') || can('roll'))) return; coachDone('build'); openDialog(manageRender(false), { name: 'manage', render: () => manageRender(false) }); }
 function openDebt() { openDialog(manageRender(true), { name: 'debt', closable: false, render: () => manageRender(true) }); }
 
 // Auction
@@ -713,7 +776,7 @@ function scene(name) {
     if (!G.s) return scene('title');
     const ev = $('#event'); ev.textContent = ''; ev.classList.remove('on');
     scr.innerHTML = ''; app.hidden = false;
-    layout(); refresh(); flushLog(); schedule();
+    coachRender(); layout(); refresh(); flushLog(); schedule();
     const f = document.querySelector('#actions .btn.primary'); if (f) f.focus({ preventScroll: true });
     return;
   }
@@ -753,7 +816,7 @@ function screenTitle(scr) {
     if (g === 'continue') {
       const sv = hasSave();
       if (sv) {
-        try { loadGame(sv); scene('game'); }
+        try { G.tipsOn = !G.settings.tipsSeen; loadGame(sv); scene('game'); }
         catch (err) { console.warn('Saved game could not be opened', err); store.remove(SAVE); G.s = null; scene('title'); toast('That saved game could not be opened and was discarded.', 3200); }
       }
     }
@@ -798,7 +861,7 @@ const DEFAULT_SEATS = () => [
 function screenSetup(scr) {
   const st = G.setup || (G.setup = { seats: DEFAULT_SEATS(), mode: 'full', variant: 'standard', years: 0, seed: '' });
   const seg = (key, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button type="button" data-seg="${key}" data-v="${v}" aria-pressed="${st[key] === v}">${l}</button>`).join('')}</div>`;
-  scr.innerHTML = `<div class="wrap"><h2>New game</h2>
+  scr.innerHTML = `<div class="wrap"><h2>New game</h2><p class="goal">${esc(GOAL_TEXT)}</p>
     <div class="card"><h3 style="margin-top:0">Barons (${st.seats.length} of 6)</h3><div id="seats">${st.seats.map((p, k) => `<div class="seat ${p.kind}" data-k="${k}" style="--seat:${TOKENS[k].color}"><span class="tk"></span>
       <div class="seg kind" role="group" aria-label="Seat ${k + 1} player type"><button type="button" data-kind="human" data-k="${k}" aria-pressed="${p.kind === 'human'}">Human</button><button type="button" data-kind="ai" data-k="${k}" aria-pressed="${p.kind === 'ai'}">AI</button></div>
       <input type="text" class="nm" aria-label="Seat ${k + 1} name" data-name="${k}" value="${esc(p.name)}" placeholder="${p.kind === 'ai' ? esc(PERSONAS[p.persona]?.who || 'AI baron') : 'Name'}" maxlength="18">
@@ -847,7 +910,8 @@ function startFromSetup() {
 function beginSetupGame() {
   const st = G.setup;
   const seats = st.seats.map((p) => ({ kind: p.kind, name: p.name || undefined, persona: p.persona === 'random' ? undefined : p.persona, level: p.kind === 'ai' ? (p.level || 'normal') : undefined }));
-  newGame({ seats, mode: st.mode, variant: st.variant, years: st.mode === 'short' ? 0 : +st.years, seed: st.seed !== '' ? +st.seed : undefined });
+  if (!G.settings.tipsSeen) saveSettings(); // a newcomer's tips are remembered from the first game on
+  newGame({ seats, mode: st.mode, variant: st.variant, years: st.mode === 'short' ? 0 : +st.years, seed: st.seed !== '' ? +st.seed : undefined, coach: true });
 }
 
 function screenHelp(scr) {
@@ -872,12 +936,14 @@ function screenSettings(scr) {
     <p><strong>Text size</strong><br>${seg('text', [[1, '100%'], [1.25, '125%'], [1.5, '150%']])}</p>
     <p><strong>Theme</strong><br>${seg('theme', [['auto', 'Follow system'], ['light', 'Gilded day'], ['dark', 'Neon night']])}</p>
     <p><strong>AI speed</strong><br>${seg('ai', [['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']])}</p>
-    <div class="felts" role="group" aria-label="Dice tray felt"><strong>Dice tray felt</strong><div class="feltrow">${feltButtons(true)}</div><p class="fine">New felts are earned by playing. Your choice is shown on the table's dice tray.</p></div></div>
+    <div class="felts" role="group" aria-label="Dice tray felt"><strong>Dice tray felt</strong><div class="feltrow">${feltButtons(true)}</div><p class="fine">New felts are earned by playing. Your choice is shown on the table's dice tray.</p></div>
+    <p><strong>First-game tips</strong><br><button type="button" class="btn" data-tips-again>Show tips again</button> <span class="fine" id="tipsnote" role="status"></span></p></div>
     <button class="btn primary" data-back>Back</button></div>`;
   scr.onclick = (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.set) { const k = b.dataset.set; let v = b.dataset.v; if (k === 'sound' || k === 'sfx' || k === 'music' || k === 'amb') v = v === 'true'; if (k === 'text') v = +v; st[k] = v; saveSettings(); unlock(); if ((k === 'sound' || k === 'sfx') && v) sfx('coin'); screenSettings(scr); scr.querySelector(`[data-set="${k}"][aria-pressed="true"]`).focus(); }
     else if (b.dataset.felt) { if (feltOpen(G.career, b.dataset.felt)) { st.felt = b.dataset.felt; saveSettings(); unlock(); screenSettings(scr); scr.querySelector(`[data-felt="${b.dataset.felt}"]`).focus(); } }
+    else if (b.dataset.tipsAgain != null) { st.tipsSeen = false; st.tipsDone = []; G.tipsOn = !!G.s && !G.s.ended; saveSettings(); $('#tipsnote').textContent = G.tipsOn ? 'The tips will show when you are back at the table.' : 'The tips will show in your next game.'; }
     else if (b.dataset.back != null) scene(G.back === 'game' && G.s ? 'game' : 'title');
   };
   scr.oninput = (ev) => { const d = ev.target.dataset, k = d.vol != null ? 'vol' : d.mvol != null ? 'mvol' : d.avol != null ? 'avol' : null; if (k) { st[k] = +ev.target.value; saveSettings(); } };
@@ -944,6 +1010,7 @@ function screenOver(scr) {
 function newGame(opts = {}) {
   const seed = opts.seed ?? G.nextSeed ?? ((Date.now() % 1e9) | 0);
   G.nextSeed = null;
+  G.tipsOn = !!opts.coach && !G.settings.tipsSeen; // the first-run tips ride on games started from the setup screen
   G.lastSetup = { ...opts, seed: undefined };
   const s = E.createGame({ ...opts, seed });
   loadGame(s);
@@ -952,7 +1019,7 @@ function newGame(opts = {}) {
   return s;
 }
 function loadGame(s) {
-  G.gameRes = null; G.news = [];
+  clearTimeout(G.coach.timer); G.coach = { rent: false, month: false, turns: 0, shown: null, key: '', timer: 0 }; G.gameRes = null; G.news = [];
   G.s = s; G.queue = []; G.busy = false; G.logSeen = s.log.length > 3 ? s.log.length - 3 : 0;
   R.view.tokens = []; R.view.flash = -1; R.view.cursor = -1;
   R.view.dice.a = s.dice[0] || 1; R.view.dice.b = s.dice[1] || 1;
@@ -983,9 +1050,11 @@ function onStorage(ev) {
 }
 
 // ---------- input ----------
+// The words of a tip follow the way the player is playing: keys, a finger or a mouse.
+function setInput(mode) { if (G.input === mode) return; G.input = mode; if (G.tipsOn) coachRender(); }
 function onKey(ev) {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
-  unlock();
+  unlock(); setInput('key');
   const k = ev.key;
   if (G.dialog) {
     if (k === 'Escape') { ev.preventDefault(); closeDialog(); }
@@ -1077,6 +1146,7 @@ window.__game = {
   seed(n) { G.nextSeed = n | 0; if (G.s) { G.s.rng = (n >>> 0) || 1; } return true; },
   getState: gameState,
   career() { return JSON.parse(JSON.stringify({ career: G.career, locked: G.careerLocked, res: G.gameRes, felt: R.view.feltC ? R.view.feltC[0] : null })); },
+  tips() { const el = $('#coach'); return { on: coachActive(), shown: !el.hidden, text: el.hidden ? '' : (el.querySelector('.coach-text')?.textContent || ''), tip: G.coach.shown, seen: G.settings.tipsSeen, done: G.settings.tipsDone.slice() }; },
   audioList,
   audioRender,
   audioState,
@@ -1127,6 +1197,7 @@ function boot() {
   $('#board').tabIndex = 0; $('#board').addEventListener('click', onBoardPointer);
   loadCareer();
   loadSettings();
+  G.input = matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse';
   start3D();
   loadArt(() => {
     R.view.cacheKey = '';
@@ -1134,6 +1205,8 @@ function boot() {
     if (art.on) document.body.classList.add('art');
     if (G.scene === 'game') { refresh(); layout(); } // the title already has its art (the image list is known up front)
   });
+  $('#coach').addEventListener('click', onCoachClick);
+  document.addEventListener('pointerdown', (ev) => setInput(ev.pointerType === 'touch' ? 'touch' : 'mouse'), true);
   $('#modal').addEventListener('click', onModalClick);
   $('#modal').addEventListener('click', onManageClick);
   $('#b-menu').addEventListener('click', () => openPause());

@@ -411,7 +411,18 @@ body.reduce .bidders .now .paddle { animation: none; }
 .over td[data-tok] { display: flex; align-items: center; gap: 6px; }
 .seg button[data-seg] { white-space: nowrap; } /* setup choices stay on one line */
 
-/* ---------- career and felts (wave 2: S3-02) ---------- */
+/* ---------- first-run coach, career and felts (wave 2: S2-02, S3-02) ---------- */
+#coach { display: flex; align-items: stretch; gap: 6px; padding: 3px 4px 3px 6px; border-radius: 9px; background: var(--surface); border: 2px solid var(--primary); box-shadow: 0 4px 12px rgba(20,8,0,.3); }
+#coach[hidden] { display: none; }
+#coach .coach-text { flex: 1; min-width: 0; min-height: 44px; padding: 4px 6px; border: 0; background: none; color: var(--text); font: inherit; font-weight: 700; font-size: .92em; line-height: 1.25; text-align: left; cursor: pointer; border-radius: 6px; }
+#coach .coach-text.quiet { color: var(--muted); font-weight: 400; cursor: default; }
+#coach .coach-skip { flex: none; padding: 4px 10px; font-size: .85em; align-self: center; }
+.coachhi { outline: 3px solid var(--highlight); outline-offset: 2px; animation: coachpulse 1.4s ease-in-out infinite; }
+@keyframes coachpulse { 50% { outline-offset: 5px; } }
+body.reduce .coachhi { animation: none; }
+@media (prefers-reduced-motion: reduce) { .coachhi { animation: none; } }
+.goal { font-weight: 600; margin: 0 0 12px; }
+.fine.goal { font-weight: 400; margin: 0 0 10px; }
 .career .bignums { display: flex; flex-wrap: wrap; gap: 8px 22px; }
 .career .bignums div { display: flex; flex-direction: column; min-width: 64px; }
 .career .bignums b { font-family: var(--font-slab); font-weight: 400; font-size: 1.7em; line-height: 1.1; }
