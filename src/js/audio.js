@@ -366,7 +366,7 @@ const SCENES = {
 // Per-cue trim, set from the measurements in tests/council-w2-a.test.mjs so every cue peaks near 0.3.
 const TRIM = { dice: 0.58, land: 0.7, tax: 0.65, build: 0.64, gavel: 0.62, bust: 0.45, mort: 0.6, unmort: 0.66, sell: 0.71, debt: 0.6, deed: 0.9, month: 0.8, turn: 0.82, release: 0.9, error: 0.85 };
 const CUE_NAMES = ['click', 'open', 'close', 'deed', 'dice', 'step', 'land', 'coin', 'pay', 'tax', 'card', 'build', 'gavel', 'bid', 'drop', 'error', 'fanfare', 'bust',
-  'turn', 'again', 'release', 'mort', 'unmort', 'sell', 'auctionStart', 'unsold', 'offer', 'declined', 'month', 'debt'];
+  'turn', 'again', 'release', 'mort', 'unmort', 'sell', 'auctionStart', 'unsold', 'offer', 'declined', 'month', 'debt', 'ach'];
 const PENTA = [72, 74, 76, 79, 81, 84, 86, 88, 91, 93];   // C pentatonic over two octaves, walked upward by a move
 const BELL = [[1, 1], [2.76, 0.35], [5.4, 0.15]];
 
@@ -506,6 +506,13 @@ function makeCues(ctx, out, kit) {
     month: (d, t, j, o) => {
       hit(d, t, { f: 700, to: 4200, q: 0.7, dur: 0.35, att: 0.1, g: 0.5 * j.g, off: j.o });
       tone(d, t + 0.3, hz(PENTA[(o.m || 0) % 5] + 12) * j.f, { parts: BELL, dur: 0.55, g: 0.2 * j.g });
+    },
+    // an achievement: a rising bell fourth and a high sparkle (S3-02)
+    ach: (d, t, j) => {
+      tone(d, t, 784 * j.f, { parts: BELL, dur: 0.4, g: 0.2 * j.g });
+      tone(d, t + 0.14, 1047 * j.f, { parts: BELL, dur: 0.5, g: 0.2 * j.g });
+      tone(d, t + 0.3, 1568 * j.f, { parts: [[1, 1], [2, 0.2]], dur: 0.7, g: 0.16 * j.g });
+      hit(d, t + 0.3, { f: 6500, q: 1.5, dur: 0.012, g: 0.25 * j.g, off: j.o });
     },
     debt: (d, t, j) => [0, 0.16].forEach((dt) => tone(d, t + dt, 110 * j.f, { parts: [[1, 1], [2, 0.3]], dur: 0.12, g: 0.4 * j.g, lp: 700 })),
   };

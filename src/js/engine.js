@@ -49,7 +49,7 @@ export function createGame(opts = {}) {
       id: i, name,
       kind: st.kind === 'ai' ? 'ai' : 'human', persona, level: st.kind === 'ai' ? (LEVELS[st.level] ? st.level : 'normal') : null, token: i, cash: RULES.startCash, pos: DEPOT,
       held: 0, pardons: 0, out: false, doubles: 0, outRound: 0,
-      stat: { rentIn: 0, rentOut: 0, bought: 0, built: 0, trades: 0 },
+      stat: { rentIn: 0, rentOut: 0, bought: 0, built: 0, trades: 0, maxRentIn: 0, maxRentOut: 0, resorts: 0 },
     });
   });
   for (const i of OWNABLE) s.lots[i] = { owner: -1, level: 0, mortgaged: false };
@@ -236,7 +236,7 @@ export function apply(s, act) {
       advanceAuction(s, ev);
     } else if (t === 'build' && inManage && canBuild(s, p.id, act.space)) {
       const i = act.space, c = buildCost(i), lot = s.lots[i];
-      p.cash -= c; lot.level++; s.built.push(i); p.stat.built++; s.stats.builds++;
+      p.cash -= c; lot.level++; s.built.push(i); p.stat.built++; s.stats.builds++; if (lot.level === 4) p.stat.resorts = (p.stat.resorts || 0) + 1;
       ev.push({ t: 'build', pid: p.id, space: i, level: lot.level, cost: c });
       log(s, `${p.name} builds ${lot.level === 4 ? 'a Grand Resort' : 'a bathhouse'} on ${SPACES[i].name} ($${c}).`);
     } else if (t === 'sell' && (inManage || s.phase === 'debt') && canSell(s, p.id, act.space)) {
@@ -408,7 +408,7 @@ function charge(s, from, to, amount, why, ev) {
 function transfer(s, from, to, amount, why, ev) {
   const p = s.players[from];
   p.cash -= amount;
-  if (to >= 0) { s.players[to].cash += amount; if (why === 'rent') { s.players[to].stat.rentIn += amount; p.stat.rentOut += amount; } }
+  if (to >= 0) { s.players[to].cash += amount; if (why === 'rent') { const a = s.players[to].stat, b = p.stat; a.rentIn += amount; b.rentOut += amount; a.maxRentIn = Math.max(a.maxRentIn || 0, amount); b.maxRentOut = Math.max(b.maxRentOut || 0, amount); } }
   else if (to === -2) s.treasury += amount;
   else toTreasuryOrBank(s, amount);
   ev.push({ t: 'paid', from, to, amount, why });

@@ -8,6 +8,7 @@ import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
 import { qs, esc, money, deedHtml, cardHtml, helpHtml, aboutHtml, lotLabel, artSrc, spaceArt } from './ui.js';
+import { CAREER_KEY, CAREER_VERSION, ACH, ACH_BY_ID, FELTS, FELT_BY_ID, feltOpen, blankCareer, cleanCareer, localDate, playAchievements, recordGame, unlockFelts } from './career.js';
 
 const $ = qs;
 const SAVE = 'hs-barons-save-v1', SETS = 'hs-barons-settings-v1';
@@ -18,7 +19,8 @@ const store = {
 };
 
 const G = {
-  s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal' },
+  s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal', felt: 'green' },
+  career: null, careerLocked: false, gameRes: null, news: [],
   queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, hidden: false, stale: false, fast: false, waitingOk: false,
   dialog: null, dialogRender: null, nextSeed: null, lastSetup: null, helpTab: 'rules', setup: null, liveBuf: [], logSeen: 0,
 };
@@ -26,8 +28,9 @@ window.__G = G;
 
 // ---------- settings ----------
 function loadSettings() {
-  try { Object.assign(G.settings, JSON.parse(store.get(SETS) || '{}')); } catch (e) { /* defaults */ }
-  const st = G.settings; // the sound fields added with music and ambience: a missing or damaged one falls back to its default
+  try { const o = JSON.parse(store.get(SETS) || '{}'); if (o && typeof o === 'object' && !Array.isArray(o)) Object.assign(G.settings, o); } catch (e) { /* defaults */ }
+  const st = G.settings;
+  if (typeof st.felt !== 'string' || !feltOpen(G.career, st.felt)) st.felt = 'green'; // a felt that is not open falls back to the original // the sound fields added with music and ambience: a missing or damaged one falls back to its default
   for (const k of ['sfx', 'music', 'amb']) if (typeof st[k] !== 'boolean') st[k] = true;
   if (typeof st.vol !== 'number' || !(st.vol >= 0 && st.vol <= 1)) st.vol = 0.35;
   for (const k of ['mvol', 'avol']) if (typeof st[k] !== 'number' || !(st[k] >= 0 && st[k] <= 1)) st[k] = 0.7;
@@ -37,6 +40,7 @@ function saveSettings() { store.set(SETS, JSON.stringify(G.settings)); applySett
 function applySettings() {
   const st = G.settings;
   audio.on = !!st.sound; audio.vol = st.vol; audio.sfx = st.sfx; audio.music = st.music; audio.amb = st.amb; audio.mvol = st.mvol; audio.avol = st.avol; applyAudio();
+  R.view.feltC = st.felt !== 'green' && FELT_BY_ID[st.felt] ? FELT_BY_ID[st.felt].c : null;
   document.documentElement.style.setProperty('--ts', st.text);
   const dark = st.theme === 'dark' || (st.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.body.classList.toggle('theme-dark', dark);
@@ -51,6 +55,38 @@ const reduced = () => G.settings.motion === 'reduce' || (G.settings.motion === '
 const soundIcon = (on) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>${on ? '<path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>' : '<path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'}</svg>`;
 const aiDelay = () => (G.fast ? 0 : ({ normal: 650, fast: 220, instant: 0 })[G.settings.ai] ?? 650);
 const animOn = () => !G.fast && !reduced() && !G.skip;
+
+// ---------- career: records, achievements, felts (S3-02) ----------
+// The record lives in its own key. A record written by a newer version is left alone (nothing here writes over it).
+function loadCareer() {
+  let raw = null;
+  try { raw = JSON.parse(store.get(CAREER_KEY) || 'null'); } catch (e) { raw = null; }
+  G.careerLocked = !!(raw && typeof raw === 'object' && Number.isFinite(raw.v) && raw.v > CAREER_VERSION);
+  G.career = cleanCareer(G.careerLocked ? null : raw);
+}
+function saveCareer() { if (!G.careerLocked) store.set(CAREER_KEY, JSON.stringify(G.career)); }
+// After every action: achievements the events and the table have earned, and, once, the finished game.
+function afterAction(events) {
+  const s = G.s;
+  if (!s || G.careerLocked) return;
+  const today = localDate(), res = G.gameRes || (G.gameRes = { records: [], earned: [], unlocked: [] });
+  const ach = playAchievements(G.career, s, events, today);
+  let end = null;
+  if (s.ended && !s.rec) { s.rec = true; end = recordGame(G.career, s, today); if (end.counted) { ach.push(...end.earned); res.records.push(...end.records); } }
+  const unl = [...(end && end.counted ? end.unlocked : []), ...unlockFelts(G.career, today)];
+  if (!ach.length && !unl.length && !(end && end.counted)) return;
+  res.earned.push(...ach); res.unlocked.push(...unl);
+  saveCareer();
+  for (const id of ach) G.news.push(`Achievement: ${ACH_BY_ID[id].name}`);
+  for (const id of unl) G.news.push(`Unlocked: ${FELT_BY_ID[id].name} felt`);
+}
+// Said once the moves have been shown, so it is not buried by the news of the move itself.
+function showNews() {
+  if (!G.news.length) return;
+  const msg = G.news.join(' · '); G.news = [];
+  if (G.s && G.s.ended) return;
+  sfx('ach'); toast(msg, 2600); announce(msg);
+}
 
 // ---------- layout and drawing ----------
 const narrow = () => matchMedia('(max-width: 820px), (max-aspect-ratio: 1/1)').matches;
@@ -132,6 +168,7 @@ function perform(action) {
   if (G.stale) return { ok: false, error: 'saved game changed in another tab' };
   const r = E.apply(G.s, action);
   if (!r.ok) { sfx('error'); return r; }
+  afterAction(r.events);
   // Keep moving tokens at their old place until their move animation runs.
   for (const e of r.events) if (e.t === 'move' && !R.view.tokens[e.pid]) R.view.tokens[e.pid] = R.slot(e.from, e.pid);
   if (r.events.some((e) => e.t === 'roll')) R.view.dice.pending = true;
@@ -151,6 +188,7 @@ async function pump() {
   }
   G.busy = false; G.skip = false;
   R.view.dice.pending = false;
+  showNews();
   if (B.B3.on) { if (B.B3.follow) { B.unfocus(); camLoop(); } if (B.slowFrames()) fallback2D('slow'); }
   flushLog();
   refresh();
@@ -686,6 +724,7 @@ function scene(name) {
   else if (name === 'help') screenHelp(scr);
   else if (name === 'settings') screenSettings(scr);
   else if (name === 'about') screenAbout(scr);
+  else if (name === 'career') screenCareer(scr);
   else if (name === 'over') screenOver(scr);
   const h = scr.querySelector('h1, h2'); if (h) { h.tabIndex = -1; }
   const f = scr.querySelector('.btn.primary, .btn'); if (f) f.focus({ preventScroll: true });
@@ -704,7 +743,7 @@ function screenTitle(scr) {
     <h1 class="${lid ? 'sr-only' : ''}">Bathhouse Barons</h1><p class="lede">Lease the bathhouses, build grand resorts and ride the seasons of Hot Springs, Arkansas.</p>
     <div class="menu"><button class="btn primary" data-go="setup">New game</button>
     <button class="btn" data-go="continue" ${save ? '' : 'disabled'}>Continue${save ? ` (${MONTHS[save.month]}, Year ${save.year + 1})` : ''}</button>
-    <button class="btn" data-go="help">How to play</button><button class="btn" data-go="settings">Settings</button><button class="btn" data-go="about">About</button></div>
+    <button class="btn" data-go="help">How to play</button><button class="btn" data-go="career">Career</button><button class="btn" data-go="settings">Settings</button><button class="btn" data-go="about">About</button></div>
     <p class="fine" style="margin-top:18px">An original game for 2–6 barons, human or AI. Real places appear as setting and history only.</p></div>`;
   if ($('#titleart')) drawTitleArt($('#titleart'));
   const li = $('#lidimg'); if (li && !li.complete) { G.imgWait = (G.imgWait || 0) + 1; const done = () => { G.imgWait--; }; li.decode().then(done, done); }
@@ -832,14 +871,58 @@ function screenSettings(scr) {
     <p><strong>Motion</strong><br>${seg('motion', [['system', 'Follow system'], ['reduce', 'Reduced'], ['full', 'Full']])}</p>
     <p><strong>Text size</strong><br>${seg('text', [[1, '100%'], [1.25, '125%'], [1.5, '150%']])}</p>
     <p><strong>Theme</strong><br>${seg('theme', [['auto', 'Follow system'], ['light', 'Gilded day'], ['dark', 'Neon night']])}</p>
-    <p><strong>AI speed</strong><br>${seg('ai', [['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']])}</p></div>
+    <p><strong>AI speed</strong><br>${seg('ai', [['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']])}</p>
+    <div class="felts" role="group" aria-label="Dice tray felt"><strong>Dice tray felt</strong><div class="feltrow">${feltButtons(true)}</div><p class="fine">New felts are earned by playing. Your choice is shown on the table's dice tray.</p></div></div>
     <button class="btn primary" data-back>Back</button></div>`;
   scr.onclick = (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.set) { const k = b.dataset.set; let v = b.dataset.v; if (k === 'sound' || k === 'sfx' || k === 'music' || k === 'amb') v = v === 'true'; if (k === 'text') v = +v; st[k] = v; saveSettings(); unlock(); if ((k === 'sound' || k === 'sfx') && v) sfx('coin'); screenSettings(scr); scr.querySelector(`[data-set="${k}"][aria-pressed="true"]`).focus(); }
+    else if (b.dataset.felt) { if (feltOpen(G.career, b.dataset.felt)) { st.felt = b.dataset.felt; saveSettings(); unlock(); screenSettings(scr); scr.querySelector(`[data-felt="${b.dataset.felt}"]`).focus(); } }
     else if (b.dataset.back != null) scene(G.back === 'game' && G.s ? 'game' : 'title');
   };
   scr.oninput = (ev) => { const d = ev.target.dataset, k = d.vol != null ? 'vol' : d.mvol != null ? 'mvol' : d.avol != null ? 'avol' : null; if (k) { st[k] = +ev.target.value; saveSettings(); } };
+}
+// The felt swatches: open ones can be chosen, a locked one says in plain words how to earn it.
+function feltButtons(pick) {
+  return FELTS.map((f) => {
+    const open = feltOpen(G.career, f.id), on = (G.settings.felt || 'green') === f.id;
+    const sw = `<span class="swatch" style="background:radial-gradient(circle at 50% 40%, ${f.c[0]}, ${f.c[1]})" aria-hidden="true"></span>`;
+    const lab = `<span class="fl">${esc(f.name)}<small>${open ? (on ? 'In use' : 'Open') : esc(f.need)}</small></span>`;
+    return pick
+      ? `<button type="button" class="feltbtn${open ? '' : ' locked'}" data-felt="${f.id}" aria-pressed="${on}" ${open ? '' : 'aria-disabled="true"'}>${sw}${lab}</button>`
+      : `<div class="feltbtn${open ? '' : ' locked'}">${sw}${lab}</div>`;
+  }).join('');
+}
+const pct = (w, g) => (g ? Math.round(w / g * 100) + '%' : '–');
+const usd = (n) => '$' + n.toLocaleString('en-US');
+function screenCareer(scr) {
+  const c = G.career, n = Object.keys(c.ach).length;
+  const rows = (list) => list.map(([label, r]) => `<tr><th scope="row">${esc(label)}</th><td>${r.games}</td><td>${r.wins}</td><td>${pct(r.wins, r.games)}</td></tr>`).join('');
+  const table = (cap, list) => `<table class="t career-t"><caption>${cap}</caption><thead><tr><th scope="col">Type</th><th scope="col">Games</th><th scope="col">Won</th><th scope="col">Rate</th></tr></thead><tbody>${rows(list)}</tbody></table>`;
+  const best = (label, v, fmt = usd) => `<div><dt>${label}</dt><dd>${v ? fmt(v) : 'None yet'}</dd></div>`;
+  scr.innerHTML = `<div class="wrap career"><h2>Your career</h2>
+    <p class="lede">${c.games ? 'Every finished game on this device adds to this page.' : 'Finish a game and your record begins here.'}</p>${G.careerLocked ? '<p class="fine">This record was written by a newer version of the game, so this version leaves it alone.</p>' : ''}
+    <div class="card"><div class="bignums"><div><b>${c.games}</b><span>Games</span></div><div><b>${c.wins}</b><span>Won</span></div><div><b>${pct(c.wins, c.games)}</b><span>Win rate</span></div><div><b>${c.streak}</b><span>Win streak</span></div><div><b>${c.bestStreak}</b><span>Best streak</span></div></div></div>
+    <div class="card"><h3>Bests</h3><dl class="bests">${best('Short-game net worth', c.bestShort)}${best('Full-game net worth', c.bestFull)}${best('Longest game', c.longest, (v) => v + ' months')}${best('Biggest single rent', c.biggestRent)}${best('Rivals sent bankrupt', c.bankrupted, String)}${best('Grand Resorts raised', c.resorts, String)}${best('Trades closed', c.trades, String)}</dl></div>
+    <div class="card">${table('By game type', [['Full game', c.mode.full], ['Short game', c.mode.short], ['Standard rules', c.variant.standard], ['Common Ground', c.variant.common]])}
+      ${table('By the hardest AI baron at the table', [['Easy', c.level.easy], ['Normal', c.level.normal], ['Hard', c.level.hard], ['No AI baron', c.level.none]])}
+      ${table('Against each baron', PERSONA_KEYS.map((k) => [`${PERSONAS[k].name} (${PERSONAS[k].who})`, c.persona[k]]))}</div>
+    <div class="card"><h3>Achievements <span class="fine">${n} of ${ACH.length}</span></h3><ul class="achs">${ACH.map((a) => c.ach[a.id]
+      ? `<li class="got"><span class="mark" aria-hidden="true">★</span><span><b>${esc(a.name)}</b><span class="d">${esc(a.text)}</span><small>Earned ${esc(c.ach[a.id])}</small></span></li>`
+      : `<li><span class="mark" aria-hidden="true">☆</span><span><b>${esc(a.name)}</b><span class="d">${esc(a.text)}</span><small>Not yet</small></span></li>`).join('')}</ul></div>
+    <div class="card"><h3>Dice tray felts</h3><div class="feltrow">${feltButtons(false)}</div><p class="fine">Choose a felt in Settings.</p></div>
+    <div class="row"><button class="btn primary" data-back>Back</button></div></div>`;
+  scr.onclick = (ev) => { if (ev.target.closest('[data-back]')) scene('title'); };
+}
+// What this game added to the career: personal bests, achievements and felts. Nothing when it added none.
+function overCareer() {
+  const r = G.gameRes, c = G.career;
+  if (!r || !c || !(r.records.length || r.earned.length || r.unlocked.length)) return c && c.games && r ? `<p class="fine career-line">Career: ${c.games} game${c.games === 1 ? '' : 's'}, ${c.wins} won.</p>` : '';
+  return `<div class="card newrec" role="status"><h3>Added to your career</h3><ul class="achs">${[
+    ...r.records.map((x) => `<li class="got"><span class="ribbon">New personal best</span> ${esc(x)}</li>`),
+    ...r.earned.map((id) => `<li class="got"><span class="mark" aria-hidden="true">★</span><span><b>${esc(ACH_BY_ID[id].name)}</b><span class="d">${esc(ACH_BY_ID[id].text)}</span></span></li>`),
+    ...r.unlocked.map((id) => `<li class="got"><span class="mark" aria-hidden="true">✦</span><span><b>${esc(FELT_BY_ID[id].name)} felt</b> is open for the dice tray (Settings).</span></li>`),
+  ].join('')}</ul><p class="fine career-line">Career: ${c.games} game${c.games === 1 ? '' : 's'}, ${c.wins} won.</p></div>`;
 }
 function screenOver(scr) {
   const s = G.s;
@@ -850,10 +933,11 @@ function screenOver(scr) {
     <div class="card"><table class="t"><thead><tr><th>#</th><th>Baron</th><th>Net worth</th><th>Lots</th><th>Rent collected</th><th>Trades</th></tr></thead><tbody>
     ${rank.map((id, k) => { const p = s.players[id]; return `<tr><td>${k + 1}</td><td data-tok="${id}">${esc(p.name)}${p.kind === 'ai' ? ` <span class="fine">(${esc(PERSONAS[p.persona].name)}, ${esc(levelName(p))})</span>` : ''}</td><td>${p.out ? `Bankrupt (month ${p.outRound})` : money(E.netWorth(s, id))}</td><td>${E.owned(s, id).length}</td><td>${money(p.stat.rentIn)}</td><td>${p.stat.trades}</td></tr>`; }).join('')}</tbody></table>
     <p class="fine">Auctions ${s.stats.auctions} · trades ${s.stats.trades} · buildings raised ${s.stats.builds} · cards drawn ${s.stats.cards}</p></div>
-    <div class="row"><button class="btn primary" data-again>Play again</button><button class="btn" data-title>Title</button></div></div>`;
+    ${overCareer()}
+    <div class="row"><button class="btn primary" data-again>Play again</button><button class="btn" data-career>Career</button><button class="btn" data-title>Title</button></div></div>`;
   $('#wintok').append(R.tokenCanvas(s.players[s.winner].token, 96, s.winner + 1)); $('#wintok canvas').style.cssText = 'width:96px;height:96px';
   scr.querySelectorAll('[data-tok]').forEach((td) => td.prepend(R.tokenCanvas(s.players[+td.dataset.tok].token, 26, +td.dataset.tok + 1)));
-  scr.onclick = (ev) => { if (ev.target.closest('[data-again]')) newGame(G.lastSetup); else if (ev.target.closest('[data-title]')) scene('title'); };
+  scr.onclick = (ev) => { if (ev.target.closest('[data-again]')) newGame(G.lastSetup); else if (ev.target.closest('[data-career]')) { G.back = 'title'; scene('career'); } else if (ev.target.closest('[data-title]')) scene('title'); };
 }
 
 // ---------- game lifecycle ----------
@@ -868,6 +952,7 @@ function newGame(opts = {}) {
   return s;
 }
 function loadGame(s) {
+  G.gameRes = null; G.news = [];
   G.s = s; G.queue = []; G.busy = false; G.logSeen = s.log.length > 3 ? s.log.length - 3 : 0;
   R.view.tokens = []; R.view.flash = -1; R.view.cursor = -1;
   R.view.dice.a = s.dice[0] || 1; R.view.dice.b = s.dice[1] || 1;
@@ -991,6 +1076,7 @@ function gameState() {
 window.__game = {
   seed(n) { G.nextSeed = n | 0; if (G.s) { G.s.rng = (n >>> 0) || 1; } return true; },
   getState: gameState,
+  career() { return JSON.parse(JSON.stringify({ career: G.career, locked: G.careerLocked, res: G.gameRes, felt: R.view.feltC ? R.view.feltC[0] : null })); },
   audioList,
   audioRender,
   audioState,
@@ -1015,7 +1101,7 @@ window.__game = {
       case 'autoplay': {
         if (!s) return null; const n = args[0] || 1000;
         for (let k = 0; k < n && !s.ended; k++) { const a = aiAction(s); const r = E.apply(s, a); if (!r.ok) return { error: r.error, action: a }; }
-        G.queue = []; R.view.tokens = []; store.set(SAVE, JSON.stringify(s)); flushLog(); if (s.ended) scene('over'); else refresh();
+        G.queue = []; R.view.tokens = []; afterAction([]); G.news = []; store.set(SAVE, JSON.stringify(s)); flushLog(); if (s.ended) scene('over'); else refresh();
         return E.summary(s);
       }
       case 'rent': return s ? E.rentOf(s, args[0], args[1] ?? 7) : null;
@@ -1039,6 +1125,7 @@ window.__game = {
 function boot() {
   R.setCanvas($('#board'));
   $('#board').tabIndex = 0; $('#board').addEventListener('click', onBoardPointer);
+  loadCareer();
   loadSettings();
   start3D();
   loadArt(() => {

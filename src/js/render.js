@@ -14,6 +14,7 @@ export const view = {
   cache: null, cacheKey: '', cursor: -1, flash: -1, flashT: 0, pops: [], coins: [], puffs: [],
   tokens: [], // display positions: { x, y, lift, squash } per player (animated)
   dice: { a: 1, b: 1, tumbling: 0, x: null, y: null, frame: 0, yawA: 0, yawB: 1 },
+  feltC: null, // dice-tray felt colours (career.js FELTS); null = baize green
   pieces3d: false, // when the 3D table draws tokens, dice and buildings itself
   drop: {}, // space -> { t0, dur } building drop-in
 };
@@ -221,7 +222,7 @@ export function tokenCanvas(k, px, num) {
 
 // ---------- static layer ----------
 function drawStatic() {
-  const key = `${view.W}x${view.H}@${view.dpr}:${view.theme}:${art.ready ? 1 : 0}:${art.on ? 1 : 0}`;
+  const key = `${view.W}x${view.H}@${view.dpr}:${view.theme}:${art.ready ? 1 : 0}:${art.on ? 1 : 0}:${view.feltC ? view.feltC[0] : ''}`;
   if (view.cacheKey === key) return;
   const c = view.cache || (view.cache = document.createElement('canvas'));
   c.width = Math.round(view.W * view.dpr); c.height = Math.round(view.H * view.dpr);
@@ -790,6 +791,7 @@ export function diceHome() {
   const T = trayRect();
   return { x: T.x + T.w / 2, y: T.y + T.h * 0.6, gap: T.m * 0.072, size: T.m * 0.075 };
 }
+const FELT_GREEN = ['#2F6A55', '#1C4536', '#24524A', '#122C27'];
 function drawTray(ctx) {
   const T = trayRect(), r = T.h * 0.22, dark = view.theme === 'dark';
   ctx.save();
@@ -800,7 +802,8 @@ function drawTray(ctx) {
   ctx.fillStyle = g; rr(ctx, T.x, T.y, T.w, T.h, r); ctx.fill();
   const i = T.h * 0.12;
   const fg = ctx.createRadialGradient(T.x + T.w / 2, T.y + T.h * 0.4, T.h * 0.1, T.x + T.w / 2, T.y + T.h / 2, T.w * 0.6);
-  fg.addColorStop(0, dark ? '#24524A' : '#2F6A55'); fg.addColorStop(1, dark ? '#122C27' : '#1C4536');
+  const F = view.feltC || FELT_GREEN; // S3-02: the felt a player has earned and chosen; baize green is the original
+  fg.addColorStop(0, dark ? F[2] : F[0]); fg.addColorStop(1, dark ? F[3] : F[1]);
   rr(ctx, T.x + i, T.y + i, T.w - i * 2, T.h - i * 2, r * 0.6); ctx.fillStyle = fg; ctx.fill();
   ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
   ctx.restore();
