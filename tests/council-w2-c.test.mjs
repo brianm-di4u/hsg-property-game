@@ -529,7 +529,15 @@ export const tests = [
       t.expect(/owner rent/.test(tips.text) && words(tips.text) <= 12, `${tips.text}`);
       await t.page.locator('.coach-text').click();
       await act(t, { type: 'end' });
-      for (let k = 0; k < 40; k++) { const st = await t.state(); if (st.actor === 0 || st.game.ended) break; await t.game('act', 'ai'); await t.waitForStable(); }
+      // The rivals' turns are not seeded. About three runs in ten one of them leaves a lot unbought and it goes to auction,
+      // where the player is asked to bid before the month has turned: pass, and carry on to the player's own next turn.
+      for (let k = 0; k < 80; k++) {
+        const st = await t.state();
+        if (st.game.ended) break;
+        if (st.game.phase === 'auction') { if (st.actor === 0) await act(t, { type: 'pass' }); else await t.game('act', 'ai'); await t.waitForStable(); continue; }
+        if (st.actor === 0) break;
+        await t.game('act', 'ai'); await t.waitForStable();
+      }
       if ((await t.state()).dialog === 'card') { await click(t, '#modal [data-ok]'); await t.waitForStable(); } // the new month's Headline
       tips = await t.game('tips');
       t.equal(tips.tip, 'season', 'the new month shows the season tip');
