@@ -2,7 +2,7 @@
 // Pure game logic, no DOM; tools/balance.mjs runs it in Node. Phase machine idea from XState and
 // pure moves from boardgame.io (see SAMPLES.md); all rules are our own (PRD §4).
 import { RULES, SPACES, DISTRICTS, LOTS_BY_D, OWNABLE, LINES, N_SPACES, DEPOT, JURY, GOJURY,
-  SEASONS, NEWS, TALK, CARD, PERSONA_KEYS, PERSONAS, TOKENS, MONTHS, isRow } from './data.js';
+  SEASONS, NEWS, TALK, CARD, PERSONA_KEYS, PERSONAS, LEVELS, TOKENS, MONTHS, isRow } from './data.js';
 import { seedState, rand, die, shuffle } from './rng.js';
 
 export const VERSION = 1;
@@ -47,7 +47,7 @@ export function createGame(opts = {}) {
     names.add(name);
     s.players.push({
       id: i, name,
-      kind: st.kind === 'ai' ? 'ai' : 'human', persona, token: i, cash: RULES.startCash, pos: DEPOT,
+      kind: st.kind === 'ai' ? 'ai' : 'human', persona, level: st.kind === 'ai' ? (LEVELS[st.level] ? st.level : 'normal') : null, token: i, cash: RULES.startCash, pos: DEPOT,
       held: 0, pardons: 0, out: false, doubles: 0, outRound: 0,
       stat: { rentIn: 0, rentOut: 0, bought: 0, built: 0, trades: 0 },
     });

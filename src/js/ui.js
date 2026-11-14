@@ -101,7 +101,8 @@ export function helpHtml(tab) {
     <li>If you owe more than you have, sell buildings or mortgage. If you still can't pay, you're bankrupt: your holdings go to the creditor (or back to the town).</li>
     <li><strong>Full game:</strong> the last baron standing wins (or the richest at the year limit). <strong>Short game:</strong> 12 months, two starting lots each, richest net worth wins.</li>
     <li><strong>Common Ground</strong> variant: base rent, fares, the utility and taxes go to a public treasury that pays every baron an equal dividend each month. Inspired by the anti-monopolist rules of the public-domain Landlord's Game (1904); the rules here are our own.</li></ol>
-    <p class="fine">Net worth = cash + lot prices (half if mortgaged) + half the cost of buildings.</p>`;
+    <p class="fine">Net worth = cash + lot prices (half if mortgaged) + half the cost of buildings.</p>
+    <p class="fine">AI barons play at Easy, Normal or Hard, chosen for each seat when you set up a game. Easy bids low, never offers trades and builds slowly; Hard keeps less cash back, bids sharper and prizes a finished district.</p>`;
 }
 
 export function aboutHtml() {

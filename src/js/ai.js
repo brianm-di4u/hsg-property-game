@@ -1,12 +1,14 @@
 // AI barons. Each decision scores property value, liquidity and threat (MECHANICS §7), weighted
 // by persona. Bundle valuation for trades follows the idea of OpenSpiel's bargaining game
 // (Apache-2.0, idea only, no code). Deterministic given state.rng.
-import { SPACES, DISTRICTS, LOTS_BY_D, OWNABLE, LINES, PERSONAS, RULES, isRow } from './data.js';
+import { SPACES, DISTRICTS, LOTS_BY_D, OWNABLE, LINES, PERSONAS, LEVELS, RULES, isRow } from './data.js';
 import { rand } from './rng.js';
 import { actor, legal, ownerOf, rentOf, owned, netWorth, buildCost, canBuild, canMortgage, canUnmortgage,
   unmortgageCost, tradeable, validateOffer, offerKey, ownsDistrict, active } from './engine.js';
 
 const persona = (s, pid) => PERSONAS[s.players[pid].persona] || PERSONAS.hotelier;
+// The AI level of seat pid; a save from before levels (or a damaged value) plays as Normal.
+export const levelOf = (s, pid) => LEVELS[s.players[pid].level] || LEVELS.normal;
 
 // Liquidity: cash the AI wants to keep, scaled to the worst rents it could land on.
 export function reserveFor(s, pid) {
@@ -15,7 +17,7 @@ export function reserveFor(s, pid) {
   rents.sort((a, b) => b - a);
   const top = rents.slice(0, 3);
   const avg = top.length ? top.reduce((a, b) => a + b, 0) / top.length : 0;
-  return persona(s, pid).reserve * (60 + 0.7 * avg);
+  return persona(s, pid).reserve * levelOf(s, pid).reserve * (60 + 0.7 * avg);
 }
 
 // Value of lot i to player pid if pid held it, given everything else as it stands
@@ -32,7 +34,8 @@ export function lotValue(s, pid, i, extra = [], minus = []) {
   const blockers = new Set(group.filter((j) => j !== i && !holds(j) && ownerOf(s, j) >= 0).map((j) => ownerOf(s, j)));
   const completes = mine + 1 === group.length;
   const share = (mine + 1) / group.length;
-  let v = sp.price * (1 + 0.5 * share * (blockers.size ? 0.4 : 1) + (completes ? 1.1 : 0));
+  const lv = levelOf(s, pid);
+  let v = sp.price * (1 + 0.5 * share * (blockers.size ? 0.4 : 1) + (completes ? lv.complete : 0));
   // Rent potential of a full district with buildings, discounted.
   if (completes) v += DISTRICTS[sp.d].build * 1.2;
   return v * (per.taste[sp.d] || 1) - owed;
@@ -51,19 +54,19 @@ const maxThreat = (s, pid, i) => Math.max(0, ...active(s).filter((q) => q.id !==
 
 export function evalTrade(s, pid, o) {
   // o from proposer's view: give (to pid) / get (from pid). Value to pid of accepting.
-  const per = persona(s, pid);
+  const per = persona(s, pid), lv = levelOf(s, pid);
   const recv = o.give.lots, lose = o.get.lots;
   let gain = 0;
   for (const i of recv) gain += lotValue(s, pid, i, recv, lose);
   for (const i of lose) gain -= lotValue(s, pid, i);
   gain += o.give.cash - o.get.cash;
   // Threat: lots that would complete the proposer's district.
-  for (const i of lose) gain -= 0.85 * threat(s, o.from, i, lose);
+  for (const i of lose) gain -= 0.85 * lv.threat * threat(s, o.from, i, lose);
   // Liquidity: don't accept trades that leave us broke.
   const cashAfter = s.players[pid].cash + o.give.cash - o.get.cash;
   if (cashAfter < reserveFor(s, pid) * 0.5) gain -= (reserveFor(s, pid) * 0.5 - cashAfter);
   const moved = [...recv, ...lose].reduce((a, i) => a + SPACES[i].price, 0) + o.give.cash + o.get.cash;
-  return gain - margin(s, per) * moved;
+  return gain - margin(s, per) * lv.margin * moved;
 }
 // Barons get more willing to deal as a game drags on (keeps long games from stalling).
 const lateness = (s) => Math.max(0, s.round - 20);
@@ -71,8 +74,9 @@ const margin = (s, per) => per.margin * Math.max(0.2, 1 - lateness(s) / 40);
 
 function maxBid(s, pid, i) {
   const per = persona(s, pid), p = s.players[pid];
-  let v = Math.max(lotValue(s, pid, i) * per.bid, maxThreat(s, pid, i) * 0.7);
+  let v = Math.max(lotValue(s, pid, i) * per.bid, maxThreat(s, pid, i) * 0.7 * levelOf(s, pid).threat);
   if (per.wild) v *= 0.8 + rand(s) * 0.6;
+  v *= levelOf(s, pid).bid;
   return Math.floor(Math.min(v, p.cash - reserveFor(s, pid) * 0.5));
 }
 
@@ -86,8 +90,9 @@ export function aiAction(s) {
     case 'buy': {
       const i = s.pending.space, price = SPACES[i].price, v = lotValue(s, pid, i), res = reserveFor(s, pid);
       const completes = SPACES[i].type === 'lot' && LOTS_BY_D[SPACES[i].d].every((j) => j === i || ownerOf(s, j) === pid);
-      const ok = p.cash >= price && (p.cash - price >= res || (completes && p.cash - price >= res * 0.3)) && v >= price * per.buyBar;
-      return { type: ok ? 'buy' : 'decline' };
+      const ok0 = p.cash >= price && (p.cash - price >= res || (completes && p.cash - price >= res * 0.3)) && v >= price * per.buyBar;
+      const lv = levelOf(s, pid), slip = ok0 && lv.mistake > 0 && rand(s) < lv.mistake;
+      return { type: ok0 && !slip ? 'buy' : 'decline' };
     }
     case 'auction': {
       const A = s.pending, min = L.find((a) => a.type === 'bid').min;
@@ -115,19 +120,19 @@ export function aiAction(s) {
 }
 
 function manage(s, pid, L, preRoll) {
-  const p = s.players[pid], per = persona(s, pid), res = reserveFor(s, pid);
+  const p = s.players[pid], per = persona(s, pid), res = reserveFor(s, pid), lv = levelOf(s, pid);
   // Lift mortgages in districts we own outright first.
   const um = L.filter((a) => a.type === 'unmortgage').sort((a, b) => score(b.space) - score(a.space));
   function score(i) { const sp = SPACES[i]; return sp.type === 'lot' && ownsDistrict(s, sp.d, pid) ? 2 : 1; }
   if (um.length && p.cash - unmortgageCost(um[0].space) > res * 1.6) return um[0];
   // Build where marginal rent per dollar is best.
-  const builds = L.filter((a) => a.type === 'build');
+  const builds = L.filter((a) => a.type === 'build' && s.lots[a.space].level < lv.buildTo);
   if (builds.length) {
     const best = builds.map((a) => ({ a, gain: marginal(s, a.space) / buildCost(a.space) - s.lots[a.space].level * 0.01 }))
       .sort((x, y) => y.gain - x.gain)[0];
-    if (p.cash - buildCost(best.a.space) >= res * per.build) return best.a;
+    if (p.cash - buildCost(best.a.space) >= res * per.build * lv.buildGate) return best.a;
   }
-  if (preRoll && s.players.length > 1) { const t = proposeTrade(s, pid); if (t) return t; }
+  if (preRoll && s.players.length > 1 && lv.trade !== null) { const t = proposeTrade(s, pid); if (t) return t; }
   return null;
 }
 
@@ -152,9 +157,10 @@ function raiseCash(s, pid, L) {
 // Look for a deal that completes one of our districts: a swap when the other side also gains a
 // completion, otherwise a cash purchase. At most two offers per turn, never repeat a declined one.
 export function proposeTrade(s, pid) {
-  const per = persona(s, pid), p = s.players[pid];
+  const per = persona(s, pid), p = s.players[pid], lv = levelOf(s, pid);
   if (s.offers.filter((k) => k.startsWith(`${s.year * 12 + s.month}|${pid}>`)).length >= 2) return null;
-  if (rand(s) > Math.min(1, per.trade + lateness(s) * 0.02)) return null;
+  if (lv.trade === null) return null;
+  if (rand(s) > Math.min(1, per.trade + lv.trade + lateness(s) * 0.02)) return null;
   const res = reserveFor(s, pid);
   const options = [];
   for (const d of Object.keys(LOTS_BY_D)) {

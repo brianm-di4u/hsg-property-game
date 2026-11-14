@@ -1,5 +1,5 @@
 // Controller: scenes, presentation queue, AI pacing, dialogs, input, save/load and window.__game.
-import { SPACES, DISTRICTS, DISTRICT_ORDER, LOTS_BY_D, MONTHS, PERSONAS, PERSONA_KEYS, TOKENS, CARD, RULES, isRow, OWNABLE } from './data.js';
+import { SPACES, DISTRICTS, DISTRICT_ORDER, LOTS_BY_D, MONTHS, PERSONAS, PERSONA_KEYS, LEVELS, LEVEL_KEYS, TOKENS, CARD, RULES, isRow, OWNABLE } from './data.js';
 import * as E from './engine.js';
 import { aiAction } from './ai.js';
 import * as R from './render.js';
@@ -451,10 +451,10 @@ function renderPlayers() {
     const face = p.kind === 'ai' ? artSrc('face-' + p.persona) : '';
     if (face) { const im = document.createElement('img'); im.className = 'face'; im.src = face; im.alt = ''; li.append(im); }
     const fan = E.owned(s, p.id).map((i) => SPACES[i].d ? DISTRICTS[SPACES[i].d].color : '#355E41').map((c) => `<i style="background:${c}"></i>`).join('');
-    d.innerHTML = `<span class="nm"><span class="full">${esc(p.name)}</span><span class="first">${esc(firsts.filter((f) => f === first(p)).length > 1 ? short(p) : first(p))}</span></span><span class="cash"></span>${fan ? `<span class="fan" aria-hidden="true">${fan}</span>` : ''}<span class="meta">${p.kind === 'ai' ? esc(PERSONAS[p.persona].name) + ' AI' : 'Human'} · ${n} lot${n === 1 ? '' : 's'} · worth ${money(E.netWorth(s, p.id))}${p.held ? ' · held' : ''}${p.pardons ? ' · pardon' : ''}</span>`;
+    d.innerHTML = `<span class="nm"><span class="full">${esc(p.name)}</span><span class="first">${esc(firsts.filter((f) => f === first(p)).length > 1 ? short(p) : first(p))}</span></span><span class="cash"></span>${fan ? `<span class="fan" aria-hidden="true">${fan}</span>` : ''}<span class="meta">${p.kind === 'ai' ? esc(PERSONAS[p.persona].name) + ' AI · ' + esc(levelName(p)) : 'Human'} · ${n} lot${n === 1 ? '' : 's'} · worth ${money(E.netWorth(s, p.id))}${p.held ? ' · held' : ''}${p.pardons ? ' · pardon' : ''}</span>`;
     li.append(d);
     const cashEl = d.querySelector('.cash'); if (p.out) cashEl.textContent = 'Bankrupt'; else countCash(cashEl, p.id, p.cash);
-    li.setAttribute('aria-label', `${p.name}${p.id === s.turn ? ', current turn' : ''}: ${p.out ? 'bankrupt' : money(p.cash) + ' cash, ' + n + ' lots, net worth ' + money(E.netWorth(s, p.id))}`);
+    li.setAttribute('aria-label', `${p.name}${p.kind === 'ai' ? ` (${levelName(p)} AI)` : ''}${p.id === s.turn ? ', current turn' : ''}: ${p.out ? 'bankrupt' : money(p.cash) + ' cash, ' + n + ' lots, net worth ' + money(E.netWorth(s, p.id))}`);
     ol.append(li);
   }
 }
@@ -689,6 +689,9 @@ function scene(name) {
   const f = scr.querySelector('.btn.primary, .btn'); if (f) f.focus({ preventScroll: true });
 }
 
+// An AI seat's level name; a save from before levels reads as Normal.
+const levelName = (p) => (LEVELS[p.level] || LEVELS.normal).name;
+
 function hasSave() { try { const s = JSON.parse(store.get(SAVE) || 'null'); return E.validateSave(s) && !s.ended ? s : null; } catch (e) { return null; } }
 
 function screenTitle(scr) {
@@ -747,9 +750,9 @@ function drawTitleArt(c) {
 
 const DEFAULT_SEATS = () => [
   { kind: 'human', name: 'Player 1', persona: 'random' },
-  { kind: 'ai', name: '', persona: 'hotelier' },
-  { kind: 'ai', name: '', persona: 'speculator' },
-  { kind: 'ai', name: '', persona: 'banker' },
+  { kind: 'ai', name: '', persona: 'hotelier', level: 'normal' },
+  { kind: 'ai', name: '', persona: 'speculator', level: 'normal' },
+  { kind: 'ai', name: '', persona: 'banker', level: 'normal' },
 ];
 function screenSetup(scr) {
   const st = G.setup || (G.setup = { seats: DEFAULT_SEATS(), mode: 'full', variant: 'standard', years: 0, seed: '' });
@@ -759,7 +762,8 @@ function screenSetup(scr) {
       <div class="seg kind" role="group" aria-label="Seat ${k + 1} player type"><button type="button" data-kind="human" data-k="${k}" aria-pressed="${p.kind === 'human'}">Human</button><button type="button" data-kind="ai" data-k="${k}" aria-pressed="${p.kind === 'ai'}">AI</button></div>
       <input type="text" class="nm" aria-label="Seat ${k + 1} name" data-name="${k}" value="${esc(p.name)}" placeholder="${p.kind === 'ai' ? esc(PERSONAS[p.persona]?.who || 'AI baron') : 'Name'}" maxlength="18">
       ${p.kind === 'ai' ? `<select class="persona" aria-label="Seat ${k + 1} AI personality" data-persona="${k}"><option value="random">Random</option>${PERSONA_KEYS.map((x) => `<option value="${x}" ${p.persona === x ? 'selected' : ''}>${PERSONAS[x].name}</option>`).join('')}</select>
-      <p class="blurb">${PERSONAS[p.persona] ? esc(PERSONAS[p.persona].blurb) : 'A personality drawn at random when play starts.'}</p>` : '<p class="blurb">Plays from this device.</p>'}
+      <select class="level" aria-label="Seat ${k + 1} AI level" data-level="${k}">${LEVEL_KEYS.map((x) => `<option value="${x}" ${(p.level || 'normal') === x ? 'selected' : ''}>${LEVELS[x].name}</option>`).join('')}</select>
+      <p class="blurb">${PERSONAS[p.persona] ? esc(PERSONAS[p.persona].blurb) : 'A personality drawn at random when play starts.'}${p.level && p.level !== 'normal' ? ` <em>${esc(LEVELS[p.level].name)}: ${esc(LEVELS[p.level].blurb)}</em>` : ''}</p>` : '<p class="blurb">Plays from this device.</p>'}
       <button type="button" class="iconbtn" data-rm="${k}" aria-label="Remove seat ${k + 1}" ${st.seats.length <= 2 ? 'disabled' : ''}>✕</button></div>`).join('')}</div>
       <button type="button" class="btn" data-add ${st.seats.length >= 6 ? 'disabled' : ''} style="margin-top:8px">Add a baron</button></div>
     <div class="card"><div class="row" style="gap:18px;align-items:flex-start">
@@ -775,7 +779,7 @@ function screenSetup(scr) {
     const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.kind) { st.seats[+b.dataset.k].kind = b.dataset.kind; if (b.dataset.kind === 'human' && !st.seats[+b.dataset.k].name) st.seats[+b.dataset.k].name = `Player ${+b.dataset.k + 1}`; screenSetup(scr); }
     else if (b.dataset.rm) { st.seats.splice(+b.dataset.rm, 1); screenSetup(scr); }
-    else if (b.dataset.add != null) { st.seats.push({ kind: 'ai', name: '', persona: PERSONA_KEYS[st.seats.length % PERSONA_KEYS.length] }); screenSetup(scr); }
+    else if (b.dataset.add != null) { st.seats.push({ kind: 'ai', name: '', persona: PERSONA_KEYS[st.seats.length % PERSONA_KEYS.length], level: 'normal' }); screenSetup(scr); }
     else if (b.dataset.seg) { st[b.dataset.seg] = b.dataset.v; screenSetup(scr); }
     else if (b.dataset.back != null) scene('title');
     else if (b.dataset.start != null) startFromSetup();
@@ -784,6 +788,7 @@ function screenSetup(scr) {
     const t = ev.target;
     if (t.dataset.name != null) st.seats[+t.dataset.name].name = t.value.trim();
     if (t.dataset.persona != null) { const k = +t.dataset.persona; st.seats[k].persona = t.value; screenSetup(scr); scr.querySelector(`[data-persona="${k}"]`).focus(); }
+    if (t.dataset.level != null) { const k = +t.dataset.level; st.seats[k].level = LEVELS[t.value] ? t.value : 'normal'; screenSetup(scr); scr.querySelector(`[data-level="${k}"]`).focus(); }
     if (t.dataset.years != null) st.years = +t.value;
     if (t.dataset.seed != null) st.seed = t.value;
   };
@@ -800,7 +805,7 @@ function startFromSetup() {
 }
 function beginSetupGame() {
   const st = G.setup;
-  const seats = st.seats.map((p) => ({ kind: p.kind, name: p.name || undefined, persona: p.persona === 'random' ? undefined : p.persona }));
+  const seats = st.seats.map((p) => ({ kind: p.kind, name: p.name || undefined, persona: p.persona === 'random' ? undefined : p.persona, level: p.kind === 'ai' ? (p.level || 'normal') : undefined }));
   newGame({ seats, mode: st.mode, variant: st.variant, years: st.mode === 'short' ? 0 : +st.years, seed: st.seed !== '' ? +st.seed : undefined });
 }
 
@@ -841,7 +846,7 @@ function screenOver(scr) {
   scr.innerHTML = `<div class="wrap over"><div class="extra"><div class="mast">The Barons' Gazette</div><div class="dateline"><span>Extra!</span><span>${MONTHS[s.month]}, Year ${s.year + 1}</span><span>Hot Springs, Ark.</span></div></div>
     <div class="podium">${wface ? `<img class="winface" src="${wface}" alt="">` : ''}<div class="plinth"><span id="wintok"></span></div><div><div class="kicker">New baron of Bathhouse Row</div><h2>${esc(s.players[s.winner].name)} wins!</h2></div></div><p class="lede">Game over: ${esc(s.endWhy || '')}. ${MONTHS[s.month]}, Year ${s.year + 1}, after ${s.monthsPlayed} month${s.monthsPlayed === 1 ? '' : 's'}.</p>
     <div class="card"><table class="t"><thead><tr><th>#</th><th>Baron</th><th>Net worth</th><th>Lots</th><th>Rent collected</th><th>Trades</th></tr></thead><tbody>
-    ${rank.map((id, k) => { const p = s.players[id]; return `<tr><td>${k + 1}</td><td data-tok="${id}">${esc(p.name)}${p.kind === 'ai' ? ` <span class="fine">(${esc(PERSONAS[p.persona].name)})</span>` : ''}</td><td>${p.out ? `Bankrupt (month ${p.outRound})` : money(E.netWorth(s, id))}</td><td>${E.owned(s, id).length}</td><td>${money(p.stat.rentIn)}</td><td>${p.stat.trades}</td></tr>`; }).join('')}</tbody></table>
+    ${rank.map((id, k) => { const p = s.players[id]; return `<tr><td>${k + 1}</td><td data-tok="${id}">${esc(p.name)}${p.kind === 'ai' ? ` <span class="fine">(${esc(PERSONAS[p.persona].name)}, ${esc(levelName(p))})</span>` : ''}</td><td>${p.out ? `Bankrupt (month ${p.outRound})` : money(E.netWorth(s, id))}</td><td>${E.owned(s, id).length}</td><td>${money(p.stat.rentIn)}</td><td>${p.stat.trades}</td></tr>`; }).join('')}</tbody></table>
     <p class="fine">Auctions ${s.stats.auctions} · trades ${s.stats.trades} · buildings raised ${s.stats.builds} · cards drawn ${s.stats.cards}</p></div>
     <div class="row"><button class="btn primary" data-again>Play again</button><button class="btn" data-title>Title</button></div></div>`;
   $('#wintok').append(R.tokenCanvas(s.players[s.winner].token, 96, s.winner + 1)); $('#wintok canvas').style.cssText = 'width:96px;height:96px';

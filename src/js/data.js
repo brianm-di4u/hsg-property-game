@@ -146,6 +146,24 @@ export const PERSONAS = {
 };
 export const PERSONA_KEYS = Object.keys(PERSONAS);
 
+// AI levels (wave 2, S3-01). Every knob lives here so a level can be retuned in one line. Normal is the
+// AI as it played before levels existed, so it multiplies everything by 1 and adds nothing.
+//   reserve   x the cash the baron keeps back (lower = bolder)
+//   bid       x the most it will bid at auction
+//   mistake   chance it declines a lot it would have bought (sends it to auction)
+//   buildTo   highest building level it will build to (4 = a Grand Resort)
+//   buildGate x how much spare cash it wants before building (lower = builds sooner)
+//   trade     added to the chance it offers a trade this turn (null = never proposes)
+//   threat    x how much it will pay to keep a lot out of a rival's hands
+//   margin    x the profit it wants from a trade (higher = harder to bargain with)
+//   complete  value it puts on a lot that finishes its own district, x the lot price (was 1.1 before levels)
+export const LEVELS = {
+  easy: { name: 'Easy', blurb: 'Bids low, never offers trades, builds slowly and sometimes passes on a lot.', reserve: 1, bid: 0.7, mistake: 0.15, buildTo: 2, buildGate: 1, trade: null, threat: 1, margin: 1, complete: 1.1 },
+  normal: { name: 'Normal', blurb: 'The standard baron.', reserve: 1, bid: 1, mistake: 0, buildTo: 4, buildGate: 1, trade: 0, threat: 1, margin: 1, complete: 1.1 },
+  hard: { name: 'Hard', blurb: 'Keeps less cash back, bids sharper, builds sooner and prizes a finished district.', reserve: 0.6, bid: 1.05, mistake: 0, buildTo: 4, buildGate: 0.6, trade: 0.2, threat: 1.25, margin: 1.15, complete: 1.8 },
+};
+export const LEVEL_KEYS = Object.keys(LEVELS);
+
 export const TOKENS = [
   { shape: 'jug', label: 'Jug', color: '#D55E00' },
   { shape: 'tub', label: 'Bathtub', color: '#0072B2' },
