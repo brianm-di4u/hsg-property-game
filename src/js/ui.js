@@ -97,7 +97,7 @@ export function helpHtml(tab) {
     <li>Land on someone's lot: pay rent. Owning a whole district doubles the base rent and lets you build: up to three bathhouses, then a <strong>Grand Resort</strong>. One level per lot per turn; selling returns half.</li>
     <li>Seasons and Headlines change rents month by month (see Seasons).</li>
     <li>Mortgage a lot for half its price; it charges no rent until you lift the mortgage (half price + 10%).</li>
-    <li>Trade lots and cash with any baron on your turn. Lots in districts with buildings can't be traded.</li>
+    <li>Trade lots and cash with any baron on your turn, up to ${RULES.offersPerTurn} offers a turn. A baron who keeps asking drives a harder bargain each time. Lots in districts with buildings can't be traded.</li>
     <li>If you owe more than you have, sell buildings or mortgage. If you still can't pay, you're bankrupt: your holdings go to the creditor (or back to the town).</li>
     <li><strong>Full game:</strong> the last baron standing wins (or the richest at the year limit). <strong>Short game:</strong> 12 months, two starting lots each, richest net worth wins.</li>
     <li><strong>Common Ground</strong> variant: base rent, fares, the utility and taxes go to a public treasury that pays every baron an equal dividend each month. Inspired by the anti-monopolist rules of the public-domain Landlord's Game (1904); the rules here are our own.</li></ol>

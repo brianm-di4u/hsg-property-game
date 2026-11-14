@@ -7,7 +7,15 @@ export const RULES = {
   lineRent: [0, 25, 60], utilMult: 6, utilFestival: 10,
   mortgageRate: 0.5, unmortgageFee: 0.1, sellRate: 0.5,
   M: [1, 5, 14, 32, 45], fullBonus: 2, minBid: 10,
+  offersPerTurn: 3,   // S3-04: trade offers one baron may make in a turn
 };
+
+// How hard the AI bargains (S3-04). Retune the exploit fix here.
+//   twoAway  weight of a lot that leaves the proposer one lot short of a whole district, against a lot that
+//            completes it (1.0); before wave 2 only the completing lot counted (0)
+//   repeat   each earlier offer from the same baron this month makes the AI ask this much more margin
+//            (margin x (1 + repeat x earlier offers)); was 0
+export const TRADE_AI = { twoAway: 0.5, repeat: 0.5 };
 
 export const DISTRICTS = {
   fv: { name: 'Frontier Valley', color: '#8A6338', pat: 'wood', icon: 'cabin', build: 50 },

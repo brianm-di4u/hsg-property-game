@@ -1,10 +1,10 @@
 // AI barons. Each decision scores property value, liquidity and threat (MECHANICS §7), weighted
 // by persona. Bundle valuation for trades follows the idea of OpenSpiel's bargaining game
 // (Apache-2.0, idea only, no code). Deterministic given state.rng.
-import { SPACES, DISTRICTS, LOTS_BY_D, OWNABLE, LINES, PERSONAS, LEVELS, RULES, isRow } from './data.js';
+import { SPACES, DISTRICTS, LOTS_BY_D, OWNABLE, LINES, PERSONAS, LEVELS, RULES, TRADE_AI, isRow } from './data.js';
 import { rand } from './rng.js';
 import { actor, legal, ownerOf, rentOf, owned, netWorth, buildCost, canBuild, canMortgage, canUnmortgage,
-  unmortgageCost, tradeable, validateOffer, offerKey, ownsDistrict, active } from './engine.js';
+  unmortgageCost, tradeable, validateOffer, offerKey, ownsDistrict, active, absMonth } from './engine.js';
 
 const persona = (s, pid) => PERSONAS[s.players[pid].persona] || PERSONAS.hotelier;
 // The AI level of seat pid; a save from before levels (or a damaged value) plays as Normal.
@@ -41,13 +41,16 @@ export function lotValue(s, pid, i, extra = [], minus = []) {
   return v * (per.taste[sp.d] || 1) - owed;
 }
 
-// Threat: how much lot i is worth to opponent q (completing or nearly completing their district).
+// Threat: how much lot i is worth to opponent q (completing their district, or leaving them one lot short).
 export function threat(s, q, i, extra = []) {
   const sp = SPACES[i];
   if (sp.type !== 'lot') return 0;
   const group = LOTS_BY_D[sp.d];
   const theirs = group.filter((j) => j !== i && (ownerOf(s, j) === q || extra.includes(j))).length;
-  if (theirs + 1 === group.length) return sp.price * 1.6 + DISTRICTS[sp.d].build * 1.5;
+  const full = sp.price * 1.6 + DISTRICTS[sp.d].build * 1.5;
+  if (theirs + 1 === group.length) return full;
+  // The piece before the last: with it they would be one lot short of a whole district.
+  if (theirs >= 1 && theirs + 2 === group.length) return full * TRADE_AI.twoAway;
   return 0;
 }
 const maxThreat = (s, pid, i) => Math.max(0, ...active(s).filter((q) => q.id !== pid).map((q) => threat(s, q.id, i)));
@@ -66,8 +69,16 @@ export function evalTrade(s, pid, o) {
   const cashAfter = s.players[pid].cash + o.give.cash - o.get.cash;
   if (cashAfter < reserveFor(s, pid) * 0.5) gain -= (reserveFor(s, pid) * 0.5 - cashAfter);
   const moved = [...recv, ...lose].reduce((a, i) => a + SPACES[i].price, 0) + o.give.cash + o.get.cash;
-  return gain - margin(s, per) * lv.margin * moved;
+  return gain - margin(s, per) * lv.margin * (1 + TRADE_AI.repeat * earlierOffers(s, o)) * moved;
 }
+// Offers this baron already made this month, not counting this one: whoever keeps probing for the lowest
+// price the AI will take is met with a harder bargain each time.
+const earlierOffers = (s, o) => {
+  const prefix = `${absMonth(s)}|${o.from}>`, own = offerKey(s, o);
+  let n = 0;
+  for (const k of s.offers) if (k.startsWith(prefix) && k !== own) n++;
+  return n;
+};
 // Barons get more willing to deal as a game drags on (keeps long games from stalling).
 const lateness = (s) => Math.max(0, s.round - 20);
 const margin = (s, per) => per.margin * Math.max(0.2, 1 - lateness(s) / 40);
@@ -159,7 +170,7 @@ function raiseCash(s, pid, L) {
 export function proposeTrade(s, pid) {
   const per = persona(s, pid), p = s.players[pid], lv = levelOf(s, pid);
   if (s.offers.filter((k) => k.startsWith(`${s.year * 12 + s.month}|${pid}>`)).length >= 2) return null;
-  if (lv.trade === null) return null;
+  if (lv.trade === null || (s.turnOffers || 0) >= RULES.offersPerTurn) return null;
   if (rand(s) > Math.min(1, per.trade + lv.trade + lateness(s) * 0.02)) return null;
   const res = reserveFor(s, pid);
   const options = [];

@@ -31,7 +31,7 @@ export function createGame(opts = {}) {
     players: [], lots: {}, turn: 0, round: 1, month: opts.startMonth ?? 0, year: 0, monthsPlayed: 0,
     phase: 'roll', pending: null, debts: [], resume: null, dice: [0, 0], again: false, forced: null,
     decks: { news: [], talk: [] }, headline: null, lastCard: null, mods: [], treasury: 0,
-    built: [], offers: [], log: [], winner: -1, ended: false,
+    built: [], offers: [], turnOffers: 0, log: [], winner: -1, ended: false,
     stats: { trades: 0, auctions: 0, auctionsSold: 0, bankruptcies: [], firstBankruptRound: 0, buys: 0, builds: 0, cards: 0 },
   };
   const seats = (opts.seats && opts.seats.length >= 2 ? opts.seats : [{ kind: 'human' }, { kind: 'ai' }]).slice(0, 6);
@@ -184,17 +184,19 @@ export function legal(s) {
       const p = s.players[a];
       out.push({ type: 'roll' });
       if (p.held) { if (p.cash >= RULES.bail) out.push({ type: 'bail' }); if (p.pardons) out.push({ type: 'pardon' }); }
-      manage(a, false); out.push({ type: 'propose' });
+      manage(a, false); if (offersLeft(s) > 0) out.push({ type: 'propose' });
       break;
     }
     case 'buy': out.push({ type: 'buy' }, { type: 'decline' }); break;
     case 'auction': out.push({ type: 'bid', min: nextMin(s) }, { type: 'pass' }); break;
     case 'trade': out.push({ type: 'respond', accept: true }, { type: 'respond', accept: false }); break;
     case 'debt': manage(a, true); out.push({ type: 'bankrupt' }); break;
-    case 'post': manage(a, false); out.push({ type: 'propose' }, { type: 'end' }); break;
+    case 'post': manage(a, false); if (offersLeft(s) > 0) out.push({ type: 'propose' }); out.push({ type: 'end' }); break;
   }
   return out;
 }
+// Trade offers the baron whose turn it is may still make this turn (S3-04).
+export const offersLeft = (s) => Math.max(0, RULES.offersPerTurn - (s.turnOffers || 0));
 const nextMin = (s) => (s.pending.bid > 0 ? s.pending.bid + RULES.minBid : s.pending.min);
 
 // ---------- apply ----------
@@ -251,8 +253,10 @@ export function apply(s, act) {
       s.lots[i].mortgaged = false; p.cash -= c;
       ev.push({ t: 'unmortgage', pid: p.id, space: i, amount: c }); log(s, `${p.name} lifts the mortgage on ${SPACES[i].name} ($${c}).`);
     } else if (t === 'propose' && inManage) {
+      if (offersLeft(s) < 1) return fail(`offer limit: ${RULES.offersPerTurn} offers a turn`);
       const err = validateOffer(s, p.id, act);
       if (err) return fail(err);
+      s.turnOffers = (s.turnOffers || 0) + 1;
       s.pending = { kind: 'trade', from: p.id, to: act.to, give: norm(act.give), get: norm(act.get), back: s.phase };
       s.phase = 'trade'; s.offers.push(offerKey(s, s.pending));
       ev.push({ t: 'offer', from: p.id, to: act.to }); log(s, `${p.name} offers a trade to ${s.players[act.to].name}.`);
@@ -470,7 +474,7 @@ function endTurn(s, ev) {
   const p = s.players[s.turn];
   s.built = [];
   if (s.again && !p.out && !p.held) { s.again = false; s.phase = 'roll'; ev.push({ t: 'again', pid: p.id }); return; }
-  s.again = false; p.doubles = 0;
+  s.again = false; p.doubles = 0; s.turnOffers = 0;
   const prev = s.turn;
   let n = prev;
   do n = (n + 1) % s.players.length; while (s.players[n].out && n !== prev);

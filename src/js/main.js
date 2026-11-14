@@ -598,7 +598,9 @@ function openAuction() { if (G.s.phase !== 'auction') return; openDialog(auction
 
 // Trade: compose (human proposer)
 function openTrade(to) {
-  const s = G.s, me = humanActor(); if (!me || !can('propose')) return;
+  const s = G.s, me = humanActor();
+  if (me && (s.phase === 'roll' || s.phase === 'post') && E.offersLeft(s) < 1) { toast(`You have made ${RULES.offersPerTurn} offers this turn. Try again next turn.`, 2600); sfx('error'); return; }
+  if (!me || !can('propose')) return;
   const others = s.players.filter((p) => p.id !== me.id && !p.out);
   if (!others.length) return;
   const st = { to: to ?? others[0].id, give: new Set(), get: new Set(), giveCash: 0, getCash: 0, err: '' };
@@ -611,7 +613,7 @@ function openTrade(to) {
       <div class="tradecols"><div class="tside"><h3>${baronImg(me)} You give</h3>${list(me.id, st.give, 'give')}<label class="chk">Cash $<input type="number" min="0" step="10" max="${me.cash}" value="${st.giveCash}" data-f="gc" data-cash="give" style="width:110px"></label></div>
       <div class="tside"><h3>${baronImg(P)} You get from ${esc(P.name)}</h3>${list(st.to, st.get, 'get')}<label class="chk">Cash $<input type="number" min="0" step="10" max="${P.cash}" value="${st.getCash}" data-f="tc" data-cash="get" style="width:110px"></label></div></div>
       ${st.err ? `<p role="alert" style="color:var(--danger);font-weight:700">${esc(st.err)}</p>` : ''}
-      <p class="fine">Lots in districts with buildings can't be traded. Mortgaged lots keep their mortgage.</p>
+      <p class="fine">Lots in districts with buildings can't be traded. Mortgaged lots keep their mortgage. Offers left this turn: ${E.offersLeft(s)} of ${RULES.offersPerTurn}.</p>
       <div class="btns"><button class="btn" data-f="cancel" data-ok>Cancel</button><button class="btn primary" data-f="propose" data-propose>Propose</button></div>`;
   };
   openDialog(render(), { name: 'trade', render });
