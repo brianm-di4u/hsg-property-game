@@ -8,6 +8,12 @@ const SETS = 'hs-barons-settings-v1';
 const COUNCIL = new URL('../../_council/hsg-property-game/wave-2/', import.meta.url);
 
 const audio = (t) => t.game('audioState');
+// Poll the audio state until `ok` holds (the buses glide, so a fixed wait is timing-fragile); returns the last state.
+async function pollAudio(t, ok, ms = 6000) {
+  let a = await audio(t);
+  for (const end = Date.now() + ms; !ok(a) && Date.now() < end;) { await t.page.waitForTimeout(100); a = await audio(t); }
+  return a;
+}
 const heardAfter = async (t, fn) => { await t.game('audioState', true); await fn(); await t.waitForStable(); return (await audio(t)).heard; };
 // A real click: it is the gesture that wakes the audio.
 async function wake(t) { await t.page.mouse.click(5, 5); await t.page.waitForFunction(() => window.__game.audioState().state === 'running', null, { timeout: 4000 }).catch(() => {}); }
@@ -175,16 +181,13 @@ export const tests = [
       await t.checkLayout();
       await wake(t);
       await click(t, '[data-set="music"][data-v="false"]');
-      await t.page.waitForTimeout(500);
-      let a = await audio(t);
+      let a = await pollAudio(t, (x) => x.music === null && x.musicGain === 0);
       t.equal(a.music, null, 'Music off: no piece is playing');
       t.expect(a.musicGain === 0, `Music off: the music bus is at ${a.musicGain}`);
       t.expect(a.ambGain > 0 && a.amb === 'town', 'the street is still on');
       await click(t, '[data-set="amb"][data-v="false"]');
       await click(t, '[data-set="sfx"][data-v="false"]');
-      await t.page.waitForTimeout(500);
-      a = await audio(t);
-      a = await audio(t);
+      a = await pollAudio(t, (x) => x.ambGain === 0 && x.amb === null && x.fxTarget === 0);
       t.expect(a.ambGain === 0 && a.amb === null, 'Ambience off: bus closed');
       t.expect(a.fxTarget === 0, `Sound effects off: effects bus target ${a.fxTarget}`);
       const st = (await t.state()).settings;
@@ -194,12 +197,10 @@ export const tests = [
       t.expect(st2.music === false && st2.amb === false && st2.sfx === false && st2.sound === true, 'all three survive a reload, and the master switch is untouched');
       await t.game('scene', 'settings');
       await wake(t);
-      await t.page.waitForTimeout(400);
-      a = await audio(t);
+      a = await pollAudio(t, (x) => x.music === null && x.amb === null && x.musicGain === 0 && x.ambGain === 0);
       t.expect(a.music === null && a.amb === null && a.musicGain === 0 && a.ambGain === 0, 'after a reload nothing plays');
       await click(t, '[data-set="music"][data-v="true"]');
-      await t.page.waitForTimeout(500);
-      a = await audio(t);
+      a = await pollAudio(t, (x) => x.music !== null && x.musicGain > 0);
       t.expect(a.music !== null && a.musicGain > 0, 'Music on again: the piece returns');
       await click(t, '[data-set="amb"][data-v="true"]'); await click(t, '[data-set="sfx"][data-v="true"]');
     },
