@@ -396,3 +396,18 @@ tests.push({
     t.expect(hit.every((h) => h >= (t.viewport === 'mobile' ? 24 : 18)), `the chips are a fair size to tap (${hit})`);
   },
 });
+
+// A daily game that ended in bankruptcy scores $0; that is a played game, not "not played yet" (found when the Banker and the
+// calendar changed how the seeded daily game ends).
+tests.push({
+  name: 'S3-03 a daily game that ended at $0 still counts as played today',
+  async run(t) {
+    const today = await t.page.evaluate(() => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; });
+    await t.page.evaluate(([k, v]) => localStorage.setItem(k, JSON.stringify(v)), [CAREER, { v: 1, games: 1, wins: 0, daily: { [today]: 0 } }]);
+    await t.reload();
+    await t.game('scene', 'setup');
+    await t.waitForStable();
+    const note = await t.page.locator('#dailynote').innerText();
+    t.expect(/your best net worth is \$0\./.test(note) && !/not played/.test(note), `a $0 day is shown as played (${note})`);
+  },
+});
