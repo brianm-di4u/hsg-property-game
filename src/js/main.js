@@ -3,7 +3,7 @@ import { SPACES, DISTRICTS, DISTRICT_ORDER, LOTS_BY_D, MONTHS, PERSONAS, PERSONA
 import * as E from './engine.js';
 import { aiAction } from './ai.js';
 import * as R from './render.js';
-import { audio, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAudio, audioList, audioRender, audioState } from './audio.js';
+import { audio, haptic, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAudio, audioList, audioRender, audioState } from './audio.js';
 import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
@@ -23,7 +23,7 @@ const NOSAVE_TOAST = 'Saving is off: a reload will lose this game.';
 const NOSAVE_NOTE = 'Saving is off in this browser, so your progress will not be kept. You can still play.';
 
 const G = {
-  s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal', autoEnd: false, felt: 'green', tipsSeen: null, tipsDone: [] },
+  s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal', autoEnd: false, haptics: null, felt: 'green', tipsSeen: null, tipsDone: [] },
   career: null, careerLocked: false, gameRes: null, news: [], tipsOn: false, input: 'mouse', coach: { rent: false, month: false, turns: 0, shown: null, key: '', timer: 0 },
   noSave: false, noSaveTold: false, queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, hidden: false, stale: false, fast: false, rush: false, waitingOk: false,
   undo: [], dialog: null, dialogRender: null, nextSeed: null, lastSetup: null, helpTab: 'rules', setup: null, liveBuf: [], logSeen: 0,
@@ -39,6 +39,7 @@ function loadSettings() {
   st.tipsDone = Array.isArray(st.tipsDone) ? st.tipsDone.filter((x) => typeof x === 'string').slice(0, 20) : [];
   if (typeof st.felt !== 'string' || !feltOpen(G.career, st.felt)) st.felt = 'green'; // a felt that is not open falls back to the original // the sound fields added with music and ambience: a missing or damaged one falls back to its default
   for (const k of ['sfx', 'music', 'amb']) if (typeof st[k] !== 'boolean') st[k] = true;
+  if (typeof st.haptics !== 'boolean') st.haptics = matchMedia('(pointer: coarse)').matches; // Vibration: on for a touch device, off elsewhere, until the player says
   if (typeof st.autoEnd !== 'boolean') st.autoEnd = false; // an option added later: off, as the game has always played
   if (typeof st.vol !== 'number' || !(st.vol >= 0 && st.vol <= 1)) st.vol = 0.35;
   for (const k of ['mvol', 'avol']) if (typeof st[k] !== 'number' || !(st[k] >= 0 && st[k] <= 1)) st[k] = 0.7;
@@ -47,7 +48,7 @@ function loadSettings() {
 function saveSettings() { store.set(SETS, JSON.stringify(G.settings)); applySettings(); }
 function applySettings() {
   const st = G.settings;
-  audio.on = !!st.sound; audio.vol = st.vol; audio.sfx = st.sfx; audio.music = st.music; audio.amb = st.amb; audio.mvol = st.mvol; audio.avol = st.avol; applyAudio();
+  audio.on = !!st.sound; audio.vol = st.vol; audio.sfx = st.sfx; audio.music = st.music; audio.amb = st.amb; audio.mvol = st.mvol; audio.avol = st.avol; audio.haptics = !!st.haptics; audio.still = reduced(); applyAudio();
   R.view.feltC = st.felt !== 'green' && FELT_BY_ID[st.felt] ? FELT_BY_ID[st.felt].c : null;
   document.documentElement.style.setProperty('--ts', st.text);
   const dark = st.theme === 'dark' || (st.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -340,7 +341,10 @@ function seatPan(pid) {
   if (humans.length === 1 && s.players[pid].kind === 'human') return 0;
   return (pid / (s.players.length - 1) * 2 - 1) * 0.6;
 }
-const cue = (name, pid, o = {}) => sfx(name, { pan: seatPan(pid), ...o });
+// A rival's cues carry its voice (S5-19): the persona sets the pitch and the tone of what it does.
+const voiceOf = (pid) => { const p = G.s && pid != null ? G.s.players[pid] : null; return p && p.kind === 'ai' ? p.persona : undefined; };
+const cue = (name, pid, o = {}) => sfx(name, { pan: seatPan(pid), persona: voiceOf(pid), ...o });
+const isHuman = (pid) => !!G.s && pid >= 0 && !!G.s.players[pid] && G.s.players[pid].kind === 'human';
 // Coins and bids climb a little with the sum: about a semitone for each doubling, from $100, within -3 to +5.
 const sumPitch = (amount) => Math.max(-3, Math.min(5, Math.log2(Math.max(10, amount) / 100)));
 
@@ -375,11 +379,12 @@ async function present(e) {
       R.view.flash = e.to; draw();
       break;
     }
-    case 'land': cue('land', e.pid); R.view.flash = e.space; draw(); break;
+    case 'land': cue('land', e.pid); if (isHuman(e.pid)) haptic('land'); R.view.flash = e.space; draw(); break;
     case 'paid': if (e.why === 'rent') { G.coach.rent = true; pop(e.from, -e.amount); pop(e.to, e.amount); coins(e.from, e.to, e.amount); } else { cue('tax', e.from); pop(e.from, -e.amount); coins(e.from, -1, e.amount); } break;
     case 'payday': pop(e.pid, e.amount - e.ground); coins(-1, e.pid, e.amount); cue('coin', e.pid, { pitch: sumPitch(e.amount) }); toast(`${P(e.pid).name}: Payday +${money(e.amount - e.ground)}`); break;
-    case 'rent': cue('pay', e.from); toast(`${P(e.from).name} pays ${money(e.amount)} to ${e.to >= 0 ? P(e.to).name : 'the treasury'} for ${SPACES[e.space].name}${e.notes && e.notes.length ? ` (${e.notes.join(', ')})` : ''}`); await sleep(250); break;
-    case 'buy': cue('coin', e.pid, { pitch: sumPitch(e.price) }); toast(`${P(e.pid).name} buys ${SPACES[e.space].name}`); break;
+    // rent is two sounds: money out is the falling pay cue, money in to a person is the bright coin (S5-06)
+    case 'rent': if (!isHuman(e.from) && isHuman(e.to)) cue('coin', e.to, { pitch: sumPitch(e.amount) }); else cue('pay', e.from); if (isHuman(e.from)) haptic('rent'); toast(`${P(e.from).name} pays ${money(e.amount)} to ${e.to >= 0 ? P(e.to).name : 'the treasury'} for ${SPACES[e.space].name}${e.notes && e.notes.length ? ` (${e.notes.join(', ')})` : ''}`); await sleep(250); break;
+    case 'buy': cue('buy', e.pid); toast(`${P(e.pid).name} buys ${SPACES[e.space].name}`); break;
     case 'won': cue('gavel', e.pid); toast(`${P(e.pid).name} wins ${SPACES[e.space].name} for ${money(e.amount)}`); await sleep(350); break;
     case 'unsold': sfx('unsold'); toast(`No bids for ${SPACES[e.space].name}`); break;
     case 'bid': cue('bid', e.pid, { pitch: sumPitch(e.amount) * 1.5 }); refreshDialog(); await sleep(150); break;
@@ -390,7 +395,7 @@ async function present(e) {
       await animate(560, () => {}); fxLoop();
     } break;
     case 'burn': sfx('bust'); break;
-    case 'jury': cue('gavel', e.pid); toast(`${P(e.pid).name} is held for the Grand Jury`); await sleep(300); break;
+    case 'jury': cue('jail', e.pid); toast(`${P(e.pid).name} is held for the Grand Jury`); await sleep(300); break;
     case 'card': await showCard(e); break;
     case 'month': G.coach.month = true; sfx('month', { m: e.month }); toast(`${MONTHS[e.month]}, Year ${e.year + 1}`); break;
     case 'trade': cue('coin', e.from); toast('Trade accepted'); break;
@@ -407,7 +412,7 @@ async function present(e) {
     case 'passbid': cue('drop', e.pid); break;
     case 'offer': sfx('offer'); break;
     case 'debt': cue('debt', e.pid); break;
-    case 'over': sfx(endingCue(s)); await sleep(700); G.waitingOk = false; closeDialog(true); scene('over'); break;
+    case 'over': sfx(endingCue(s)); haptic('over'); await sleep(700); G.waitingOk = false; closeDialog(true); scene('over'); break;
   }
 }
 
@@ -1087,6 +1092,7 @@ function screenSettings(scr) {
     <p><strong>Sound effects</strong><br>${seg('sfx', [[true, 'On'], [false, 'Off']])} ${volSlider('vol')}</p>
     <p><strong>Music</strong><br>${seg('music', [[true, 'On'], [false, 'Off']])} ${volSlider('mvol')}</p>
     <p><strong>Ambience</strong><br>${seg('amb', [[true, 'On'], [false, 'Off']])} ${volSlider('avol')}</p>
+    ${'vibrate' in navigator ? `<p><strong>Vibration</strong><br>${seg('haptics', [[true, 'On'], [false, 'Off']])}<br><span class="fine">A short buzz when you land, pay rent and finish a game. Off when Motion is Reduced.</span></p>` : ''}
     <p><strong>Motion</strong><br>${seg('motion', [['system', 'Follow system'], ['reduce', 'Reduced'], ['full', 'Full']])}</p>
     <p><strong>Text size</strong><br>${seg('text', [[1, '100%'], [1.25, '125%'], [1.5, '150%']])}</p>
     <p><strong>Theme</strong><br>${seg('theme', [['auto', 'Follow system'], ['light', 'Gilded day'], ['dark', 'Neon night']])}</p>
@@ -1097,7 +1103,7 @@ function screenSettings(scr) {
     <button class="btn primary" data-back>Back</button></div>`;
   scr.onclick = (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.set) { const k = b.dataset.set; let v = b.dataset.v; if (k === 'sound' || k === 'sfx' || k === 'music' || k === 'amb' || k === 'autoEnd') v = v === 'true'; if (k === 'text') v = +v; st[k] = v; saveSettings(); unlock(); if ((k === 'sound' || k === 'sfx') && v) sfx('coin'); screenSettings(scr); scr.querySelector(`[data-set="${k}"][aria-pressed="true"]`).focus(); }
+    if (b.dataset.set) { const k = b.dataset.set; let v = b.dataset.v; if (k === 'sound' || k === 'sfx' || k === 'music' || k === 'amb' || k === 'autoEnd' || k === 'haptics') v = v === 'true'; if (k === 'text') v = +v; st[k] = v; saveSettings(); unlock(); if (k === 'haptics' && v) haptic('land'); if ((k === 'sound' || k === 'sfx') && v) sfx('coin'); screenSettings(scr); scr.querySelector(`[data-set="${k}"][aria-pressed="true"]`).focus(); }
     else if (b.dataset.felt) { if (feltOpen(G.career, b.dataset.felt)) { st.felt = b.dataset.felt; saveSettings(); unlock(); screenSettings(scr); scr.querySelector(`[data-felt="${b.dataset.felt}"]`).focus(); } }
     else if (b.dataset.tipsAgain != null) { st.tipsSeen = false; st.tipsDone = []; G.tipsOn = !!G.s && !G.s.ended; saveSettings(); $('#tipsnote').textContent = G.tipsOn ? 'The tips will show when you are back at the table.' : 'The tips will show in your next game.'; }
     else if (b.dataset.back != null) scene(G.back === 'game' && G.s ? 'game' : 'title');

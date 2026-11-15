@@ -313,7 +313,7 @@ export const tests = [
       let h = await heardAfter(t, () => rollTo(t, 2, 3));
       t.expect(h.includes('dice') && h.includes('land'), `roll and landing: ${h.join(',')}`);
       h = await heardAfter(t, () => act(t, { type: 'buy' }));
-      t.expect(h.includes('coin'), `buying: ${h.join(',')}`);
+      t.expect(h.includes('buy'), `buying: ${h.join(',')}`); // a purchase has its own cue since S5-06; the coin is for money coming in
       h = await heardAfter(t, () => act(t, { type: 'end' }));
       t.expect(h.includes('turn'), `the next human is told it is their turn: ${h.join(',')}`);
       const s = await heardAfter(t, async () => { await t.game('act', 'do', { type: 'nonsense' }); });

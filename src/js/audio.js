@@ -4,7 +4,7 @@
 //   adapted: it also exposes its two buses so tests can read them). Cues are layered voices with per-play
 //   variation. Everything obeys the master Sound switch in Settings, and pauses behind the pause card and a
 //   hidden tab. The offline renderers at the bottom measure each piece without touching the live audio.
-export const audio = { ctx: null, on: true, sfx: true, music: true, amb: true, vol: 0.35, mvol: 0.7, avol: 0.7, played: [], count: 0, kit: null, cues: null, fx: null, fxTarget: 0 };
+export const audio = { ctx: null, on: true, sfx: true, music: true, amb: true, vol: 0.35, mvol: 0.7, avol: 0.7, played: [], count: 0, kit: null, cues: null, fx: null, fxTarget: 0, haptics: false, still: false, last: null };
 
 // Levels: at these slider positions the mix is at its measured level (see the tests). Sliders scale from there.
 const REF_FX = 0.35, REF_MIX = 0.7, FX_MAX = 1.6;
@@ -364,9 +364,20 @@ const SCENES = {
 
 // ============================================================================================ cues
 // Per-cue trim, set from the measurements in tests/council-w2-a.test.mjs so every cue peaks near 0.3.
-const TRIM = { dice: 0.58, land: 0.7, tax: 0.65, build: 0.64, gavel: 0.62, bust: 0.45, mort: 0.6, unmort: 0.66, sell: 0.71, debt: 0.6, deed: 0.9, month: 0.8, turn: 0.82, release: 0.9, error: 0.85 };
+const TRIM = { buy: 0.7, jail: 0.6, dice: 0.58, land: 0.7, tax: 0.65, build: 0.64, gavel: 0.62, bust: 0.45, mort: 0.6, unmort: 0.66, sell: 0.71, debt: 0.6, deed: 0.9, month: 0.8, turn: 0.82, release: 0.9, error: 0.85 };
 const CUE_NAMES = ['click', 'open', 'close', 'deed', 'dice', 'step', 'land', 'coin', 'pay', 'tax', 'card', 'build', 'gavel', 'bid', 'drop', 'error', 'fanfare', 'bust',
-  'turn', 'again', 'release', 'mort', 'unmort', 'sell', 'auctionStart', 'unsold', 'offer', 'declined', 'month', 'debt', 'ach'];
+  'turn', 'again', 'release', 'mort', 'unmort', 'sell', 'auctionStart', 'unsold', 'offer', 'declined', 'month', 'debt', 'ach', 'buy', 'jail'];
+// Each rival's voice (S5-19): its cues are sung a few semitones from the shared pitch, and a lot it buys is stamped with
+// its own three-note motif (semitones above the root) in its own tone. A human buyer gets the plain voice.
+export const VOICES = {
+  you: { semi: 0, type: 'triangle', motif: [0, 4, 7] },
+  speculator: { semi: 4, type: 'square', motif: [0, 7, 12] },
+  hotelier: { semi: 1, type: 'triangle', motif: [0, 4, 9] },
+  banker: { semi: -5, type: 'sine', motif: [0, 3, 7] },
+  showman: { semi: 2, type: 'sawtooth', motif: [0, 5, 9] },
+  preservationist: { semi: -2, type: 'sine', motif: [0, 2, 7] },
+  gambler: { semi: 5, type: 'square', motif: [0, 6, 3] },
+};
 const PENTA = [72, 74, 76, 79, 81, 84, 86, 88, 91, 93];   // C pentatonic over two octaves, walked upward by a move
 const BELL = [[1, 1], [2.76, 0.35], [5.4, 0.15]];
 
@@ -514,6 +525,20 @@ function makeCues(ctx, out, kit) {
       tone(d, t + 0.3, 1568 * j.f, { parts: [[1, 1], [2, 0.2]], dur: 0.7, g: 0.16 * j.g });
       hit(d, t + 0.3, { f: 6500, q: 1.5, dur: 0.012, g: 0.25 * j.g, off: j.o });
     },
+    // a lot bought, money going out: three plucked notes in the buyer's voice, then the deed stamped down (S5-06, S5-19)
+    buy: (d, t, j, o) => {
+      const v = VOICES[o.persona] || VOICES.you;
+      v.motif.forEach((m, k) => tone(d, t + k * 0.075, 523 * j.f * 2 ** (m / 12), { type: v.type, parts: [[1, 1], [2, 0.18]], dur: 0.16, g: 0.2 * j.g, lp: 2400 }));
+      tone(d, t + 0.24, 130 * j.f, { dur: 0.14, g: 0.4 * j.g, slide: 0.6, lp: 520 });
+      hit(d, t + 0.24, { f: 1500, q: 1.1, dur: 0.035, g: 0.4 * j.g, off: j.o });
+    },
+    // held at the Grand Jury: an iron door clangs and a bolt goes home (S5-06)
+    jail: (d, t, j) => {
+      tone(d, t, 233 * j.f, { type: 'triangle', parts: [[1, 1], [2.76, 0.45], [5.4, 0.25]], dur: 0.55, g: 0.26 * j.g, lp: 3000 });
+      hit(d, t, { f: 900, q: 2, dur: 0.06, g: 0.5 * j.g, off: j.o });
+      tone(d, t + 0.17, 90 * j.f, { dur: 0.16, g: 0.45 * j.g, slide: 0.6, lp: 420 });
+      hit(d, t + 0.17, { f: 600, q: 1.5, dur: 0.04, g: 0.4 * j.g, off: j.o + 0.5 });
+    },
     debt: (d, t, j) => [0, 0.16].forEach((dt) => tone(d, t + dt, 110 * j.f, { parts: [[1, 1], [2, 0.3]], dur: 0.12, g: 0.4 * j.g, lp: 700 })),
   };
   return {
@@ -521,6 +546,7 @@ function makeCues(ctx, out, kit) {
     play(name, t, o = {}) {
       const fn = CUE[name]; if (!fn) return;
       const j = kit.jit(20, 1.5); j.g *= TRIM[name] ?? 1;
+      const v = VOICES[o.persona]; if (v) j.f *= 2 ** (v.semi / 12);
       fn(bus(o.pan), t, j, o);
     },
   };
@@ -571,6 +597,13 @@ export function unlock() {
   if (audio.ctx.state !== 'running' && audio.ctx.state !== 'closed') audio.ctx.resume().catch(() => {});
 }
 
+// Haptics (S5-09): a short pulse where the browser has it, when the player has it on and has not asked for less motion.
+const BUZZ = { land: 12, rent: [20, 40, 20], over: [40, 60, 40, 60, 80] };
+export function haptic(kind) {
+  if (!audio.haptics || audio.still || !BUZZ[kind] || typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+  try { navigator.vibrate(BUZZ[kind]); } catch (e) { /* optional */ }
+}
+
 // Hidden tab: fade out, schedule nothing, suspend the context. holdAudio('hidden', false) and unlock() bring it back.
 export function suspendAudio() {
   holdAudio('hidden', true);
@@ -583,7 +616,7 @@ export function setMood(music, amb) { want.music = music; want.amb = amb; applyA
 export function setCrowd(v) { if (want.crowd === v) return; want.crowd = v; if (audio.kit) audio.kit.amb.set('crowd', v, 0.8); }
 
 export function sfx(name, o = {}) {
-  audio.played.push(name); audio.count++; if (audio.played.length > 30) audio.played.shift();
+  audio.played.push(name); audio.count++; audio.last = { name, persona: o.persona || null }; if (audio.played.length > 30) audio.played.shift();
   const c = audio.ctx;
   if (!audio.on || !audio.sfx || !c || !audio.cues || c.state !== 'running') return;
   const now = c.currentTime;
@@ -602,7 +635,7 @@ export function audioState(reset) {
   const out = {
     ready: !!audio.ctx, state: audio.ctx ? audio.ctx.state : 'none', music: k ? nameOf(SCORES, k.music.score) : null, amb: k ? nameOf(SCENES, k.amb.scene) : null,
     musicGain: k ? +k.buses.music.gain.value.toFixed(3) : 0, ambGain: k ? +k.buses.amb.gain.value.toFixed(3) : 0, fxTarget: audio.fxTarget ?? 0,
-    held: k ? k.held : false, bars: info ? info.bars : 0, heard: audio.played.slice(), count: audio.count,
+    held: k ? k.held : false, bars: info ? info.bars : 0, heard: audio.played.slice(), last: audio.last, count: audio.count,
   };
   if (reset) audio.played.length = 0;
   return out;
@@ -624,7 +657,7 @@ export function audioRender(name, seconds = 30, wantWav = false, opt = {}) {
       kit.music.play(SCORES.play, forever); kit.amb.set('crowd', 1, 0.01); kit.amb.play(SCENES.town, forever);
       cues = makeCues(oc, g.fx, kit);
       for (const n of ['fanfare', 'gavel', 'dice', 'coin', 'bust']) cues.play(n, 10, { pitch: 0 });
-    } else if (name.startsWith('cue:')) { cues = makeCues(oc, g.fx, kit); cues.play(name.slice(4), 0.05, { pitch: opt.pitch || 0, i: opt.i || 0, m: opt.m || 0 }); }
+    } else if (name.startsWith('cue:')) { cues = makeCues(oc, g.fx, kit); cues.play(name.slice(4), 0.05, { pitch: opt.pitch || 0, i: opt.i || 0, m: opt.m || 0, persona: opt.persona }); }
     kit.scheduleUntil(seconds);
     return () => { const i = kit.music.info(), s = SCORES[name]; return i && s ? { ...i, bpm: s.bpm, formSeconds: +(i.formBars * (s.beats || 4) * 60 / s.bpm).toFixed(1) } : i; };
   }, seconds, { wav: wantWav });

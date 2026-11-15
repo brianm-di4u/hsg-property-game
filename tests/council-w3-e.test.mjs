@@ -110,3 +110,125 @@ tests.push({
     await t.shot('S4-02-loss');
   },
 });
+
+// ---------- S5-06: spending, earning and being held sound different ----------
+import { rollTo, act, TWO_HUMANS } from './helpers.mjs';
+const heardAfter = async (t, fn) => { await t.game('audioState', true); await fn(); await t.waitForStable(); return (await t.game('audioState')).heard; };
+tests.push({
+  name: 'S5-06 buying a lot has its own cue; rent collected keeps the coin; rent paid keeps the pay cue',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t, { seats: HUMAN_VS_AI });
+    await rollTo(t, 2, 3);
+    let h = await heardAfter(t, () => act(t, { type: 'buy' }));
+    t.expect(h.includes('buy') && !h.includes('coin'), `buying a lot: ${h.join(',')}`);
+    // a rival's rent to the human: money in, the coin
+    await mod(t, (s) => { s.lots[13].owner = 0; s.lots[13].level = 0; s.players[1].pos = 10; s.turn = 1; s.phase = 'roll'; s.pending = null; s.built = []; });
+    h = await heardAfter(t, async () => { await t.game('act', 'dice', 1, 2); await t.game('act', 'do', { type: 'roll' }); });
+    t.expect(h.includes('coin') && !h.includes('pay'), `rent collected by the human: ${h.join(',')}`);
+    // the human's rent to a rival: money out
+    await mod(t, (s) => { s.lots[13].owner = 1; s.lots[13].level = 0; s.players[0].pos = 10; s.turn = 0; s.phase = 'roll'; s.pending = null; s.again = false; });
+    h = await heardAfter(t, () => rollTo(t, 1, 2));
+    t.expect(h.includes('pay') && !h.includes('coin'), `rent paid by the human: ${h.join(',')}`);
+  },
+});
+tests.push({
+  name: 'S5-06 three doubles send you to the Grand Jury with the jail cue, not the gavel',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t, { seats: TWO_HUMANS });
+    await rollTo(t, 3, 3); await act(t, { type: 'buy' }); await act(t, { type: 'end' });
+    await rollTo(t, 2, 2); await act(t, { type: 'buy' }); await act(t, { type: 'end' });
+    const h = await heardAfter(t, () => rollTo(t, 4, 4));
+    t.equal((await g(t)).players[0].held, 1, 'held at the Grand Jury');
+    t.expect(h.includes('jail') && !h.includes('gavel'), `the Jury cue: ${h.join(',')}`);
+  },
+});
+
+// ---------- S5-19: each rival has a voice ----------
+tests.push({
+  name: 'S5-19 each rival buys with its own motif and a human with the plain one; the new cues sit in the mix',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t);
+    const rms = {}, med = (a) => a.slice().sort((x, y) => x - y)[a.length >> 1];
+    for (const persona of [undefined, 'speculator', 'hotelier', 'banker', 'showman', 'preservationist', 'gambler']) {
+      const rs = [];
+      for (const seed of [1, 2, 3, 4, 5]) rs.push(await t.game('audioRender', 'cue:buy', 2, false, { seed, persona }));
+      rms[persona || 'you'] = med(rs.map((r) => r.rms));
+      const peak = med(rs.map((r) => r.peak));
+      t.expect(peak >= 0.2 && peak <= 0.45, `${persona || 'you'}: the typical buy cue peaks at ${peak}`);
+    }
+    t.log(JSON.stringify(rms));
+    t.expect(new Set(Object.values(rms).map((x) => x.toFixed(4))).size >= 6, `the seven voices render differently: ${JSON.stringify(rms)}`);
+    const jp = []; for (const seed of [1, 2, 3, 4, 5]) jp.push((await t.game('audioRender', 'cue:jail', 2, false, { seed })).peak);
+    t.expect(med(jp) >= 0.2 && med(jp) <= 0.45, `jail: the typical peak is ${med(jp)}`);
+  },
+});
+tests.push({
+  name: 'S5-19 a rival cues carry its persona and a human cues do not',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t, { seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'gambler' }] });
+    await rollTo(t, 2, 3); await act(t, { type: 'buy' });
+    t.equal((await t.game('audioState')).last.persona, null, 'the human buys in the plain voice');
+    await mod(t, (s) => { s.turn = 1; s.phase = 'roll'; s.pending = null; s.players[1].pos = 3; });
+    await t.game('act', 'dice', 3, 4); await t.game('act', 'do', { type: 'roll' });
+    await t.waitForStable();
+    const a = await t.game('audioState');
+    t.equal(a.last.persona, 'gambler', `the rival's last cue (${a.last.name}) is in its voice`);
+  },
+});
+
+// ---------- S5-09: haptics ----------
+const buzzLog = (t) => t.page.evaluate(() => { window.__buzz = []; Object.defineProperty(navigator, 'vibrate', { value: (p) => { window.__buzz.push(p); return true; }, configurable: true }); });
+const buzzes = (t) => t.page.evaluate(() => JSON.stringify(window.__buzz));
+const clearBuzz = (t) => t.page.evaluate(() => { window.__buzz = []; });
+async function setSetting(t, key, v) {
+  await t.game('scene', 'settings'); await t.waitForStable();
+  await t.page.click(`[data-set="${key}"][data-v="${v}"]`);
+  await t.game('scene', 'game'); await t.waitForStable();
+}
+const rentSetup = (s) => { s.lots[13].owner = 1; s.lots[13].level = 0; s.players[0].pos = 10; s.turn = 0; s.phase = 'roll'; s.pending = null; s.again = false; };
+tests.push({
+  name: 'S5-09 a short buzz for your landing, the rent you pay and the end of a game',
+  async run(t) {
+    await start(t, { seats: TWO_HUMANS });
+    await buzzLog(t);
+    await setSetting(t, 'haptics', true);
+    t.equal(await buzzes(t), '[12]', 'turning Vibration on gives one short pulse to feel it');
+    await mod(t, rentSetup); await clearBuzz(t);
+    await rollTo(t, 1, 2);
+    t.equal(await buzzes(t), '[12,[20,40,20]]', 'landing (12 ms) then rent paid (20-40-20)');
+    await mod(t, (s) => { s.phase = 'post'; s.pending = null; s.turn = 1; }); await clearBuzz(t);
+    await t.game('act', 'do', { type: 'resign' });
+    await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 8000 });
+    t.equal(await buzzes(t), '[[40,60,40,60,80]]', 'the game ending (40-60-40-60-80)');
+  },
+});
+tests.push({
+  name: 'S5-09 no buzz when Vibration is off or motion is reduced',
+  async run(t) {
+    await start(t, { seats: TWO_HUMANS });
+    await buzzLog(t);
+    const play = async () => { await mod(t, rentSetup); await clearBuzz(t); await rollTo(t, 1, 2); return buzzes(t); };
+    await setSetting(t, 'haptics', false);
+    t.equal(await play(), '[]', 'Vibration off: nothing');
+    await setSetting(t, 'haptics', true); await setSetting(t, 'motion', 'reduce');
+    t.equal(await play(), '[]', 'Vibration on but motion reduced: nothing');
+    await setSetting(t, 'motion', 'full');
+    t.equal(await play(), '[12,[20,40,20]]', 'and back on when motion is full');
+  },
+});
+
+// ---------- S5-10: a player who asked for reduced motion still hears the move ----------
+tests.push({
+  name: 'S5-10 with reduced motion a move is heard: the dice and one landing, no steps for a token that does not walk',
+  async run(t) {
+    await start(t, { seats: TWO_HUMANS }, { fast: false });
+    await setSetting(t, 'motion', 'reduce');
+    const h = await heardAfter(t, () => rollTo(t, 2, 3));
+    t.expect(h.includes('dice') && h.filter((n) => n === 'land').length === 1, `dice, then one landing: ${h.join(',')}`);
+    t.expect(!h.includes('step'), 'and no footsteps for a token that jumps');
+  },
+});
