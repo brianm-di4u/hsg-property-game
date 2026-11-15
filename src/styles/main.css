@@ -408,7 +408,8 @@ body.reduce .bidders .now .paddle { animation: none; }
 .tside .cashline { font-family: var(--font-slab); padding: 4px 6px; }
 .offerby { display: flex; align-items: center; gap: 10px; }
 .offerby .bimg { width: 44px; height: 44px; }
-.over td[data-tok] { display: flex; align-items: center; gap: 6px; }
+.over .bn { display: flex; align-items: center; gap: 6px; }
+.over .bn > span { min-width: 0; }
 .seg button[data-seg] { white-space: nowrap; } /* setup choices stay on one line */
 
 /* ---------- first-run coach, career and felts (wave 2: S2-02, S3-02) ---------- */
@@ -500,3 +501,20 @@ details.rule:last-of-type { border-bottom: 1px solid var(--border); }
 details.rule summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-family: var(--font-deco); font-weight: 700; font-size: 1.05em; letter-spacing: .03em; }
 details.rule > .prose { padding: 0 0 8px 4px; }
 details.rule > .prose p { margin: 4px 0 8px; }
+
+/* ---------- results table on a phone (wave 3: S4-61) ---------- */
+.tscroll { overflow-x: auto; }
+table.t.results .sm { display: none; }
+table.t.results td, table.t.results th { font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) {
+  table.t.results { font-size: .8em; }
+  table.t.results th, table.t.results td { padding: 5px 3px; }
+  table.t.results .lg { display: none; }
+  table.t.results .sm { display: inline; }
+  table.t.results .bn { gap: 4px; }
+  table.t.results .bn .fine { display: block; font-size: .78em; }
+  table.t.results .bn canvas { width: 22px !important; height: 22px !important; }
+}
+table.t.results .bn .fine { overflow-wrap: anywhere; }
+.over .podium > div { min-width: 0; }
+@media (max-width: 420px) { .over h2 { font-size: 1.75em; overflow-wrap: anywhere; } .over .kicker { overflow-wrap: anywhere; } }

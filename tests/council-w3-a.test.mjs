@@ -431,6 +431,33 @@ export const tests = [
     },
   },
   {
+    name: 'S4-61 the results table fits the card on a phone, every column in view',
+    async run(t) {
+      await start(t, { seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'speculator' }, { kind: 'ai', persona: 'preservationist' }, { kind: 'ai', persona: 'showman' }] });
+      await t.seed(31);
+      await t.game('act', 'autoplay', 30000);
+      await t.waitForStable();
+      t.equal((await t.state()).scene, 'over', 'the results are showing');
+      const widths = [320, 390];
+      for (const w of t.viewport === 'mobile' ? widths : [1280]) {
+        if (t.viewport === 'mobile') { await t.page.setViewportSize({ width: w, height: 844 }); await t.waitForStable(); }
+        const r = await t.page.evaluate(() => {
+          const card = document.querySelector('.over .tscroll').getBoundingClientRect(), box = document.querySelector('.tscroll');
+          const ths = [...document.querySelectorAll('.over table.results th')].map((th) => { const b = th.getBoundingClientRect(); return { text: th.textContent, right: b.right, vis: getComputedStyle(th).display !== 'none' }; });
+          const rows = [...document.querySelectorAll('.over table.results tbody tr')].map((tr) => tr.getBoundingClientRect().height);
+          return { cardRight: card.right, scrolls: box.scrollWidth > box.clientWidth + 1, ths, tokens: document.querySelectorAll('.over .bn canvas').length, cells: [...document.querySelectorAll('.over table.results td')].every((td) => getComputedStyle(td).display === 'table-cell'), rows };
+        });
+        t.expect(r.cells, `${w}px: every cell is still a table cell (the name is wrapped in a div)`);
+        t.equal(r.tokens, 4, `${w}px: every baron has a token`);
+        const inside = r.ths.every((h) => h.right <= r.cardRight + 1);
+        t.expect(inside || (w < 390 && r.scrolls), `${w}px: every column header ends inside the card, or on the narrowest phones the table scrolls inside it (${r.ths.map((h) => Math.round(h.right)).join(', ')} of ${Math.round(r.cardRight)})`);
+        if (w === 390 || t.viewport === 'desktop') t.expect(!r.scrolls, `${w}px: nothing needs sideways scrolling`);
+        if (w >= 390) t.expect(Math.max(...r.rows) < 130, `${w}px: rows stay compact (${Math.round(Math.max(...r.rows))} px)`);
+        await t.shot(`S4-61-results-${w}`, { fullPage: true });
+      }
+    },
+  },
+  {
     name: 'S6-10 blocked storage says so on the title, in the first move and in the menu',
     initScript: () => { Storage.prototype.setItem = function () { throw new DOMException('blocked', 'SecurityError'); }; },
     async run(t) {
