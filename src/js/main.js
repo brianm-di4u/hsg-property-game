@@ -25,7 +25,7 @@ const NOSAVE_NOTE = 'Saving is off in this browser, so your progress will not be
 const G = {
   s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal', autoEnd: false, felt: 'green', tipsSeen: null, tipsDone: [] },
   career: null, careerLocked: false, gameRes: null, news: [], tipsOn: false, input: 'mouse', coach: { rent: false, month: false, turns: 0, shown: null, key: '', timer: 0 },
-  noSave: false, noSaveTold: false, queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, hidden: false, stale: false, fast: false, waitingOk: false,
+  noSave: false, noSaveTold: false, queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, hidden: false, stale: false, fast: false, rush: false, waitingOk: false,
   dialog: null, dialogRender: null, nextSeed: null, lastSetup: null, helpTab: 'rules', setup: null, liveBuf: [], logSeen: 0,
 };
 window.__G = G;
@@ -61,8 +61,11 @@ function applySettings() {
 }
 const reduced = () => G.settings.motion === 'reduce' || (G.settings.motion === 'system' && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const soundIcon = (on) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>${on ? '<path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>' : '<path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'}</svg>`;
-const aiDelay = () => (G.fast ? 0 : ({ normal: 650, fast: 220, instant: 0 })[G.settings.ai] ?? 650);
-const animOn = () => !G.fast && !reduced() && !G.skip;
+// AI pacing (S1-03). The Normal think time was 650 ms; the rival's card was held 2200 ms (now AI_CARD_HOLD). Skip ahead
+// (G.rush) runs the rest of the rivals' turns with no waits and no animation, until the human acts again.
+const AI_THINK = { normal: 400, fast: 220, instant: 0 }, AI_CARD_HOLD = { normal: 1500, other: 900 };
+const aiDelay = () => (G.fast || G.rush ? 0 : AI_THINK[G.settings.ai] ?? AI_THINK.normal);
+const animOn = () => !G.fast && !reduced() && !G.skip && !G.rush;
 
 // ---------- career: records, achievements, felts (S3-02) ----------
 // The record lives in its own key. A record written by a newer version is left alone (nothing here writes over it).
@@ -209,7 +212,7 @@ function animate(dur, fn) {
     requestAnimationFrame(tick);
   });
 }
-const sleep = (ms) => (ms > 0 && !G.fast && !G.skip ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+const sleep = (ms) => (ms > 0 && !G.fast && !G.skip && !G.rush ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
 
 // ---------- live region and toasts ----------
 function announce(t) { G.liveBuf.push(t); clearTimeout(announce.t); announce.t = setTimeout(() => { $('#live').textContent = G.liveBuf.slice(-4).join(' '); G.liveBuf = []; }, 60); }
@@ -247,7 +250,7 @@ function perform(action) {
   const byHuman = !!humanActor();
   const r = E.apply(G.s, action);
   if (!r.ok) { sfx('error'); return r; }
-  if (byHuman) coachAction(action.type);
+  if (byHuman) { G.rush = false; coachAction(action.type); }
   afterAction(r.events);
   // Keep moving tokens at their old place until their move animation runs.
   for (const e of r.events) if (e.t === 'move' && !R.view.tokens[e.pid]) R.view.tokens[e.pid] = R.slot(e.from, e.pid);
@@ -429,7 +432,7 @@ async function showCard(e) {
     await new Promise((res) => { G.cardDone = res; });
     G.waitingOk = false;
   } else {
-    await sleep(humanTable ? (G.settings.ai === 'normal' ? 2200 : 900) : 600);
+    await sleep(humanTable ? (G.settings.ai === 'normal' ? AI_CARD_HOLD.normal : AI_CARD_HOLD.other) : 600);
     if (G.dialog === 'card') closeDialog(true);
   }
 }
@@ -516,6 +519,13 @@ function refreshView() {
   if (narrow()) layout(); else draw();
 }
 
+// Skip ahead (S1-03): while rivals play and a human is at the table, one tap or Space gets to the human's next move.
+const rushable = () => !!G.s && !G.s.ended && G.scene === 'game' && !humanActor() && G.s.players.some((p) => p.kind === 'human' && !p.out);
+function startRush() {
+  if (!rushable() || G.rush) return;
+  G.rush = true; G.skip = G.busy; renderActions(); announce('Skipping ahead.');
+  if (!G.busy) schedule();
+}
 function btn(label, key, onClick, cls = '', disabled = false, aria) {
   const b = document.createElement('button'); b.className = 'btn ' + cls; b.type = 'button';
   b.innerHTML = `${label}${key ? ` <kbd aria-hidden="true">${key}</kbd>` : ''}`;
@@ -532,6 +542,7 @@ function renderActions() {
     const note = document.createElement('span'); note.className = 'ai-note';
     note.textContent = s.ended ? 'Game over.' : `${s.players[E.actor(s)].name} is thinking…`;
     el.append(note);
+    if (rushable()) el.append(btn('Skip ahead', '', startRush, 'ghost', G.rush, 'Skip ahead to your turn (Space)'));
     return;
   }
   const busy = G.busy;
@@ -1091,7 +1102,7 @@ function newGame(opts = {}) {
 }
 function loadGame(s) {
   clearTimeout(G.coach.timer); G.coach = { rent: false, month: false, turns: 0, shown: null, key: '', timer: 0 }; G.gameRes = null; G.news = [];
-  G.s = s; G.queue = []; G.busy = false; G.logSeen = s.log.length > 3 ? s.log.length - 3 : 0;
+  G.s = s; G.queue = []; G.busy = false; G.rush = false; G.logSeen = s.log.length > 3 ? s.log.length - 3 : 0;
   R.view.tokens = []; R.view.flash = -1; R.view.cursor = -1;
   R.view.dice.a = s.dice[0] || 1; R.view.dice.b = s.dice[1] || 1;
   for (const k in shownCash) delete shownCash[k]; R.view.dice.pos = null; R.view.coins = []; R.view.drop = {}; R.view.puffs = [];
@@ -1145,6 +1156,7 @@ function onKey(ev) {
     announce(`${sp.name}${sp.price ? ', ' + money(sp.price) : ''}${o >= 0 ? ', owned by ' + G.s.players[o].name : sp.price ? ', unowned' : ''}. Press Enter for the deed.`);
     draw(); return;
   }
+  if (k === ' ' && rushable()) { ev.preventDefault(); startRush(); return; }
   if (k === ' ' && G.busy && !G.waitingOk) { ev.preventDefault(); G.skip = true; return; }
   if ((k === 'Enter' || k === ' ') && ev.target === boardEl()) { ev.preventDefault(); openDeed(R.view.cursor >= 0 ? R.view.cursor : G.s.players[G.s.turn].pos); return; }
   const b = document.querySelector(`#actions .btn[data-key="${up}"]:not(:disabled)`);
@@ -1211,7 +1223,7 @@ function fallback2D(why) {
 
 // ---------- hooks ----------
 function gameState() {
-  return { scene: G.scene, dialog: G.dialog, game: G.s ? JSON.parse(JSON.stringify(G.s)) : null, settings: { ...G.settings }, busy: G.busy, waitingOk: G.waitingOk, actor: G.s ? E.actor(G.s) : -1, legal: G.s ? E.legal(G.s) : [], sounds: audio.played.slice(-10), board: { W: R.view.W, H: R.view.H, dice: [R.view.dice.a, R.view.dice.b], mode: B.B3.on ? '3d' : '2d' } };
+  return { scene: G.scene, dialog: G.dialog, game: G.s ? JSON.parse(JSON.stringify(G.s)) : null, settings: { ...G.settings }, busy: G.busy, rush: G.rush, waitingOk: G.waitingOk, actor: G.s ? E.actor(G.s) : -1, legal: G.s ? E.legal(G.s) : [], sounds: audio.played.slice(-10), board: { W: R.view.W, H: R.view.H, dice: [R.view.dice.a, R.view.dice.b], mode: B.B3.on ? '3d' : '2d' } };
 }
 window.__game = {
   seed(n) { G.nextSeed = n | 0; if (G.s) { G.s.rng = (n >>> 0) || 1; } return true; },
