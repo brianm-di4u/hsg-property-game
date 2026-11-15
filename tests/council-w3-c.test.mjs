@@ -321,3 +321,41 @@ tests.push({
     t.equal((await line())[1].toLowerCase(), 'from the archive', 'a story whose fact gives no date says it is from the archive');
   },
 });
+
+// ---------- S2-07: phone baron cards keep lots, net worth and held ----------
+tests.push({
+  name: 'S2-07 a phone baron card shows lots and net worth, and who is held or holds a pardon',
+  async run(t) {
+    await start(t, { seed: 8 });
+    await mod(t, (s) => {
+      for (const i of OWNABLE) s.lots[i].owner = -1;
+      s.lots[1].owner = 0; s.lots[3].owner = 0; s.lots[5].owner = 1;
+      s.players[1].held = 2; s.players[2].pardons = 1; s.players[0].cash = 1234; s.players[3].cash = 15000;
+    });
+    const s = await g(t);
+    const rows = await t.page.evaluate(() => [...document.querySelectorAll('#players li')].map((li) => {
+      const vis = (el) => !!el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0;
+      const mini = li.querySelector('.mini:not(.tag)'), tag = li.querySelector('.mini.tag'), meta = li.querySelector('.meta');
+      const fit = (el) => !el || el.scrollWidth <= el.clientWidth + 1;
+      return { mini: vis(mini) ? mini.textContent : null, tag: vis(tag) ? tag.textContent : null, meta: vis(meta), fit: fit(mini) && fit(tag), label: li.getAttribute('aria-label') };
+    }));
+    const E1 = (id) => E.netWorth(s, id);
+    const money = (n) => (n < 0 ? '−' : '') + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
+    if (t.viewport === 'mobile') {
+      t.equal(rows[0].mini, `2 lots · ${money(E1(0))}`, 'Ada: lots and net worth on one line');
+      t.equal(rows[1].mini, `1 lot · ${money(E1(1))}`, 'a single lot reads "1 lot"');
+      t.equal(rows[1].tag, 'Held', 'a baron in the Grand Jury Room is marked Held');
+      t.equal(rows[2].tag, 'Pardon', 'one holding a pardon is marked');
+      t.equal(rows[0].tag, null, 'and nobody else is marked');
+      t.equal(rows[3].mini, '0 lots · $15k', 'a five-figure net worth is shortened to thousands so it is not cut');
+      t.expect(rows.every((r) => r.fit), 'every line fits its card without being cut');
+      t.expect(rows.every((r) => !r.meta), 'the long desktop line stays hidden');
+      t.expect(/held in the Grand Jury Room/.test(rows[1].label) && /holds a pardon/.test(rows[2].label), 'and a screen reader hears it too');
+    } else {
+      t.expect(rows.every((r) => r.mini === null && r.meta), 'on a wide screen the long line is shown and the compact one is not');
+      t.expect(/held in the Grand Jury Room/.test(rows[1].label), 'the spoken label is the same');
+    }
+    await t.shot('S2-07-baron-cards');
+    await t.checkLayout();
+  },
+});

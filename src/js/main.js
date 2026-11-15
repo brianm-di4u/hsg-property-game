@@ -469,6 +469,8 @@ function autoEndPending() {
 function legalFallback() { const L = E.legal(G.s); return (L.find((a) => ['end', 'roll', 'pass', 'decline', 'bankrupt'].includes(a.type)) || L[0]).type; }
 
 // ---------- game HUD ----------
+// Net worth on a phone's baron card: whole dollars, or thousands once five digits would not fit.
+const miniMoney = (v) => (Math.abs(v) >= 10000 ? `${v < 0 ? '-' : ''}$${Math.round(Math.abs(v) / 1000)}k` : money(v));
 // What the next roll could cost (S3-14), under the turn bar's status line.
 function riskText(s, pid) {
   const { chance, max } = E.rollRisk(s, pid);
@@ -606,10 +608,10 @@ function renderPlayers() {
     const face = p.kind === 'ai' ? artSrc('face-' + p.persona) : '';
     if (face) { const im = document.createElement('img'); im.className = 'face'; im.src = face; im.alt = ''; li.append(im); }
     const fan = E.owned(s, p.id).map((i) => SPACES[i].d ? DISTRICTS[SPACES[i].d].color : '#355E41').map((c) => `<i style="background:${c}"></i>`).join('');
-    d.innerHTML = `<span class="nm"><span class="full">${esc(p.name)}</span><span class="first">${esc(firsts.filter((f) => f === first(p)).length > 1 ? short(p) : first(p))}</span></span><span class="cash"></span>${fan ? `<span class="fan" aria-hidden="true">${fan}</span>` : ''}<span class="meta">${p.kind === 'ai' ? esc(PERSONAS[p.persona].name) + ' AI · ' + esc(levelName(p)) : 'Human'} · ${n} lot${n === 1 ? '' : 's'} · worth ${money(E.netWorth(s, p.id))}${p.held ? ' · held' : ''}${p.pardons ? ' · pardon' : ''}</span>`;
+    d.innerHTML = `<span class="nm"><span class="full">${esc(p.name)}</span><span class="first">${esc(firsts.filter((f) => f === first(p)).length > 1 ? short(p) : first(p))}</span></span><span class="cash"></span>${p.out ? '' : `<span class="mini">${n} lot${n === 1 ? '' : 's'} · ${miniMoney(E.netWorth(s, p.id))}</span>${p.held || p.pardons ? `<span class="mini tag">${[p.held ? 'Held' : '', p.pardons ? 'Pardon' : ''].filter(Boolean).join(' · ')}</span>` : ''}`}${fan ? `<span class="fan" aria-hidden="true">${fan}</span>` : ''}<span class="meta">${p.kind === 'ai' ? esc(PERSONAS[p.persona].name) + ' AI · ' + esc(levelName(p)) : 'Human'} · ${n} lot${n === 1 ? '' : 's'} · worth ${money(E.netWorth(s, p.id))}${p.held ? ' · held' : ''}${p.pardons ? ' · pardon' : ''}</span>`;
     li.append(d);
     const cashEl = d.querySelector('.cash'); if (p.out) cashEl.textContent = 'Bankrupt'; else countCash(cashEl, p.id, p.cash);
-    li.setAttribute('aria-label', `${p.name}${p.kind === 'ai' ? ` (${levelName(p)} AI)` : ''}${p.id === s.turn ? ', current turn' : ''}: ${p.out ? 'bankrupt' : money(p.cash) + ' cash, ' + n + ' lots, net worth ' + money(E.netWorth(s, p.id))}`);
+    li.setAttribute('aria-label', `${p.name}${p.kind === 'ai' ? ` (${levelName(p)} AI)` : ''}${p.id === s.turn ? ', current turn' : ''}: ${p.out ? 'bankrupt' : money(p.cash) + ' cash, ' + n + ' lots, net worth ' + money(E.netWorth(s, p.id)) + (p.held ? ', held in the Grand Jury Room' : '') + (p.pardons ? ', holds a pardon' : '')}`);
     ol.append(li);
   }
 }
