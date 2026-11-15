@@ -63,9 +63,10 @@ export function deedHtml(s, i) {
 export function cardHtml(id, s, who) {
   const c = CARD[id], news = id.startsWith('n-');
   if (news) {
-    const when = s ? `${MONTHS[s.month]}, Year ${s.year + 1}` : '';
+    // The dateline is the date of the history (c.when); the game's own month is a small tag under it (S4-05).
+    const month = s ? `Game month: ${MONTHS[s.month]}, Year ${s.year + 1}` : '';
     return `<article class="news"><div class="mast">The Barons' Gazette</div>
-      <div class="dateline"><span>Headline</span><span>${esc(when)}</span><span>Hot Springs, Ark.</span></div>
+      <div class="dateline"><span>Headline</span><span>${esc(c.when || 'From the archive')}</span><span>Hot Springs, Ark.</span></div>${month ? `<div class="gmonth">${esc(month)}</div>` : ''}
       <h3 id="dlg-title" class="hed">${esc(c.title)}</h3>${pic(NEWS_ART[id], 'cut', 'Illustration')}
       ${factHtml(c.fact)}<div class="effect"><span class="gamelogic">Game effect</span> ${esc(c.effect)}</div>
       <p class="newsnote">The Barons' Gazette is the game's own newspaper; the fact above is sourced history.</p></article>`;

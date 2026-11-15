@@ -282,3 +282,42 @@ tests.push({
     await t.checkLayout();
   },
 });
+
+// ---------- S4-05: the Gazette dates its stories ----------
+tests.push({
+  name: 'S4-05 every Headline with a date carries the date its own fact gives, and none is invented',
+  node: true,
+  async run(t) {
+    const D = await import('../src/js/data.js');
+    let dated = 0;
+    for (const c of D.NEWS) {
+      if (!c.when) { t.expect(!/\b1[89]\d\d\b|\b20\d\d\b/.test(c.fact.text), `${c.id}: no date given, and its fact has none to give`); continue; }
+      dated++;
+      const words = c.fact.text.replace(/[.,;]/g, ' ').split(/\s+/);
+      for (const tok of c.when.replace(/[,]/g, ' ').split(/\s+/).filter((x) => /^\d/.test(x) || /^[A-Z][a-z]+\.?$/.test(x))) {
+        const bare = tok.replace('.', '');
+        t.expect(/^\d/.test(bare) ? c.fact.text.includes(bare) : words.some((w) => w.startsWith(bare)), `${c.id}: "${tok}" of "${c.when}" comes from the fact line`);
+      }
+    }
+    t.expect(dated >= 22, `${dated} of ${D.NEWS.length} Headlines have a date`);
+  },
+});
+tests.push({
+  name: 'S4-05 the Gazette\'s dateline is the date of the story and the game month is a small tag',
+  async run(t) {
+    await start(t, { seats: AI2, seed: 2 });
+    await t.game('act', 'open', 'card', 'n-fire1905');
+    await t.waitForStable();
+    const line = () => t.page.locator('#modal .dateline span').allInnerTexts();
+    t.equal((await line()).join('|').toLowerCase(), 'headline|feb. 25, 1905|hot springs, ark.', 'the dateline reads the date of the fire, not Year 1');
+    t.equal(await t.page.locator('#modal .gmonth').innerText(), 'Game month: January, Year 1', 'and the game month is a tag under it');
+    await t.shot('S4-05-dateline');
+    await t.checkLayout();
+    const w = await t.page.evaluate(() => { const d = document.querySelector('#modal .dateline'); return d.scrollWidth <= d.clientWidth + 1; });
+    t.expect(w, 'the dateline fits its row');
+    await t.game('act', 'close');
+    await t.game('act', 'open', 'card', 'n-railroad');
+    await t.waitForStable();
+    t.equal((await line())[1].toLowerCase(), 'from the archive', 'a story whose fact gives no date says it is from the archive');
+  },
+});

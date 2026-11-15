@@ -376,6 +376,8 @@ body.theme-dark { --highlight: #F6E3A8; }
   #modal .dlg:has(> .news), #modal .dlg:has(> .postcard) { overflow-y: auto; max-height: 88vh; overscroll-behavior: contain; }
   #modal .dlg:has(> .news) .btns, #modal .dlg:has(> .postcard) .btns { margin: 0; padding: 14px 0 calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(rgba(12,6,2,0), rgba(12,6,2,.72) 50%); }
 }
+/* the Gazette's game-month tag under the dateline (S4-05) */
+.news .gmonth { margin: -4px 0 8px; text-align: center; font: italic .78em var(--font-serif); opacity: .8; }
 /* turn bar: the season chips wrap rather than slide under the view button */
 #clock .chip.len { border-style: dashed; color: var(--muted); background-image: linear-gradient(90deg, rgba(217, 162, 58, .3) var(--p, 0%), transparent var(--p, 0%)); }
 @media (max-width: 820px), (max-aspect-ratio: 1/1) { #clock .seasons { gap: 3px; } #clock .chip { padding: 0 6px; } }
