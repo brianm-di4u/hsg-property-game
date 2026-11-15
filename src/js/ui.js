@@ -1,6 +1,6 @@
 // DOM helpers and the text content of deeds, cards, help and about. No game state lives here.
 import { SPACES, DISTRICTS, DISTRICT_ORDER, LOTS_BY_D, RULES, SEASONS, NEWS, TALK, CARD, MONTHS, PERSONAS, TOKENS, isRow } from './data.js';
-import { rentOf, multFor, ownerOf, buildCost, unmortgageCost, leadStory } from './engine.js';
+import { rentOf, multFor, ownerOf, buildCost, unmortgageCost, leadStory, netWorth, owned } from './engine.js';
 import { art, has } from './art.js';
 
 export const qs = (q, el = document) => el.querySelector(q);
@@ -85,6 +85,22 @@ export function whyLines(s) {
   if (big && s.players[big.from] && s.players[big.to]) out.push(`Biggest rent: ${money(big.amount)}, paid by ${nm(big.from)} to ${nm(big.to)} on ${SPACES[big.space].name} in month ${big.m + 1}.`);
   if (s.players.some((p) => p.stat && p.stat.rentOut > 0)) out.push(`Rent paid: ${s.players.map((p) => `${p.name} ${money(p.stat.rentOut || 0)}`).join(', ')}.`);
   return out;
+}
+// The ending as a story (S4-02): whether a person won, the baron the epilogue is about (the best-placed person at the table),
+// that baron's monogram, the kicker over the headline and one line to close on. Nothing here is invented: every number is the game's.
+const ORD = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
+export function endingStory(s) {
+  const rank = s.ranking || s.players.map((p) => p.id), winner = s.players[s.winner];
+  const humans = rank.filter((id) => s.players[id].kind === 'human');
+  const humanWon = winner.kind === 'human', hid = humans.length ? humans[0] : null, h = hid == null ? null : s.players[hid];
+  const mono = (n) => { const w = String(n).trim().split(/\s+/).filter(Boolean); return ((w[0] || '?')[0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase(); };
+  if (!h) return { humanWon: false, anyHuman: false, focus: s.winner, mono: mono(winner.name), kicker: 'New baron of Bathhouse Row', epilogue: '' };
+  const lots = owned(s, hid).length, lotsText = lots === 0 ? 'no lots' : `${lots} lot${lots === 1 ? '' : 's'}`;
+  let epilogue;
+  if (humanWon) epilogue = `${h.name} closes the books on Bathhouse Row with ${money(netWorth(s, hid))} and ${lotsText} to the name.`;
+  else if (h.out) epilogue = `${h.name} left the Row in month ${h.outRound}, bankrupt. ${winner.name} holds it now.`;
+  else epilogue = `${h.name} finished ${ORD[rank.indexOf(hid)] || 'last'} with ${money(netWorth(s, hid))}; ${winner.name} took the Row. The ledger stays open for another game.`;
+  return { humanWon, anyHuman: true, focus: hid, mono: mono(h.name), kicker: humanWon ? 'New baron of Bathhouse Row' : 'The Row has a new baron', epilogue };
 }
 const DASH = ['', '7 3', '2 3', '9 3 2 3', '', '7 3'];
 export function historyChart(s) {

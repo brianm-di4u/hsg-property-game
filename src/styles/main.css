@@ -329,6 +329,8 @@ body.art .title-hero .menu .btn:disabled { background: var(--surface); opacity: 
 .over .extra .dateline { display: flex; justify-content: space-between; border-top: 3px double currentColor; border-bottom: 1px solid currentColor; padding: 2px 0; margin-top: 4px; font: 700 .75em var(--font-deco); letter-spacing: .14em; text-transform: uppercase; }
 .over .podium { position: relative; }
 .over .winface { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 4px var(--surface), 0 0 0 6px #C9A14A, 0 10px 24px rgba(40,20,0,.45); }
+.over .monogram { display: grid; place-items: center; flex: none; background: radial-gradient(circle at 50% 35%, #F6E7B8, #D8B45C 62%, #9A7324); color: #4A2E10; font: 400 2.6em var(--font-news); letter-spacing: .02em; }
+.over .epilogue { font: italic 400 1.05em var(--font-serif); margin: 6px 0 2px; }
 .over .winface + .plinth { width: 72px; height: 72px; margin-left: -44px; align-self: flex-end; }
 .over .winface + .plinth #wintok canvas { width: 60px !important; height: 60px !important; }
 body.art .over table.t { background: var(--surface); }
@@ -336,7 +338,7 @@ body.art .over table.t { background: var(--surface); }
 .seat .tk { position: relative; display: flex; align-items: center; }
 .seat .seatface { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--border); }
 .seat .seatface + .tokicon { position: absolute; left: 26px; top: 24px; width: 26px; height: 26px; }
-@media (max-width: 820px), (max-aspect-ratio: 1/1) { .over .extra .mast { font-size: 1.7em; } .over .winface { width: 88px; height: 88px; } }
+@media (max-width: 820px), (max-aspect-ratio: 1/1) { .over .extra .mast { font-size: 1.7em; } .over .winface { width: 88px; height: 88px; } .over .monogram { font-size: 2em; } }
 /* phone title: the wordmark always fits the lid */
 @media (max-width: 820px), (max-aspect-ratio: 1/1) { .lidtitle { width: 100%; padding: 6px 4px 8px; } .lidtitle .big { font-size: 10.6cqw; } }
 /* dark theme: gold accents only */

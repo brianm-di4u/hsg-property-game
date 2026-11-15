@@ -7,7 +7,7 @@ import { audio, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAu
 import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
-import { qs, esc, money, deedHtml, cardHtml, seasonHtml, helpHtml, aboutHtml, peekHtml, whyLines, historyChart, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
+import { qs, esc, money, deedHtml, cardHtml, seasonHtml, helpHtml, aboutHtml, peekHtml, whyLines, endingStory, historyChart, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
 import { CAREER_KEY, CAREER_VERSION, ACH, ACH_BY_ID, FELTS, FELT_BY_ID, feltOpen, blankCareer, cleanCareer, localDate, playAchievements, recordGame, unlockFelts, dailySeed, dailyStreak } from './career.js';
 
 const $ = qs;
@@ -344,6 +344,9 @@ const cue = (name, pid, o = {}) => sfx(name, { pan: seatPan(pid), ...o });
 // Coins and bids climb a little with the sum: about a semitone for each doubling, from $100, within -3 to +5.
 const sumPitch = (amount) => Math.max(-3, Math.min(5, Math.log2(Math.max(10, amount) / 100)));
 
+// The sting for the end (S3-19): the fanfare when a person won (or nobody was playing), the falling motif when a rival took the Row from the humans.
+const endingCue = (s) => (s.players.some((p) => p.kind === 'human') && s.players[s.winner].kind !== 'human' ? 'bust' : 'fanfare');
+
 async function present(e) {
   const s = G.s, P = (id) => s.players[id];
   switch (e.t) {
@@ -404,7 +407,7 @@ async function present(e) {
     case 'passbid': cue('drop', e.pid); break;
     case 'offer': sfx('offer'); break;
     case 'debt': cue('debt', e.pid); break;
-    case 'over': sfx('fanfare'); await sleep(700); G.waitingOk = false; closeDialog(true); scene('over'); break;
+    case 'over': sfx(endingCue(s)); await sleep(700); G.waitingOk = false; closeDialog(true); scene('over'); break;
   }
 }
 
@@ -1169,9 +1172,10 @@ function overWhy(s) {
 function screenOver(scr) {
   const s = G.s;
   const rank = s.ranking || s.players.map((p) => p.id);
-  const wface = s.players[s.winner].kind === 'ai' ? artSrc('face-' + s.players[s.winner].persona) : '';
+  const story = endingStory(s), wface = s.players[s.winner].kind === 'ai' ? artSrc('face-' + s.players[s.winner].persona) : '';
+  const portrait = wface ? `<img class="winface" src="${wface}" alt="">` : `<div class="winface monogram" aria-hidden="true">${esc(story.mono)}</div>`;
   scr.innerHTML = `<div class="wrap over"><div class="extra"><div class="mast">The Barons' Gazette</div><div class="dateline"><span>Extra!</span><span>${MONTHS[s.month]}, Year ${s.year + 1}</span><span>Hot Springs, Ark.</span></div></div>
-    <div class="podium">${wface ? `<img class="winface" src="${wface}" alt="">` : ''}<div class="plinth"><span id="wintok"></span></div><div><div class="kicker">New baron of Bathhouse Row</div><h2>${esc(s.players[s.winner].name)} wins!</h2></div></div><p class="lede">Game over: ${esc(s.endWhy || '')}. ${MONTHS[s.month]}, Year ${s.year + 1}, after ${s.monthsPlayed} month${s.monthsPlayed === 1 ? '' : 's'}.</p>
+    <div class="podium">${portrait}<div class="plinth"><span id="wintok"></span></div><div><div class="kicker">${esc(story.kicker)}</div><h2>${esc(s.players[s.winner].name)} wins!</h2></div></div>${story.epilogue ? `<p class="epilogue">${esc(story.epilogue)}</p>` : ''}<p class="lede">Game over: ${esc(s.endWhy || '')}. ${MONTHS[s.month]}, Year ${s.year + 1}, after ${s.monthsPlayed} month${s.monthsPlayed === 1 ? '' : 's'}.</p>
     <div class="card"><div class="tscroll"><table class="t results"><thead><tr><th>#</th><th>Baron</th><th>Net worth</th><th>Lots</th><th><span class="lg">Rent collected</span><span class="sm">Rent</span></th><th>Trades</th></tr></thead><tbody>
     ${rank.map((id, k) => { const p = s.players[id]; return `<tr><td>${k + 1}</td><td><div class="bn" data-tok="${id}"><span>${esc(p.name)}${p.kind === 'ai' ? ` <span class="fine">(${esc(PERSONAS[p.persona].name)}, ${esc(levelName(p))})</span>` : ''}</span></div></td><td>${p.out ? `Bankrupt (month ${p.outRound})` : money(E.netWorth(s, id))}</td><td>${E.owned(s, id).length}</td><td>${money(p.stat.rentIn)}</td><td>${p.stat.trades}</td></tr>`; }).join('')}</tbody></table></div>
     <p class="fine">Auctions ${s.stats.auctions} · trades ${s.stats.trades} · buildings raised ${s.stats.builds} · cards drawn ${s.stats.cards}</p></div>
