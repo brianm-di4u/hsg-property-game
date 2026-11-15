@@ -383,6 +383,13 @@ body.theme-dark { --highlight: #F6E3A8; }
   background: linear-gradient(180deg, #F3DFA6, #D9B45E); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -2px 0 rgba(90,60,10,.35), 0 3px 8px rgba(40,25,10,.3); }
 .bidplaque .k { font: 700 .78em var(--font-deco); letter-spacing: .12em; text-transform: uppercase; }
 .bidplaque .by { margin-left: auto; }
+/* auction: any amount (S1-04) */
+.bidrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 6px; }
+.bidrow label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.bidrow input[type=number] { width: 8.5em; }
+.bidquick { display: flex; gap: 8px; flex-wrap: wrap; }
+.bidquick .btn { flex: 1 1 0; min-width: 56px; }
+#bidhint { margin: 6px 0 0; min-height: 1.3em; }
 .bimg { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex: none; background: radial-gradient(circle at 50% 40%, #FFFDF6, #E9DDBF); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--seat, var(--border)); vertical-align: middle; }
 .bidders li { gap: 10px; flex-wrap: nowrap; }
 .bidders .bn { flex: 1; min-width: 0; font-weight: 600; }

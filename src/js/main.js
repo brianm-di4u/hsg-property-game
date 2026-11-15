@@ -738,6 +738,17 @@ function lotTile(i, note = '') {
   const sp = SPACES[i], c = sp.type === 'lot' ? DISTRICTS[sp.d].color : '#355E41', pic = artSrc(spaceArt(i));
   return `<span class="lottile" style="--d:${c}">${pic ? `<img src="${pic}" alt="">` : '<i></i>'}<span class="ln">${esc(sp.name)}${note ? ` <span class="fine">${note}</span>` : ''}</span><span class="lp">${money(sp.price)}</span></span>`;
 }
+// Any amount (S1-04): a number field with quick raises and a Bid button, beside the three presets. The typed amount is
+// kept while the dialog redraws, and starts again at the lowest bid when the bidding moves on.
+const BID_QUICK = [10, 25, 50];
+const bidHint = (min, cash, v) => (cash < min ? `You can't cover the next bid (${money(min)}); drop out.` : !Number.isInteger(v) ? 'Type a whole number of dollars.' : v < min ? `The lowest bid is ${money(min)}.` : v > cash ? `You have ${money(cash)}.` : `Bid between ${money(min)} and ${money(cash)}.`);
+function bidRow(min, cash) {
+  const key = G.s.pending.space + ':' + min, d = G.bidDraft && G.bidDraft.key === key ? G.bidDraft.v : min, off = cash < min ? 'disabled' : '';
+  return `<div class="bidrow"><label>Your bid $<input type="number" inputmode="numeric" min="${min}" max="${cash}" step="10" value="${esc(d)}" data-f="bidamt" data-bidamt ${off} aria-describedby="bidhint"></label>
+    <button class="btn primary" data-f="bidgo" data-bidgo ${off}>Bid</button></div>
+    <div class="bidquick" role="group" aria-label="Raise the bid">${BID_QUICK.map((n) => `<button class="btn" data-f="bq${n}" data-bidadd="${n}" ${off}>+${n}</button>`).join('')}<button class="btn" data-f="bqmax" data-bidmax ${off}>Max</button></div>
+    <p id="bidhint" class="fine" role="status">${bidHint(min, cash, Number(d))}</p>`;
+}
 function auctionRender() {
   const s = G.s;
   if (!s.pending || s.pending.kind !== 'auction') return '<p>The auction is over.</p>';
@@ -755,7 +766,7 @@ function auctionRender() {
     <ul class="mlist bidders">${rows}</ul>
     ${human ? `<p><strong>${esc(bidder.name)}</strong>, your bid (cash ${money(bidder.cash)}):</p><div class="btns" style="justify-content:flex-start">
       ${steps.map((v, k) => `<button class="btn ${k === 0 ? 'primary' : ''}" data-f="bid${k}" data-bid="${v}" ${v > bidder.cash ? 'disabled' : ''}>Bid ${money(v)}</button>`).join('')}
-      <button class="btn" data-f="pass" data-pass>Drop out</button></div>`
+      <button class="btn" data-f="pass" data-pass>Drop out</button></div>${bidRow(min, bidder.cash)}`
     : `<p class="ai-note">${esc(bidder.name)} is deciding…</p>`}
     <div class="btns"><button class="btn ghost" data-f="deed" data-deed="${A.space}">Deed</button></div>`;
 }
@@ -812,11 +823,31 @@ function incomingRender() {
 }
 function openIncoming() { openDialog(incomingRender(), { name: 'incoming', closable: false, render: incomingRender }); }
 
+// The bid field: quick raises and Max fill it, Bid (or Enter) places the bid if it is allowed.
+const nextBid = () => (G.s.pending.bid > 0 ? G.s.pending.bid + RULES.minBid : G.s.pending.min);
+const bidDraft = (min, v) => { G.bidDraft = { key: G.s.pending.space + ':' + min, v: String(v) }; };
+function bidField(t) {
+  const s = G.s, inp = $('#modal').querySelector('[data-bidamt]'), me = humanActor(); if (!inp || !me || !s.pending || s.pending.kind !== 'auction') return;
+  const min = nextBid(), cash = me.cash, typed = inp.value.trim() === '' ? NaN : Number(inp.value);
+  if (t && t.dataset.bidgo == null) {
+    const v = t.dataset.bidmax != null ? cash : Math.min(cash, Math.max(min, (Number.isFinite(typed) ? Math.floor(typed) : min) + +t.dataset.bidadd));
+    inp.value = v; bidDraft(min, v); $('#bidhint').textContent = bidHint(min, cash, v); inp.focus({ preventScroll: true }); return;
+  }
+  if (!Number.isInteger(typed) || typed < min || typed > cash) { $('#bidhint').textContent = bidHint(min, cash, typed); sfx('error'); inp.focus({ preventScroll: true }); return; }
+  perform({ type: 'bid', amount: typed });
+}
+function onBidInput(ev) {
+  const t = ev.target, me = humanActor(); if (!t.dataset || t.dataset.bidamt == null || !G.s.pending || !me) return;
+  bidDraft(nextBid(), t.value); $('#bidhint').textContent = bidHint(nextBid(), me.cash, t.value.trim() === '' ? NaN : Number(t.value));
+}
+function onBidKey(ev) { if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.bidamt != null) { ev.preventDefault(); bidField(null); } }
+
 // Global delegated clicks inside the modal.
 function onModalClick(ev) {
   const t = ev.target.closest('button'); if (!t) return;
   unlock();
   if (t.dataset.bid) perform({ type: 'bid', amount: +t.dataset.bid });
+  else if (t.dataset.bidadd || t.dataset.bidmax != null || t.dataset.bidgo != null) bidField(t);
   else if (t.dataset.pass != null) perform({ type: 'pass' });
   else if (t.dataset.resp != null) perform({ type: 'respond', accept: t.dataset.resp === '1' });
   else if (t.dataset.propose != null) submitTrade();
@@ -1292,6 +1323,8 @@ function boot() {
   $('#coach').addEventListener('click', onCoachClick);
   document.addEventListener('pointerdown', (ev) => setInput(ev.pointerType === 'touch' ? 'touch' : 'mouse'), true);
   $('#modal').addEventListener('click', onModalClick);
+  $('#modal').addEventListener('input', onBidInput);
+  $('#modal').addEventListener('keydown', onBidKey);
   $('#modal').addEventListener('click', onManageClick);
   $('#b-menu').addEventListener('click', () => openPause());
   $('#b-ledger').addEventListener('click', () => openLedger());

@@ -81,3 +81,68 @@ tests.push({
     t.expect(/AI_CARD_HOLD = \{ normal: 1500,/.test(src), 'the rival\'s card is held 1500 ms (it was 2200)');
   },
 });
+
+tests.push({
+  name: 'S1-04 a human can bid any amount: type it, step it with +10, +25, +50 or Max, and a bad amount is refused with a reason',
+  async run(t) {
+    await start(t, { seats: TWO_HUMANS, seed: 5 });
+    await act(t, { type: 'roll' }); // whatever the first roll brings, send the next lot (or the one landed on) to auction
+    let s = await g(t);
+    if (s.phase === 'buy') await act(t, { type: 'decline' });
+    else { await mod(t, (x) => { x.phase = 'roll'; x.again = false; x.pending = null; }); await t.game('act', 'dice', 2, 3); await act(t, { type: 'roll' }); await act(t, { type: 'decline' }); }
+    s = await g(t);
+    t.equal(s.phase, 'auction', 'an auction is open');
+    await t.waitForStable();
+    const field = t.page.locator('#modal [data-bidamt]');
+    t.equal(await field.count(), 1, 'there is a number field beside the three presets');
+    t.equal(await t.page.locator('#modal [data-bid]').count(), 3, 'and the three presets are still there');
+    await t.checkLayout();
+    const who = (await t.state()).actor, cash = s.players[who].cash, min = s.pending.min;
+    t.equal(+(await field.inputValue()), min, 'the field starts at the lowest bid');
+    const hint = () => t.page.locator('#bidhint').innerText();
+    // quick raises and Max fill the field
+    await t.page.locator('#modal [data-bidadd="25"]').click();
+    t.equal(+(await field.inputValue()), min + 25, '+25 adds 25');
+    await t.page.locator('#modal [data-bidadd="10"]').click();
+    t.equal(+(await field.inputValue()), min + 35, '+10 adds 10 to what is typed');
+    await t.page.locator('#modal [data-bidmax]').click();
+    t.equal(+(await field.inputValue()), cash, 'Max is all your cash');
+    await t.shot('S1-04-bid-field');
+    // a bad amount is refused and says why
+    for (const [v, re] of [['5', /lowest bid/], [String(cash + 10), /You have/], ['', /whole number/], ['12.5', /whole number/]]) {
+      await field.fill(v);
+      await t.page.locator('#modal [data-bidgo]').click();
+      t.equal((await g(t)).pending.bid, 0, `"${v}" places no bid`);
+      t.expect(re.test(await hint()), `"${v}" is explained: ${await hint()}`);
+    }
+    // a good amount, with the button
+    await field.fill('130');
+    await t.page.locator('#modal [data-bidgo]').click();
+    await t.waitForStable();
+    s = await g(t);
+    t.equal(s.pending.bid, 130, 'a typed amount is bid as it is');
+    t.equal(s.pending.leader, who, 'by the baron who typed it');
+    // the next baron: the field starts again at the new lowest bid, and Enter bids
+    const next = (await t.state()).actor;
+    t.expect(next !== who, 'the other baron is up');
+    const f2 = t.page.locator('#modal [data-bidamt]');
+    t.equal(+(await f2.inputValue()), 140, 'the next field starts at the new lowest bid');
+    await f2.fill('205');
+    await f2.press('Enter');
+    await t.waitForStable();
+    t.equal((await g(t)).pending.bid, 205, 'Enter in the field bids');
+    await t.checkLayout();
+  },
+});
+tests.push({
+  name: 'S1-04 a baron who cannot cover the next bid has the field switched off and is told to drop out',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t, { seats: TWO_HUMANS, seed: 5 });
+    await t.game('act', 'dice', 2, 3); await act(t, { type: 'roll' }); await act(t, { type: 'decline' });
+    await mod(t, (x) => { x.players[(x.pending.order || [0, 1])[0]].cash = 5; x.players[0].cash = 5; x.players[1].cash = 5; });
+    await t.waitForStable();
+    t.expect(await t.page.locator('#modal [data-bidamt]').isDisabled(), 'the field is off');
+    t.expect(/drop out/.test(await t.page.locator('#bidhint').innerText()), 'and the hint says to drop out');
+  },
+});
