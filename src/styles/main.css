@@ -463,3 +463,18 @@ body.theme-dark { --grain: rgba(216, 207, 189, .035); }
 #screen .card :is(button, input, select) { font-family: var(--font-sans); }
 #screen table.t th { font-family: var(--font-deco); letter-spacing: .03em; }
 .settings .card p > strong:first-child { font-family: var(--font-deco); letter-spacing: .05em; text-transform: uppercase; font-size: .95em; }
+
+/* ---------- short phones: the title picture gives way to the buttons (wave 3: S4-62) ---------- */
+@media (max-height: 600px) {
+  #screen { padding-top: 12px; }
+  .title-hero { padding-top: 0; }
+  .title-hero .lid { min-width: 0; width: min(100%, calc(45vh * 1.5)); margin-bottom: 10px; }
+  .title-hero .lede { display: none; }
+}
+@media (max-height: 600px) and (max-aspect-ratio: 1/1) {
+  .title-hero .lid { width: min(100%, calc(45vh * .8)); }
+}
+
+/* ---------- storage blocked or full (wave 3: S6-10, S4-62) ---------- */
+.nosave { margin: 0 auto 10px; max-width: 340px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--danger); background: var(--surface); color: var(--text); font-size: .85em; line-height: 1.3; text-align: left; }
+.dlg .nosave { max-width: none; margin: 0 0 10px; }
