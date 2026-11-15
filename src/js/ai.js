@@ -1,10 +1,10 @@
 // AI barons. Each decision scores property value, liquidity and threat (MECHANICS §7), weighted
 // by persona. Bundle valuation for trades follows the idea of OpenSpiel's bargaining game
 // (Apache-2.0, idea only, no code). Deterministic given state.rng.
-import { SPACES, DISTRICTS, LOTS_BY_D, OWNABLE, LINES, PERSONAS, LEVELS, RULES, TRADE_AI, isRow } from './data.js';
+import { SPACES, DISTRICTS, LOTS_BY_D, OWNABLE, LINES, PERSONAS, LEVELS, RULES, TRADE_AI, SEASONS, isRow } from './data.js';
 import { rand } from './rng.js';
 import { actor, legal, ownerOf, rentOf, owned, netWorth, buildCost, canBuild, canMortgage, canUnmortgage,
-  unmortgageCost, tradeable, validateOffer, offerKey, ownsDistrict, active, absMonth } from './engine.js';
+  unmortgageCost, tradeable, validateOffer, offerKey, ownsDistrict, active, absMonth, multFor } from './engine.js';
 
 const persona = (s, pid) => PERSONAS[s.players[pid].persona] || PERSONAS.hotelier;
 // The AI level of seat pid; a save from before levels (or a damaged value) plays as Normal.
@@ -20,15 +20,32 @@ export function reserveFor(s, pid) {
   return persona(s, pid).reserve * levelOf(s, pid).reserve * (60 + 0.7 * avg);
 }
 
+// The tourism calendar and Headlines (S3-07). A lot is worth more to a baron who can see its rent about to double, and less
+// when a season is about to halve it: lotValue is scaled by how far the rent multiplier, averaged over the next
+// CAL_MONTHS months, sits from 1, taken at CAL_WEIGHT (0 switches this off, as the AI played before). The season is known
+// for the whole window; a Headline's modifier only for the months it lasts. reserveFor already uses today's rent.
+export const CAL_MONTHS = 6, CAL_WEIGHT = 0.5;
+export function calendarFactor(s, i) {
+  const sp = SPACES[i], now = absMonth(s);
+  let sum = 0;
+  for (let k = 0; k < CAL_MONTHS; k++) {
+    let m = 1;
+    if (sp.d) for (const se of SEASONS) if (se.months.includes((s.month + k) % 12) && se.d[sp.d]) m *= se.d[sp.d];
+    for (const md of s.mods) if (md.until >= now + k && ((md.d && md.d === sp.d) || md.space === i)) m *= md.mult;
+    sum += m;
+  }
+  return 1 + CAL_WEIGHT * (sum / CAL_MONTHS - 1);
+}
+
 // Value of lot i to player pid if pid held it, given everything else as it stands
 // (`extra` = lots assumed also held, `minus` = lots assumed given away).
 export function lotValue(s, pid, i, extra = [], minus = []) {
   const sp = SPACES[i], per = persona(s, pid);
   const holds = (j) => (extra.includes(j) || ownerOf(s, j) === pid) && !minus.includes(j);
   // A mortgaged lot costs its holder the price of lifting the mortgage.
-  const owed = s.lots[i].mortgaged ? unmortgageCost(i) : 0;
-  if (sp.type === 'line') { const n = LINES.filter((j) => j !== i && holds(j)).length; return sp.price * (1 + 0.6 * n) - owed; }
-  if (sp.type === 'util') return sp.price * 0.85 - owed;
+  const owed = s.lots[i].mortgaged ? unmortgageCost(i) : 0, cal = calendarFactor(s, i);
+  if (sp.type === 'line') { const n = LINES.filter((j) => j !== i && holds(j)).length; return sp.price * (1 + 0.6 * n) * cal - owed; }
+  if (sp.type === 'util') return sp.price * 0.85 * cal - owed;
   const group = LOTS_BY_D[sp.d];
   const mine = group.filter((j) => j !== i && holds(j)).length;
   const blockers = new Set(group.filter((j) => j !== i && !holds(j) && ownerOf(s, j) >= 0).map((j) => ownerOf(s, j)));
@@ -38,7 +55,7 @@ export function lotValue(s, pid, i, extra = [], minus = []) {
   let v = sp.price * (1 + 0.5 * share * (blockers.size ? 0.4 : 1) + (completes ? lv.complete : 0));
   // Rent potential of a full district with buildings, discounted.
   if (completes) v += DISTRICTS[sp.d].build * 1.2;
-  return v * (per.taste[sp.d] || 1) - owed;
+  return v * (per.taste[sp.d] || 1) * cal - owed;
 }
 
 // Threat: how much lot i is worth to opponent q (completing their district, or leaving them one lot short).
@@ -137,7 +154,8 @@ function manage(s, pid, L, preRoll) {
   function score(i) { const sp = SPACES[i]; return sp.type === 'lot' && ownsDistrict(s, sp.d, pid) ? 2 : 1; }
   if (um.length && p.cash - unmortgageCost(um[0].space) > res * 1.6) return um[0];
   // Build where marginal rent per dollar is best.
-  const builds = L.filter((a) => a.type === 'build' && s.lots[a.space].level < lv.buildTo);
+  // A lot whose rent is switched off this month (the Army in the hotels, a fire) is not built on until it earns again.
+  const builds = L.filter((a) => a.type === 'build' && s.lots[a.space].level < lv.buildTo && multFor(s, a.space) > 0);
   if (builds.length) {
     const best = builds.map((a) => ({ a, gain: marginal(s, a.space) / buildCost(a.space) - s.lots[a.space].level * 0.01 }))
       .sort((x, y) => y.gain - x.gain)[0];

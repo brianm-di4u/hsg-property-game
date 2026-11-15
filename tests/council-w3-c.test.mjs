@@ -51,3 +51,46 @@ tests.push({
     t.equal((await t.state()).dialog, null, 'and nothing is left open');
   },
 });
+
+// ---------- S3-07: the AI reads the calendar ----------
+function twoAI(month) {
+  const s = E.createGame({ seed: 5, seats: [{ kind: 'ai', persona: 'hotelier' }, { kind: 'ai', persona: 'banker' }] });
+  for (const i of OWNABLE) s.lots[i].owner = -1;
+  s.month = month; s.mods = [];
+  return s;
+}
+const GH = OWNABLE.find((i) => SPACES[i].d === 'gh'), RA = OWNABLE.find((i) => SPACES[i].d === 'ra'), BP = OWNABLE.find((i) => SPACES[i].d === 'bp');
+tests.push({
+  name: 'S3-07 a lot is worth more to the AI when the season is about to lift its rent, and less when it is about to cut it',
+  node: true,
+  async run(t) {
+    const dec = twoAI(11), jun = twoAI(5);
+    t.expect(AI.calendarFactor(dec, GH) > AI.calendarFactor(jun, GH), 'a Grand Hotel is worth more going into the racing season (December) than in June');
+    t.expect(AI.calendarFactor(dec, GH) > 1.2 && AI.calendarFactor(dec, GH) < 1.3, `by about a quarter (${AI.calendarFactor(dec, GH).toFixed(3)})`);
+    const jan = twoAI(0);
+    t.expect(AI.calendarFactor(jan, RA) < 1 && AI.calendarFactor(twoAI(6), RA) > 1, 'a Roadside lot is worth less going into the quiet winter than into the summer');
+    t.equal(AI.calendarFactor(jan, 4), 1, 'a line has no season, so its value is as it was');
+    t.expect(AI.lotValue(dec, 0, GH) > AI.lotValue(jun, 0, GH) * 1.1, 'and lotValue follows it, which moves what the AI will pay and ask in a bid or a trade');
+    // A Headline: ballpark rents doubled this month lifts the value of a ballpark, and it fades as the months pass.
+    const plain = twoAI(7), news = twoAI(7);
+    news.mods.push({ d: 'bp', mult: 2, until: news.year * 12 + news.month, id: 'n-training' });
+    t.expect(AI.calendarFactor(news, BP) > AI.calendarFactor(plain, BP), 'a doubled-rent Headline lifts the lot it names');
+    t.equal(AI.calendarFactor(news, GH), AI.calendarFactor(plain, GH), 'and no other');
+    const bid = (s) => { s.players[0].cash = 3000; return AI.lotValue(s, 0, BP); };
+    t.expect(bid(news) > bid(plain), 'so the AI will bid more for it');
+  },
+});
+tests.push({
+  name: 'S3-07 the AI does not build on a lot whose rent is switched off this month',
+  node: true,
+  async run(t) {
+    const s = twoAI(3);
+    const gh = OWNABLE.filter((i) => SPACES[i].d === 'gh');
+    for (const i of gh) s.lots[i].owner = 0;
+    s.players[0].cash = 5000; s.turn = 0; s.phase = 'post'; s.pending = null;
+    t.equal(AI.aiAction(JSON.parse(JSON.stringify(s))).type, 'build', 'with a whole district and plenty of cash the Hotelier builds');
+    s.mods.push({ d: 'gh', mult: 0, until: s.year * 12 + s.month, id: 'n-army' });
+    const a = AI.aiAction(s);
+    t.expect(a.type !== 'build', `while the Army has the hotels it does not (${a.type})`);
+  },
+});
