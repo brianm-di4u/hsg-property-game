@@ -1,6 +1,6 @@
 import { start, g, act, mod, rollTo, TWO_HUMANS, click } from './helpers.mjs';
 import * as E from '../src/js/engine.js';
-import { OWNABLE, SPACES } from '../src/js/data.js';
+import { OWNABLE, SPACES, isRow } from '../src/js/data.js';
 
 // Wave 3, batch A: menu screens dressed like the table, storage notice, volume controls, tests for every space type,
 // Resign, auto end turn, Help layout, Short-game fairness and the results table on a phone.
@@ -178,6 +178,94 @@ export const tests = [
       const s = await g(t);
       t.equal(s.winner, 1, 'the rival wins');
       await t.checkLayout({ allowScrollY: true });
+    },
+  },
+  {
+    name: 'S6-04 Manage and Raise cash open for a baron who owns any one space, in both rule sets',
+    viewports: ['desktop'],
+    async run(t) {
+      await start(t);
+      const seats = [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }, { kind: 'ai', persona: 'banker' }];
+      const load = (s) => t.game('setState', { game: s }).then(() => t.waitForStable());
+      const count = (sel) => t.page.locator(sel).count();
+      for (const i of OWNABLE) {
+        const row = isRow(i), name = SPACES[i].name;
+        // Manage, opened with the key
+        let s = E.createGame({ seed: 3, seats }); s.lots[i].owner = 0; s.phase = 'post';
+        await load(s);
+        await t.page.keyboard.press('m');
+        t.equal((await t.state()).dialog, 'manage', `${name}: Manage opens`);
+        t.equal(await count(`#modal [data-act="mortgage"][data-i="${i}"]:not([disabled])`), row ? 0 : 1, `${name}: mortgage offered unless it is a federal lease`);
+        t.expect(/Manage lots/.test(await t.page.locator('#modal').textContent()) && (await t.page.locator('#modal').textContent()).includes(name), `${name}: listed in Manage`);
+        await t.game('act', 'close');
+        // Raise cash: broke and owing, through to bankruptcy to the other baron (standard) or to the town (Common Ground)
+        for (const variant of i === OWNABLE[0] || i === 4 || i === 10 || i === 5 ? ['standard', 'common'] : ['standard']) {
+          s = E.createGame({ seed: 3, seats, variant }); s.lots[i].owner = 0; s.players[0].cash = 0; s.phase = 'debt'; s.resume = 'post';
+          s.debts = [{ pid: 0, amount: 5000, to: 1, why: 'rent' }];
+          await load(s);
+          t.equal((await t.state()).dialog, 'debt', `${name} (${variant}): Raise cash opens`);
+          t.equal(await count(`#modal [data-act="mortgage"][data-i="${i}"]:not([disabled])`), row ? 0 : 1, `${name} (${variant}): mortgage offered unless a lease`);
+          await t.page.locator('#modal [data-act="bankrupt"]').click();
+          await t.page.locator('#modal [data-act="bankrupt"]').click();
+          await t.waitForStable();
+          const after = await g(t);
+          t.expect(after.players[0].out, `${name} (${variant}): bankruptcy goes through`);
+          t.equal(after.lots[i].owner, 1, `${name} (${variant}): the lot passes to the creditor`);
+        }
+      }
+    },
+  },
+  {
+    name: 'S6-04 whoever is to act always has a control, in every phase',
+    viewports: ['desktop'],
+    async run(t) {
+      await start(t);
+      const seats = [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }, { kind: 'ai', persona: 'banker' }];
+      const mk = () => E.createGame({ seed: 5, seats });
+      const phases = {};
+      phases.roll = mk();
+      phases.buy = mk(); E.forceDice(phases.buy, 2, 3); E.apply(phases.buy, { type: 'roll' }); // lands on space 5, an unowned lot
+      phases.post = mk(); phases.post.lots[1].owner = 0; phases.post.phase = 'post';
+      phases.auction = mk(); E.forceDice(phases.auction, 2, 3); E.apply(phases.auction, { type: 'roll' }); E.apply(phases.auction, { type: 'decline' });
+      phases.trade = mk(); phases.trade.lots[1].owner = 1; phases.trade.phase = 'trade'; phases.trade.pending = { kind: 'trade', from: 1, to: 0, give: { lots: [1], cash: 0 }, get: { lots: [], cash: 50 }, back: 'roll' };
+      phases.debt = mk(); phases.debt.lots[1].owner = 0; phases.debt.players[0].cash = 0; phases.debt.phase = 'debt'; phases.debt.resume = 'post'; phases.debt.debts = [{ pid: 0, amount: 500, to: 1, why: 'rent' }];
+      for (const [name, s] of Object.entries(phases)) {
+        if (name === 'auction') { // the auction opens with the first bidder; make it the human
+          const A = s.pending; if (E.actor(s) !== 0) { A.i = A.order.indexOf(0); }
+        }
+        await t.game('setState', { game: s }); await t.waitForStable();
+        const st = await t.state();
+        t.equal(st.game.phase, name, `the ${name} phase loaded`);
+        t.equal(st.actor, 0, `${name}: Ada is to act`);
+        const live = await t.page.evaluate(() => [...document.querySelectorAll('#actions button, #modal button')].filter((b) => !b.disabled && b.getBoundingClientRect().width > 0).length);
+        t.expect(live > 0, `${name}: there is an enabled control (${live})`);
+      }
+    },
+  },
+  {
+    name: 'S6-04 other table sizes and rule sets play through to the results without an error',
+    viewports: ['desktop'],
+    async run(t) {
+      await start(t);
+      const humanAnd = (n) => [{ kind: 'human', name: 'Ada' }, ...['hotelier', 'banker', 'showman', 'gambler', 'speculator'].slice(0, n - 1).map((persona) => ({ kind: 'ai', persona }))];
+      const cases = [
+        { name: '3 barons, Common Ground', opts: { seats: humanAnd(3), variant: 'common' } },
+        { name: '6 barons, year limit 1', opts: { seats: humanAnd(6), years: 1 } },
+        { name: '5 barons, Short game, Common Ground', opts: { seats: humanAnd(5), mode: 'short', variant: 'common' } },
+        { name: '2 barons, 2 years', opts: { seats: humanAnd(2), years: 2 } },
+      ];
+      for (const [k, c] of cases.entries()) {
+        await t.seed(100 + k);
+        await t.game('newGame', c.opts);
+        await t.waitForStable();
+        const sum = await t.game('act', 'autoplay', 30000);
+        t.expect(sum && !sum.error, `${c.name}: no illegal AI action`);
+        await t.waitForStable();
+        const st = await t.state();
+        t.expect(st.game.ended, `${c.name}: the game ended`);
+        t.equal(st.scene, 'over', `${c.name}: the results screen is showing`);
+        t.expect(await t.page.locator('.over table.t tbody tr').count() === c.opts.seats.length, `${c.name}: one results row for every baron`);
+      }
     },
   },
   {
