@@ -269,3 +269,14 @@ for (const [w, h] of [[320, 568], [844, 390], [1024, 600]]) tests.push({
     await t.shot(`S6-11-title-${w}x${h}`);
   },
 });
+
+// ---------- S2-05: names on the small board read as words ----------
+import { SPACES } from '../src/js/data.js';
+tests.push({
+  name: 'S2-05 the Town Talk spaces read as words on the small board',
+  async run(t) {
+    for (const sp of SPACES.filter((x) => x.type === 'talk')) t.equal(sp.short, 'Town Talk', 'a Talk space is not just "Talk"');
+    await start(t); await t.waitForStable();
+    await t.shot('S2-05-board');
+  },
+});
