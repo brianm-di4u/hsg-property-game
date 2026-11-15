@@ -38,7 +38,7 @@ export const tests = [
       await t.game('act', 'open', 'deed', 27);
       const txt = await t.page.locator('#modal').innerText();
       t.expect(/Game price/i.test(txt), 'deed labels the price as a game price');
-      t.expect(/first Arlington Hotel opened in 1875/.test(txt), 'Arlington fact');
+      t.expect(/Al Capone rented an entire floor of the Arlington/.test(txt), 'Arlington fact');
     },
   },
 ];

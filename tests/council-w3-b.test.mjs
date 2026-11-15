@@ -146,3 +146,19 @@ tests.push({
     t.expect(/drop out/.test(await t.page.locator('#bidhint').innerText()), 'and the hint says to drop out');
   },
 });
+
+tests.push({
+  name: 'S4-01 the Pythian, Woodmen, Ohio Club and Arlington deeds tell their stories, and every displayed fact still checks out',
+  node: true,
+  async run(t) {
+    const { SPACES } = await import('../src/js/data.js');
+    const fact = (name) => SPACES.find((sp) => sp.name === name).fact.text;
+    t.expect(/Malvern Avenue/.test(fact('Pythian Bathhouse')) && /half-price/.test(fact('Pythian Bathhouse')), 'the Pythian deed says where it stood and who got half-price baths');
+    t.expect(/African American fraternal group/.test(fact('Woodmen of Union')) && /Count Basie/.test(fact('Woodmen of Union')), 'the Woodmen deed says whose building it was and who played there');
+    t.expect(/casino and sports book until 1967/.test(fact('Ohio Club')), 'the Ohio Club deed says what it was for');
+    t.expect(/Capone/.test(fact('Arlington Hotel')) && /disputed/.test(fact('Arlington Hotel')), 'the Arlington deed has Capone, flagged as disputed');
+    const { spawnSync } = await import('node:child_process');
+    const r = spawnSync(process.execPath, ['tools/check-facts.mjs'], { cwd: new URL('..', import.meta.url), encoding: 'utf8' });
+    t.equal(r.status, 0, 'tools/check-facts.mjs passes: ' + (r.stdout.match(/FAIL.*/g) || []).join('; '));
+  },
+});
