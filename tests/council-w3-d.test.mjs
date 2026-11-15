@@ -256,3 +256,70 @@ tests.push({
     t.equal(await t.page.evaluate(() => window.__G.undo.length), 0, 'after a roll the way back is closed');
   },
 });
+
+// ---------- S3-13: the results screen says why ----------
+tests.push({
+  name: 'S3-13 the engine records each baron\'s net worth every month and the biggest rent, and reads the lead from it',
+  node: true,
+  async run(t) {
+    const s = E.createGame({ seed: 5, mode: 'short', seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }, { kind: 'ai', persona: 'banker' }] });
+    t.equal(s.history.length, 1, 'the game starts with one point');
+    t.equal(s.history[0].m, 0, 'at month 0');
+    t.equal(s.history[0].w.length, 3, 'with a figure for each baron');
+    for (let k = 0; k < 3000 && !s.ended && s.monthsPlayed < 3; k++) { const L = E.legal(s); const pick = L.find((x) => x.type === 'roll') || L.find((x) => x.type === 'buy') || L.find((x) => x.type === 'end') || L.find((x) => x.type === 'decline') || L.find((x) => x.type === 'pass') || L.find((x) => x.type === 'respond') || L[0]; E.apply(s, pick.type === 'respond' ? { type: 'respond', accept: false } : pick); }
+    t.expect(s.monthsPlayed >= 3, `three months were played (${s.monthsPlayed})`);
+    t.expect(s.history.length === s.monthsPlayed + 1 && s.history.every((x, i) => x.m === i), 'one point for each month, in order');
+    // A crafted record: Ben leads, then Ada takes it at month 3 and keeps it.
+    const g = E.createGame({ seed: 6, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'human', name: 'Ben' }] });
+    g.history = [{ m: 0, w: [1200, 1200] }, { m: 1, w: [1100, 1300] }, { m: 2, w: [1200, 1400] }, { m: 3, w: [1500, 1400] }, { m: 4, w: [1700, 1300] }];
+    const st = E.leadStory(g);
+    t.equal(st.leader, 0, 'Ada leads at the end');
+    t.equal(st.changes, 1, 'the lead changed hands once');
+    t.equal(st.since, 3, 'at month 3');
+    g.history = [{ m: 0, w: [1200, 1200] }, { m: 1, w: [1300, 1200] }, { m: 2, w: [1400, 1100] }];
+    t.equal(E.leadStory(g).changes, 0, 'a baron who led from the first month never lost it');
+    g.history = [];
+    t.equal(E.leadStory(g), null, 'no record, no story');
+    delete g.history;
+    t.equal(E.leadStory(g), null, 'a save from before the record has none either');
+    // The biggest rent is kept with who, whom and where.
+    const r = E.createGame({ seed: 8, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'human', name: 'Ben' }] });
+    for (const i of OWNABLE) r.lots[i].owner = -1;
+    r.lots[FV[0]].owner = 1; r.players[0].pos = FV[0] - 1; r.phase = 'roll'; r.turn = 0;
+    E.forceDice(r, 1, 0); E.forceDice(r, 0, 1);
+    E.apply(r, { type: 'roll' });
+    const big = r.stats.bigRent;
+    t.expect(big && big.from === 0 && big.to === 1 && big.space === FV[0] && big.amount > 0, 'a rent paid is the biggest so far');
+  },
+});
+tests.push({
+  name: 'S3-13 the results screen draws the net worth lines and says who led, when it turned and the biggest rent',
+  async run(t) {
+    await start(t, { mode: 'short', seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }, { kind: 'ai', persona: 'banker' }], seed: 7 });
+    await t.game('act', 'autoplay', 2000);
+    await t.waitForStable();
+    const s = await g(t);
+    t.expect(s.ended && s.history.length >= 12, `a finished game has a point for each month (${s.history.length})`);
+    t.equal((await t.state()).scene, 'over', 'the results screen is up');
+    const card = t.page.locator('.over .why');
+    t.equal(await card.count(), 1, 'there is a "How it was won" card');
+    t.expect(await card.locator('svg polyline').count() === 3, 'a line for each baron');
+    t.expect((await card.locator('.lgn').count()) === 3, 'and a legend naming them');
+    const txt = await card.innerText();
+    t.expect(/led from the first month to the last|The lead changed hands \d+ times?; .* took it for good after month \d+\./.test(txt), `the lead: "${txt.split('\n').find((l) => /lead/.test(l))}"`);
+    t.expect(/Biggest rent: \$[\d,]+, paid by .* to .* on .* in month \d+\./.test(txt), 'the biggest rent');
+    const head = await t.page.locator('.over table.results thead').innerText();
+    t.expect(/Rent paid|Paid/.test(head), 'the table gives the rent each baron paid');
+    const pad = await t.page.evaluate(() => { const r = document.querySelector('.over .why svg').getBoundingClientRect(); return { w: r.width, h: r.height, vw: innerWidth }; });
+    t.expect(pad.w > 200 && pad.w <= pad.vw && pad.h > 80, `the chart is a usable size (${Math.round(pad.w)} x ${Math.round(pad.h)})`);
+    await t.page.locator('.over .why').scrollIntoViewIfNeeded();
+    await t.shot('S3-13-how-it-was-won');
+    await t.checkLayout();
+    // A game with no record (a save from before this) shows the rest of the screen and no empty card.
+    await mod(t, (x) => { delete x.history; delete x.stats.bigRent; });
+    await t.game('scene', 'over');
+    await t.waitForStable();
+    t.equal(await t.page.locator('.over .why').count(), 0, 'an old game has no "How it was won" card');
+    t.expect((await t.page.locator('.over table.results').count()) === 1, 'and the table is still there');
+  },
+});

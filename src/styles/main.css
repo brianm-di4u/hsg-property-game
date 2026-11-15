@@ -550,3 +550,8 @@ table.t.results .bn .fine { overflow-wrap: anywhere; }
 #peek .pk strong { font-size: .95rem; }
 #peek .pk em { color: var(--muted); font-size: .75rem; margin-top: 3px; }
 #board { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.why h3 { margin-top: 0; }
+.why p { margin: 6px 0 0; }
+.histchart > svg { display: block; width: 100%; height: auto; max-height: 250px; }
+.lgnrow { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: .85em; }
+.lgn { display: inline-flex; align-items: center; gap: 5px; }

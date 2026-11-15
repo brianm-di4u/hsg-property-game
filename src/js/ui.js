@@ -1,6 +1,6 @@
 // DOM helpers and the text content of deeds, cards, help and about. No game state lives here.
-import { SPACES, DISTRICTS, DISTRICT_ORDER, LOTS_BY_D, RULES, SEASONS, NEWS, TALK, CARD, MONTHS, PERSONAS, isRow } from './data.js';
-import { rentOf, multFor, ownerOf, buildCost, unmortgageCost } from './engine.js';
+import { SPACES, DISTRICTS, DISTRICT_ORDER, LOTS_BY_D, RULES, SEASONS, NEWS, TALK, CARD, MONTHS, PERSONAS, TOKENS, isRow } from './data.js';
+import { rentOf, multFor, ownerOf, buildCost, unmortgageCost, leadStory } from './engine.js';
 import { art, has } from './art.js';
 
 export const qs = (q, el = document) => el.querySelector(q);
@@ -72,6 +72,36 @@ export function peekHtml(s, i, touch) {
     if (o >= 0 && !lot.mortgaged) l3 = `Rent now ${money(rentOf(s, i, 7))}`;
   } else l2 = esc(spaceRules(sp));
   return `<div class="pk" style="--dc:${color}"><strong>${esc(sp.name)}</strong>${kind ? `<span>${esc(kind)}</span>` : ''}<span>${l2}</span>${l3 ? `<span>${l3}</span>` : ''}<em>${touch ? 'Tap' : 'Click'} for the deed</em></div>`;
+}
+
+// Why the winner won (S3-13): sentences from the game's own record, and a line for each baron's net worth by month.
+export function whyLines(s) {
+  const nm = (id) => (s.players[id] ? s.players[id].name : 'A baron'), out = [], st = leadStory(s), big = s.stats && s.stats.bigRent;
+  if (st) {
+    const who = nm(st.leader);
+    out.push(st.changes === 0 ? `${who} led from the first month to the last.`
+      : `The lead changed hands ${st.changes} time${st.changes === 1 ? '' : 's'}; ${who} took it for good after month ${st.since}.`);
+  }
+  if (big && s.players[big.from] && s.players[big.to]) out.push(`Biggest rent: ${money(big.amount)}, paid by ${nm(big.from)} to ${nm(big.to)} on ${SPACES[big.space].name} in month ${big.m + 1}.`);
+  return out;
+}
+const DASH = ['', '7 3', '2 3', '9 3 2 3', '', '7 3'];
+export function historyChart(s) {
+  const h = (Array.isArray(s.history) ? s.history : []).filter((x) => x && Array.isArray(x.w) && x.w.length === s.players.length);
+  if (h.length < 3) return '';
+  const W = 400, H = 170, L = 40, R = 10, T = 10, B = 22, m0 = h[0].m, m1 = h[h.length - 1].m, top = Math.max(1000, ...h.flatMap((x) => x.w));
+  const nice = Math.ceil(top / 1000) * 1000, X = (m) => L + (m1 === m0 ? 0 : (m - m0) / (m1 - m0)) * (W - L - R), Y = (v) => T + (1 - Math.max(0, v) / nice) * (H - T - B);
+  const k = (v) => (v >= 1000 ? '$' + +(v / 1000).toFixed(1) + 'k' : '$' + v);
+  const lines = s.players.map((p, i) => {
+    const pts = h.map((x) => `${X(x.m).toFixed(1)},${Y(x.w[i]).toFixed(1)}`).join(' '), win = i === s.winner;
+    return `<polyline points="${pts}" fill="none" stroke="${TOKENS[p.token].color}" stroke-width="${win ? 3.2 : 1.8}" stroke-linejoin="round" stroke-linecap="round"${DASH[i] ? ` stroke-dasharray="${DASH[i]}"` : ''}/>`;
+  }).join('');
+  const legend = s.players.map((p, i) => `<span class="lgn"><svg viewBox="0 0 24 8" width="24" height="8" aria-hidden="true"><line x1="1" y1="4" x2="23" y2="4" stroke="${TOKENS[p.token].color}" stroke-width="${i === s.winner ? 3.2 : 2}"${DASH[i] ? ` stroke-dasharray="${DASH[i]}"` : ''}/></svg>${esc(p.name)}</span>`).join('');
+  const grid = (v, dash) => `<line x1="${L}" y1="${Y(v)}" x2="${W - R}" y2="${Y(v)}" stroke="var(--border)"${dash ? ' stroke-dasharray="2 4"' : ''}/>`;
+  const tick = (v) => `<text x="${L - 5}" y="${Y(v) + 3}" text-anchor="end">${k(v)}</text>`;
+  return `<div class="histchart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Net worth of each baron, month by month. ${esc(whyLines(s).join(' '))}">
+    ${grid(0)}${grid(nice / 2, 1)}${grid(nice, 1)}
+    <g fill="var(--muted)" font-size="12" font-family="var(--font-sans)">${tick(0)}${tick(nice / 2)}${tick(nice)}<text x="${L}" y="${H - 6}">Start</text><text x="${W - R}" y="${H - 6}" text-anchor="end">Month ${m1}</text></g>${lines}</svg><div class="lgnrow">${legend}</div></div>`;
 }
 
 export function cardHtml(id, s, who) {

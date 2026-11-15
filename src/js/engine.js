@@ -9,6 +9,16 @@ export const VERSION = 1;
 export const BUILD_WORTH = { full: RULES.sellRate, short: 1 };
 
 // True when a parsed save has the shape the game reads: a corrupt or foreign v1 save must not enable Continue.
+// The story of a game's net-worth history (S3-13): who led after each month (the first month, when everyone is level, is not counted),
+// how many times the lead changed hands, and when the winner took the lead for good. Empty when there is no history to read.
+export function leadStory(s) {
+  const h = (Array.isArray(s.history) ? s.history : []).filter((x) => x && Array.isArray(x.w) && x.m >= 1);
+  if (h.length < 1) return null;
+  const lead = (x) => x.w.reduce((b, v, i) => (v > x.w[b] ? i : b), 0);
+  let changes = 0, since = h[0], prev = lead(h[0]), first = prev;
+  for (const x of h) { const l = lead(x); if (l !== prev) { changes++; prev = l; since = x; } }
+  return { leader: prev, first, changes, since: since.m, months: h[h.length - 1].m };
+}
 export function validateSave(s) {
   const isObj = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
   const int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi;
@@ -32,7 +42,7 @@ export function createGame(opts = {}) {
     players: [], lots: {}, turn: 0, round: 1, month: opts.startMonth ?? 0, year: 0, monthsPlayed: 0,
     phase: 'roll', pending: null, debts: [], resume: null, dice: [0, 0], again: false, forced: null,
     decks: { news: [], talk: [] }, headline: null, lastCard: null, mods: [], treasury: 0,
-    built: [], offers: [], turnOffers: 0, log: [], winner: -1, ended: false,
+    built: [], offers: [], turnOffers: 0, log: [], winner: -1, ended: false, history: [],
     stats: { trades: 0, auctions: 0, auctionsSold: 0, bankruptcies: [], firstBankruptRound: 0, buys: 0, builds: 0, cards: 0 },
   };
   const seats = (opts.seats && opts.seats.length >= 2 ? opts.seats : [{ kind: 'human' }, { kind: 'ai' }]).slice(0, 6);
@@ -58,6 +68,7 @@ export function createGame(opts = {}) {
   s.decks.talk = shuffle(s, TALK.map((c) => c.id));
   if (s.opts.mode === 'short') dealShort(s);
   log(s, `${MONTHS[s.month]}, Year 1. ${s.players.length} barons arrive at the Depot.`);
+  noteWorth(s);
   return s;
 }
 
@@ -441,6 +452,7 @@ function payRent(s, p, owner, r, i, ev) {
   const toPublic = common ? r.base : 0;
   const notes = r.notes || [];
   log(s, `${p.name} owes $${r.total} rent on ${SPACES[i].name}${common && toPublic ? ` ($${toPublic} to the treasury)` : ''}${notes.length ? ` (${notes.join(', ')})` : ''}.`);
+  if (!s.stats.bigRent || r.total > s.stats.bigRent.amount) s.stats.bigRent = { amount: r.total, from: p.id, to: owner, space: i, m: s.monthsPlayed };
   ev.push({ t: 'rent', from: p.id, to: owner, space: i, amount: r.total, public: toPublic, notes });
   if (toOwner > 0) charge(s, p.id, owner, toOwner, 'rent', ev);
   if (toPublic > 0) charge(s, p.id, -2, toPublic, 'rent', ev);
@@ -515,7 +527,7 @@ function finish(s, ev, why) {
   s.ended = true; s.phase = 'over'; s.pending = null;
   const ranked = s.players.map((p) => ({ id: p.id, w: netWorth(s, p.id), out: p.out, outRound: p.outRound }))
     .sort((a, b) => (a.out - b.out) || (b.w - a.w) || (b.outRound - a.outRound));
-  s.winner = ranked[0].id; s.ranking = ranked.map((r) => r.id); s.endWhy = why;
+  s.winner = ranked[0].id; s.ranking = ranked.map((r) => r.id); s.endWhy = why; noteWorth(s);
   ev.push({ t: 'over', winner: s.winner, why });
   log(s, `Game over (${why}). ${s.players[s.winner].name} wins.`);
 }
@@ -533,8 +545,19 @@ function endTurn(s, ev) {
   if (!s.ended) ev.push({ t: 'turn', pid: s.turn });
 }
 
+// Each baron's net worth at the turn of every month, for the line on the results screen (S3-13). A game saved before this has
+// no history until its next month; a bankrupt baron counts as nothing. The list is thinned to HISTORY_MAX points.
+const HISTORY_MAX = 120;
+function noteWorth(s) {
+  const h = Array.isArray(s.history) ? s.history : (s.history = []), w = s.players.map((p) => (p.out ? 0 : Math.round(netWorth(s, p.id))));
+  const last = h[h.length - 1];
+  if (last && last.m === s.monthsPlayed && last.w.length === w.length) { last.w = w; return; }
+  h.push({ m: s.monthsPlayed, w });
+  if (h.length > HISTORY_MAX) h.splice(1, 1);
+}
+
 function newMonth(s, ev) {
-  s.round++; s.monthsPlayed++;
+  s.round++; s.monthsPlayed++; noteWorth(s);
   s.month = (s.month + 1) % 12; if (s.month === 0) s.year++;
   s.mods = s.mods.filter((m) => m.until >= absMonth(s));
   ev.push({ t: 'month', month: s.month, year: s.year });

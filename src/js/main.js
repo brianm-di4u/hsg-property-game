@@ -7,7 +7,7 @@ import { audio, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAu
 import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
-import { qs, esc, money, deedHtml, cardHtml, seasonHtml, helpHtml, aboutHtml, peekHtml, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
+import { qs, esc, money, deedHtml, cardHtml, seasonHtml, helpHtml, aboutHtml, peekHtml, whyLines, historyChart, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
 import { CAREER_KEY, CAREER_VERSION, ACH, ACH_BY_ID, FELTS, FELT_BY_ID, feltOpen, blankCareer, cleanCareer, localDate, playAchievements, recordGame, unlockFelts, dailySeed, dailyStreak } from './career.js';
 
 const $ = qs;
@@ -1161,15 +1161,21 @@ function overCareer() {
     ...r.unlocked.map((id) => `<li class="got"><span class="mark" aria-hidden="true">✦</span><span><b>${esc(FELT_BY_ID[id].name)} felt</b> is open for the dice tray (Settings).</span></li>`),
   ].join('')}</ul><p class="fine career-line">Career: ${c.games} game${c.games === 1 ? '' : 's'}, ${c.wins} won.</p></div>`;
 }
+// Why the winner won (S3-13): the net-worth lines, who led and when it turned, and the biggest rent. Nothing for a game with no record.
+function overWhy(s) {
+  const lines = whyLines(s), chart = historyChart(s);
+  return lines.length || chart ? `<div class="card why"><h3>How it was won</h3>${chart}${lines.map((l) => `<p>${esc(l)}</p>`).join('')}</div>` : '';
+}
 function screenOver(scr) {
   const s = G.s;
   const rank = s.ranking || s.players.map((p) => p.id);
   const wface = s.players[s.winner].kind === 'ai' ? artSrc('face-' + s.players[s.winner].persona) : '';
   scr.innerHTML = `<div class="wrap over"><div class="extra"><div class="mast">The Barons' Gazette</div><div class="dateline"><span>Extra!</span><span>${MONTHS[s.month]}, Year ${s.year + 1}</span><span>Hot Springs, Ark.</span></div></div>
     <div class="podium">${wface ? `<img class="winface" src="${wface}" alt="">` : ''}<div class="plinth"><span id="wintok"></span></div><div><div class="kicker">New baron of Bathhouse Row</div><h2>${esc(s.players[s.winner].name)} wins!</h2></div></div><p class="lede">Game over: ${esc(s.endWhy || '')}. ${MONTHS[s.month]}, Year ${s.year + 1}, after ${s.monthsPlayed} month${s.monthsPlayed === 1 ? '' : 's'}.</p>
-    <div class="card"><div class="tscroll"><table class="t results"><thead><tr><th>#</th><th>Baron</th><th>Net worth</th><th>Lots</th><th><span class="lg">Rent collected</span><span class="sm">Rent</span></th><th>Trades</th></tr></thead><tbody>
-    ${rank.map((id, k) => { const p = s.players[id]; return `<tr><td>${k + 1}</td><td><div class="bn" data-tok="${id}"><span>${esc(p.name)}${p.kind === 'ai' ? ` <span class="fine">(${esc(PERSONAS[p.persona].name)}, ${esc(levelName(p))})</span>` : ''}</span></div></td><td>${p.out ? `Bankrupt (month ${p.outRound})` : money(E.netWorth(s, id))}</td><td>${E.owned(s, id).length}</td><td>${money(p.stat.rentIn)}</td><td>${p.stat.trades}</td></tr>`; }).join('')}</tbody></table></div>
+    <div class="card"><div class="tscroll"><table class="t results"><thead><tr><th>#</th><th>Baron</th><th>Net worth</th><th>Lots</th><th><span class="lg">Rent collected</span><span class="sm">Rent</span></th><th><span class="lg">Rent paid</span><span class="sm">Paid</span></th><th>Trades</th></tr></thead><tbody>
+    ${rank.map((id, k) => { const p = s.players[id]; return `<tr><td>${k + 1}</td><td><div class="bn" data-tok="${id}"><span>${esc(p.name)}${p.kind === 'ai' ? ` <span class="fine">(${esc(PERSONAS[p.persona].name)}, ${esc(levelName(p))})</span>` : ''}</span></div></td><td>${p.out ? `Bankrupt (month ${p.outRound})` : money(E.netWorth(s, id))}</td><td>${E.owned(s, id).length}</td><td>${money(p.stat.rentIn)}</td><td>${money(p.stat.rentOut)}</td><td>${p.stat.trades}</td></tr>`; }).join('')}</tbody></table></div>
     <p class="fine">Auctions ${s.stats.auctions} · trades ${s.stats.trades} · buildings raised ${s.stats.builds} · cards drawn ${s.stats.cards}</p></div>
+    ${overWhy(s)}
     ${overCareer()}
     <div class="row"><button class="btn primary" data-again>Play again</button><button class="btn" data-career>Career</button><button class="btn" data-title>Title</button></div></div>`;
   $('#wintok').append(R.tokenCanvas(s.players[s.winner].token, 96, s.winner + 1)); $('#wintok canvas').style.cssText = 'width:96px;height:96px';
