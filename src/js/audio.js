@@ -613,7 +613,9 @@ export function audioState(reset) {
 export function audioRender(name, seconds = 30, wantWav = false, opt = {}) {
   return measureAudio((oc, dest) => {
     const g = graph(oc, dest), kit = makeAudioKit(oc, g.master, { seed: opt.seed ?? 7 });
-    kit.music.level(1); kit.amb.level(1);
+    // The sliders to render at (default: where the game ships them), through the same maths as applyAudio, so a test can render at maximum.
+    const sl = { sfx: REF_FX, music: REF_MIX, amb: REF_MIX, ...(opt.sliders || {}) };
+    kit.music.level(clamp(sl.music / REF_MIX, 0, 1.5)); kit.amb.level(clamp(sl.amb / REF_MIX, 0, 1.5)); g.fx.gain.value = clamp(sl.sfx / REF_FX, 0, FX_MAX);
     let cues = null;
     const forever = { at: 0, fade: 0.02 };
     if (SCORES[name]) kit.music.play(SCORES[name], forever);
