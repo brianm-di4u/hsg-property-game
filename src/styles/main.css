@@ -227,7 +227,7 @@ body.art #turnbar { background: linear-gradient(180deg, rgba(255,255,255,.35), r
 body.art #screen { background: radial-gradient(ellipse 80% 60% at 40% 20%, rgba(255,214,150,.22), rgba(0,0,0,0) 60%), radial-gradient(ellipse 120% 100% at 50% 50%, rgba(0,0,0,0) 55%, rgba(10,4,0,.5)), url(assets/table-oak.webp) center / cover #5A3418; }
 body.art.theme-dark #screen { background: radial-gradient(ellipse 120% 100% at 50% 50%, rgba(0,0,0,.4) 40%, rgba(0,0,6,.85)), url(assets/table-oak.webp) center / cover #1A0F08; }
 body.art #screen .wrap:not(.title-hero) { background: var(--surface); border-radius: 14px; padding: 18px 20px 22px; box-shadow: 0 18px 40px rgba(10,4,0,.5); }
-body.art #screen .wrap .card { background: var(--bg); }
+body.art #screen .wrap .card { --cardbg: var(--bg); }
 .title-hero { padding-top: 2vh; }
 .title-hero .lid { position: relative; max-width: 860px; margin: 0 auto 14px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 0 #E9DDBF, 0 4px 0 #CBB98F, 0 6px 0 #A8926A, 0 22px 50px rgba(10,4,0,.6); border: 6px solid #F3E8CC; outline: 2px solid #8E3622; outline-offset: -12px; }
 .title-hero .lid img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; }
@@ -454,3 +454,12 @@ div.feltbtn { cursor: default; }
 .achs .d { display: block; }
 .career .card h3, .newrec h3 { margin: 0 0 6px; }
 .career-t caption { font-size: 1em; }
+
+/* ---------- menu screens dressed like the table (wave 3: S4-08) ---------- */
+input[type=range], input[type=checkbox] { accent-color: var(--primary); }
+:root { --grain: rgba(120, 90, 40, .04); }
+body.theme-dark { --grain: rgba(216, 207, 189, .035); }
+#screen .card { font-family: var(--font-serif); background: repeating-linear-gradient(0deg, var(--grain) 0 2px, transparent 2px 4px), repeating-linear-gradient(90deg, var(--grain) 0 2px, transparent 2px 4px), var(--cardbg, var(--surface)); border-top: 4px double var(--primary); box-shadow: inset 0 0 30px rgba(120, 90, 40, .07); }
+#screen .card :is(button, input, select) { font-family: var(--font-sans); }
+#screen table.t th { font-family: var(--font-deco); letter-spacing: .03em; }
+.settings .card p > strong:first-child { font-family: var(--font-deco); letter-spacing: .05em; text-transform: uppercase; font-size: .95em; }

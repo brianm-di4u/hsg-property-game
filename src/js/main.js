@@ -927,7 +927,7 @@ function screenAbout(scr) {
 function screenSettings(scr) {
   const st = G.settings;
   const seg = (key, opts) => `<div class="seg" role="group" aria-label="${key}">${opts.map(([v, l]) => `<button type="button" data-set="${key}" data-v="${v}" aria-pressed="${String(st[key]) === String(v)}">${l}</button>`).join('')}</div>`;
-  scr.innerHTML = `<div class="wrap"><h2>Settings</h2><div class="card">
+  scr.innerHTML = `<div class="wrap settings"><h2>Settings</h2><div class="card">
     <p><strong>Sound</strong> <span class="fine">(the master switch)</span><br>${seg('sound', [[true, 'On'], [false, 'Off']])}</p>
     <p><strong>Sound effects</strong><br>${seg('sfx', [[true, 'On'], [false, 'Off']])} <label class="chk" style="display:inline-flex">Volume <input type="range" min="0" max="1" step="0.05" value="${st.vol}" data-vol aria-label="Sound effects volume" style="width:150px"></label></p>
     <p><strong>Music</strong><br>${seg('music', [[true, 'On'], [false, 'Off']])} <label class="chk" style="display:inline-flex">Volume <input type="range" min="0" max="1" step="0.05" value="${st.mvol}" data-mvol aria-label="Music volume" style="width:150px"></label></p>
