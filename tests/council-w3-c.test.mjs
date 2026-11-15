@@ -359,3 +359,40 @@ tests.push({
     await t.checkLayout();
   },
 });
+
+// ---------- S2-08: season chips say what and where ----------
+tests.push({
+  name: 'S2-08 each season chip opens a sheet that says which rents change, by how much and when',
+  async run(t) {
+    await start(t, { seed: 3 });
+    await mod(t, (s) => { s.month = 1; });                 // February: racing, spring training and the winter lull
+    const chips = t.page.locator('#clock button.chip');
+    t.equal(await chips.count(), 3, 'three season chips in February, and they are buttons');
+    t.equal(await t.page.locator('#clock .chip.len').count(), 0, 'with nothing else in the row to tap');
+    await t.checkLayout();
+    await chips.first().focus();
+    await t.page.keyboard.press('Enter');
+    await t.waitForStable();
+    t.equal(await t.page.evaluate(() => window.__game.getState().dialog), 'season', 'Enter on a chip opens the sheet');
+    const txt = await t.page.locator('#modal .dlg').innerText();
+    t.expect(/Racing season/.test(txt) && /Grand Hotels rents ×1\.5/.test(txt) && /December to May/.test(txt), `Racing season: which rents, how much, when (${txt.replace(/\s+/g, ' ').slice(0, 160)})`);
+    t.expect(/winter–spring racing meet/.test(txt), 'and the sourced fact');
+    await t.shot('S2-08-season-sheet');
+    await t.checkLayout();
+    await t.page.keyboard.press('Escape');
+    t.equal(await t.page.evaluate(() => window.__game.getState().dialog), null, 'Escape closes it');
+    await chips.nth(2).click();
+    await t.waitForStable();
+    const quiet = await t.page.locator('#modal .dlg').innerText();
+    t.expect(/Quiet winter/.test(quiet) && /Roadside Attractions rents ×0\.5/.test(quiet) && /January to February/.test(quiet), 'the quiet winter halves the Roadside rents, January to February');
+    await t.page.locator('#modal [data-ok]').click();
+    await mod(t, (s) => { s.month = 2; });                 // March: the parade is a festival
+    await t.page.locator('#clock button.chip', { hasText: "St. Patrick" }).click();
+    await t.waitForStable();
+    t.expect(/festival month/.test(await t.page.locator('#modal .dlg').innerText()), 'a festival says what it does to the Water Co.');
+    await t.page.locator('#modal [data-ok]').click();
+    await t.shot('S2-08-chips');
+    const hit = await t.page.evaluate(() => [...document.querySelectorAll('#clock button.chip')].map((b) => Math.round(b.getBoundingClientRect().height)));
+    t.expect(hit.every((h) => h >= (t.viewport === 'mobile' ? 24 : 18)), `the chips are a fair size to tap (${hit})`);
+  },
+});

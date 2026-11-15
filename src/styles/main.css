@@ -535,3 +535,10 @@ table.t.results .bn .fine { overflow-wrap: anywhere; }
 
 /* game length on a phone: the three lengths stack (wave 3: S3-09) */
 @media (max-width: 600px) { .seg.lens { display: flex; flex-direction: column; min-width: 200px; } .seg.lens button { min-height: 44px; text-align: left; } .seg.lens button + button { border-top: 2px solid var(--primary); } }
+
+/* season chips open a small sheet on what the season does (wave 3: S2-08) */
+#clock button.chip { font: inherit; cursor: pointer; position: relative; }
+#clock button.chip:hover { background: var(--surface2); }
+#clock button.chip::after { content: ""; position: absolute; inset: -6px -2px; }
+.seasonfx { margin-top: 0; }
+@media (max-width: 820px), (max-aspect-ratio: 1/1) { #clock button.chip { min-height: 24px; } }

@@ -81,6 +81,15 @@ export function seasonsTable() {
   <p class="fine">Festival months (March, June, October, November, December) also raise the Water Co. to ${RULES.utilFestival} × the dice. Multipliers are game rules, not history.</p>`;
 }
 
+// One season, in words, for the sheet a season chip opens (S2-08): what it does to which rents, when it runs, and why.
+const monthSpan = (ms) => ms.length === 1 ? MONTHS[ms[0]] : ms.every((m, k) => k === 0 || m === (ms[k - 1] + 1) % 12) ? `${MONTHS[ms[0]]} to ${MONTHS[ms[ms.length - 1]]}` : ms.map((m) => MONTHS[m]).join(', ');
+export function seasonHtml(id) {
+  const x = SEASONS.find((q) => q.id === id); if (!x) return '';
+  const fx = Object.entries(x.d).map(([d, m]) => `${DISTRICTS[d].name} rents ×${m}`).join('; ');
+  return `<h2 id="dlg-title">${esc(x.name)}</h2><p class="seasonfx"><span class="gamelogic">Game effect</span> <strong>${esc(fx)}</strong>, ${esc(monthSpan(x.months))}.</p>
+    ${x.festival ? `<p>A festival month: the Water Co. also charges ${RULES.utilFestival} × the dice.</p>` : ''}${x.fact ? factHtml(x.fact) : '<p class="fine">This season is a game rule, not history.</p>'}`;
+}
+
 // The goal, in one sentence: the first line of the Rules, and on the setup card and the pause card (S2-02).
 export const GOAL_TEXT = 'Goal: bankrupt the other barons, or hold the most net worth when time runs out.';
 

@@ -7,7 +7,7 @@ import { audio, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAu
 import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
-import { qs, esc, money, deedHtml, cardHtml, helpHtml, aboutHtml, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
+import { qs, esc, money, deedHtml, cardHtml, seasonHtml, helpHtml, aboutHtml, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
 import { CAREER_KEY, CAREER_VERSION, ACH, ACH_BY_ID, FELTS, FELT_BY_ID, feltOpen, blankCareer, cleanCareer, localDate, playAchievements, recordGame, unlockFelts, dailySeed, dailyStreak } from './career.js';
 
 const $ = qs;
@@ -500,7 +500,7 @@ function refreshView() {
   // the game length rides in the chip row, so the month title never wraps
   const total = s.opts.mode === 'short' ? 12 : s.opts.years ? s.opts.years * 12 : 0, at = Math.min(total, s.monthsPlayed + 1);
   const len = total ? `Month ${at} of ${total}` : '';
-  $('#clock').innerHTML = `<div class="month">${MONTHS[s.month]} · Year ${s.year + 1}</div><div class="seasons">${len ? `<span class="chip len" style="--p:${Math.round((at - 1) / total * 100)}%">${len}</span>` : ''}${sea.map((x) => { const up = Object.values(x.d).some((m) => m > 1); return `<span class="chip ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${esc(x.name)}</span>`; }).join('') || '<span class="chip">Off season</span>'}</div>`;
+  $('#clock').innerHTML = `<div class="month">${MONTHS[s.month]} · Year ${s.year + 1}</div><div class="seasons">${len ? `<span class="chip len" style="--p:${Math.round((at - 1) / total * 100)}%">${len}</span>` : ''}${sea.map((x) => { const up = Object.values(x.d).some((m) => m > 1); return `<button type="button" class="chip ${up ? 'up' : 'down'}" data-season="${x.id}" aria-label="${esc(x.name)}: what it does">${up ? '▲' : '▼'} ${esc(x.name)}</button>`; }).join('') || '<span class="chip">Off season</span>'}</div>`;
   // turn bar
   const a = s.ended ? s.winner : E.actor(s), A = s.players[a];
   const sub = s.ended ? 'Game over' : s.phase === 'auction' ? `Auction: ${SPACES[s.pending.space].name}` : s.phase === 'trade' ? `Considering ${s.players[s.pending.from].name}'s offer` : s.phase === 'debt' ? `Owes ${money(s.debts[0].amount)}: must raise cash` : s.phase === 'buy' ? `Landed on ${SPACES[s.pending.space].name} (${money(SPACES[s.pending.space].price)})` : A.held && s.phase === 'roll' ? 'Held in the Grand Jury Room' : s.phase === 'roll' ? (s.players[s.turn].doubles ? 'Doubles! Roll again' : 'To roll') : (autoEndPending() ? MOVED_ENDING : MOVED_SUB);
@@ -1433,6 +1433,7 @@ function boot() {
     if (G.scene === 'game') { refresh(); layout(); } // the title already has its art (the image list is known up front)
   });
   $('#coach').addEventListener('click', onCoachClick);
+  $('#clock').addEventListener('click', (ev) => { const b = ev.target.closest('[data-season]'); if (b && !G.dialog && G.s) { unlock(); openDialog(`${seasonHtml(b.dataset.season)}<div class="btns"><button class="btn primary" data-ok>OK</button></div>`, { name: 'season' }); } });
   document.addEventListener('pointerdown', (ev) => setInput(ev.pointerType === 'touch' ? 'touch' : 'mouse'), true);
   $('#modal').addEventListener('click', onModalClick);
   $('#modal').addEventListener('input', onBidInput);
