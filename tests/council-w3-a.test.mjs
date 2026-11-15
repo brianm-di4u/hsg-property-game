@@ -332,6 +332,47 @@ export const tests = [
     },
   },
   {
+    name: 'S2-13 the Rules open with the goal and a three-step turn; the detail folds away and opens on a tap',
+    async run(t) {
+      await t.game('scene', 'help');
+      await t.waitForStable();
+      const panel = t.page.locator('[role="tabpanel"]');
+      t.expect(await panel.locator('h3 + .goal').count() === 1, 'the goal still sits right under the Rules heading');
+      t.equal(await panel.locator('.turncard .steps li').count(), 3, 'a turn is three steps');
+      const steps = await panel.locator('.turncard .steps li').allInnerTexts();
+      t.expect(/^Roll/.test(steps[0]) && /^Land/.test(steps[1]) && /end your turn/.test(steps[2]), 'roll, land, end');
+      const n = await panel.locator('details.rule').count();
+      t.expect(n >= 6, `the rest is folded into sections (${n})`);
+      t.equal(await panel.locator('details.rule[open]').count(), 0, 'all closed at first');
+      const hidden = await panel.locator('details.rule .prose').first().isVisible();
+      t.expect(!hidden, 'so their text is out of the way');
+      await t.shot('S2-13-rules-closed', { fullPage: true });
+      await panel.locator('details.rule summary', { hasText: 'Buying and auctions' }).click();
+      t.expect(/federal leases/.test(await panel.locator('details.rule[open]').innerText()), 'a tap opens a section');
+      await panel.locator('details.rule summary', { hasText: 'Trading' }).focus();
+      await t.page.keyboard.press('Enter');
+      t.equal(await panel.locator('details.rule[open]').count(), 2, 'Enter opens one from the keyboard');
+      await t.shot('S2-13-rules-open', { fullPage: true });
+      await t.checkLayout({ allowScrollY: true });
+    },
+  },
+  {
+    name: 'S2-13 Controls lead with touch on a touch screen and with keys on a keyboard',
+    async run(t) {
+      await t.game('scene', 'help');
+      await t.page.click('[data-tab="controls"]');
+      await t.waitForStable();
+      const first = await t.page.evaluate(() => [...document.querySelectorAll('[role="tabpanel"] h4')].map((h) => h.textContent));
+      const coarse = await t.page.evaluate(() => matchMedia('(pointer: coarse)').matches);
+      t.equal(coarse, t.viewport === 'mobile', 'the phone viewport reports a touch pointer');
+      t.equal(first[0], coarse ? 'On a touch screen' : 'With a keyboard', 'the first block fits the input');
+      t.equal(first.length, 2, 'and the other is still there');
+      t.expect(/Tap any space/.test(await t.page.locator('[role="tabpanel"]').innerText()), 'the touch text is shown');
+      await t.shot('S2-13-controls', { fullPage: true });
+      await t.checkLayout({ allowScrollY: true });
+    },
+  },
+  {
     name: 'S6-10 blocked storage says so on the title, in the first move and in the menu',
     initScript: () => { Storage.prototype.setItem = function () { throw new DOMException('blocked', 'SecurityError'); }; },
     async run(t) {
