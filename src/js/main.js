@@ -433,7 +433,9 @@ async function showCard(e) {
     await new Promise((res) => { G.cardDone = res; });
     G.waitingOk = false;
   } else {
-    await sleep(humanTable ? (G.settings.ai === 'normal' ? AI_CARD_HOLD.normal : AI_CARD_HOLD.other) : 600);
+    // A rival's card is held for a moment, and the human can end the hold: OK, Space or Enter on the focused button, or a tap on the card.
+    const hold = humanTable ? (G.settings.ai === 'normal' ? AI_CARD_HOLD.normal : AI_CARD_HOLD.other) : 600;
+    if (!G.fast && !G.skip && !G.rush) await new Promise((res) => { const t = setTimeout(res, hold); G.cardDone = () => { clearTimeout(t); res(); }; });
     if (G.dialog === 'card') closeDialog(true);
   }
 }
@@ -845,6 +847,7 @@ function onBidKey(ev) { if (ev.key === 'Enter' && ev.target.dataset && ev.target
 
 // Global delegated clicks inside the modal.
 function onModalClick(ev) {
+  if (G.dialog === 'card' && G.cardDone && !G.waitingOk) { closeDialog(true); return; }
   const t = ev.target.closest('button'); if (!t) return;
   unlock();
   if (t.dataset.bid) perform({ type: 'bid', amount: +t.dataset.bid });
