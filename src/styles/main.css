@@ -531,7 +531,14 @@ table.t.results td, table.t.results th { font-variant-numeric: tabular-nums; }
   table.t.results .bn .fine { display: block; font-size: .78em; }
   table.t.results .bn canvas { width: 22px !important; height: 22px !important; }
 }
-table.t.results .bn .fine { overflow-wrap: anywhere; }
+/* A persona's name wraps between words, never inside one (S4-61 follow-up); the narrow-phone rule is what makes the table fit at 360 px. */
+table.t.results .bn .fine { overflow-wrap: normal; }
+@media (max-width: 400px) {
+  table.t.results { font-size: .72em; } /* was .8em */
+  table.t.results th, table.t.results td { padding: 5px 2px; } /* was 5px 3px */
+  table.t.results .bn { gap: 3px; } /* was 4px */
+  table.t.results .bn canvas { width: 18px !important; height: 18px !important; } /* was 22px */
+}
 .over .podium > div { min-width: 0; }
 @media (max-width: 420px) { .over h2 { font-size: 1.75em; overflow-wrap: anywhere; } .over .kicker { overflow-wrap: anywhere; } }
 .daily-line { font-family: var(--font-serif); margin: 12px 2px; }
