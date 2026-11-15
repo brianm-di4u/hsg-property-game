@@ -373,6 +373,64 @@ export const tests = [
     },
   },
   {
+    name: 'S3-05 the Short game deals each baron one dear and one cheap lot, evenly',
+    node: true,
+    async run(t) {
+      const lots = OWNABLE.filter((i) => SPACES[i].type === 'lot' && !isRow(i)).sort((a, b) => SPACES[a].price - SPACES[b].price || a - b);
+      const cheap = new Set(lots.slice(0, lots.length >> 1));
+      const price = (i) => SPACES[i].price;
+      const spread = (s) => { const v = s.players.map((p) => E.owned(s, p.id).reduce((a, i) => a + price(i), 0)); return (Math.max(...v) - Math.min(...v)) / (v.reduce((a, b) => a + b) / v.length); };
+      const old = (seed, n) => { // the deal before this change: two lots each from the whole pool
+        const s = E.createGame({ seed, seats: Array.from({ length: n }, () => ({ kind: 'ai' })) });
+        const pool = shuffle(s, lots.slice()); const v = [];
+        for (let p = 0; p < n; p++) { v.push(price(pool.pop()) + price(pool.pop())); }
+        return (Math.max(...v) - Math.min(...v)) / (v.reduce((a, b) => a + b) / v.length);
+      };
+      const med = (a) => a.slice().sort((x, y) => x - y)[a.length >> 1];
+      for (const n of [2, 3, 4, 5, 6]) {
+        const now = [], before = [];
+        for (let seed = 1; seed <= 60; seed++) {
+          const s = E.createGame({ seed, mode: 'short', seats: Array.from({ length: n }, () => ({ kind: 'ai' })) });
+          for (const p of s.players) {
+            const mine = E.owned(s, p.id);
+            if (mine.length !== 2 || mine.some((i) => isRow(i) || SPACES[i].type !== 'lot') || mine.filter((i) => cheap.has(i)).length !== 1) { t.fail(`seed ${seed}, ${n} barons: baron ${p.id} does not hold one cheap and one dear plain lot`); return; }
+          }
+          now.push(spread(s)); before.push(old(seed, n));
+        }
+        t.expect(Math.max(...now) <= 0.4, `${n} barons: the worst of 60 deals is within 40% of the mean (${Math.max(...now).toFixed(2)})`);
+        t.expect(med(now) <= med(before) / 2, `${n} barons: the median gap is under half the old random deal's (${med(now).toFixed(2)} against ${med(before).toFixed(2)})`);
+      }
+      const full = E.createGame({ seed: 3, seats: [{ kind: 'ai' }, { kind: 'ai' }] });
+      t.equal(OWNABLE.filter((i) => full.lots[i].owner >= 0).length, 0, 'a Full game still starts with no lots dealt');
+    },
+  },
+  {
+    name: 'S3-05 in the Short game a building counts for its full cost in net worth and so in the ranking',
+    node: true,
+    async run(t) {
+      const mk = (opts) => {
+        const s = E.createGame({ seed: 9, seats: [{ kind: 'ai' }, { kind: 'ai' }], ...opts });
+        for (const i of OWNABLE) s.lots[i].owner = -1;
+        const lot = 1, cost = E.buildCost(lot), worthBare = SPACES[lot].price;
+        s.lots[lot].owner = 0; s.lots[lot].level = 3;
+        s.players[0].cash = 500; s.players[1].cash = Math.round(500 + worthBare + cost * 2.25); // between the half-cost and full-cost totals
+        s.monthsPlayed = 11; s.turn = 1; s.phase = 'post';
+        return { s, cost, worthBare };
+      };
+      const short = mk({ mode: 'short' });
+      t.equal(E.netWorth(short.s, 0), 500 + short.worthBare + 3 * short.cost, 'Short: three bathhouses count at full cost');
+      E.apply(short.s, { type: 'end' });
+      t.expect(short.s.ended && short.s.winner === 0, 'so the builder wins a close finish');
+      const full = mk({ mode: 'full', years: 1 });
+      t.equal(E.netWorth(full.s, 0), 500 + full.worthBare + 1.5 * full.cost, 'Full game: still half cost');
+      E.apply(full.s, { type: 'end' });
+      t.expect(full.s.ended && full.s.winner === 1, 'and the same finish goes the other way');
+      t.equal(E.BUILD_WORTH.short, 1, 'the named constant holds the new rate'); t.equal(E.BUILD_WORTH.full, 0.5, 'and the old one');
+      const old = mk({ mode: 'short' }); delete old.s.opts.buildWorth; // a Short game saved before this change
+      t.equal(E.netWorth(old.s, 0), 500 + old.worthBare + 1.5 * old.cost, 'a Short game saved before the change keeps scoring at half');
+    },
+  },
+  {
     name: 'S6-10 blocked storage says so on the title, in the first move and in the menu',
     initScript: () => { Storage.prototype.setItem = function () { throw new DOMException('blocked', 'SecurityError'); }; },
     async run(t) {

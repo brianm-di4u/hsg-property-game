@@ -116,9 +116,9 @@ export function helpHtml(tab) {
       <p>If you owe more than you have, sell buildings or mortgage. If you still can't pay, you're bankrupt: your holdings go to the creditor (or back to the town). You can also resign from the Menu on your own turn.</p>`)}
     ${more('Trading', `<p>Trade lots and cash with any baron on your turn, up to ${RULES.offersPerTurn} offers a turn. A baron who keeps asking drives a harder bargain each time. Lots in districts with buildings can't be traded.</p>`)}
     ${more('Seasons and Headlines', `<p>Seasons and Headlines change rents month by month (see Seasons).</p>`)}
-    ${more('How a game ends', `<p><strong>Full game:</strong> the last baron standing wins (or the richest at the year limit). <strong>Short game:</strong> 12 months, two starting lots each , richest net worth wins.</p>`)}
+    ${more('How a game ends', `<p><strong>Full game:</strong> the last baron standing wins (or the richest at the year limit). <strong>Short game:</strong> 12 months, two starting lots each (one dear, one cheap), richest net worth wins.</p>`)}
     ${more('Common Ground', `<p><strong>Common Ground</strong> variant: base rent, fares, the utility and taxes go to a public treasury that pays every baron an equal dividend each month. Inspired by the anti-monopolist rules of the public-domain Landlord's Game (1904); the rules here are our own.</p>`)}
-    <p class="fine">Net worth = cash + lot prices (half if mortgaged) + half the cost of buildings.</p>
+    <p class="fine">Net worth = cash + lot prices (half if mortgaged) + half the cost of buildings (the whole cost in the Short game).</p>
     <p class="fine">AI barons play at Easy, Normal or Hard, chosen for each seat when you set up a game. Easy bids low, never offers trades and builds slowly; Hard keeps less cash back, bids sharper and prizes a finished district.</p>`;
 }
 

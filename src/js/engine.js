@@ -6,6 +6,7 @@ import { RULES, SPACES, DISTRICTS, LOTS_BY_D, OWNABLE, LINES, N_SPACES, DEPOT, J
 import { seedState, rand, die, shuffle } from './rng.js';
 
 export const VERSION = 1;
+export const BUILD_WORTH = { full: RULES.sellRate, short: 1 };
 
 // True when a parsed save has the shape the game reads: a corrupt or foreign v1 save must not enable Continue.
 export function validateSave(s) {
@@ -27,7 +28,7 @@ export function createGame(opts = {}) {
   const seed = opts.seed ?? 1;
   const s = {
     v: VERSION, seed, rng: seedState(seed),
-    opts: { mode: opts.mode || 'full', variant: opts.variant || 'standard', years: opts.years ?? 0, startCash: RULES.startCash },
+    opts: { mode: opts.mode || 'full', variant: opts.variant || 'standard', years: opts.years ?? 0, startCash: RULES.startCash, buildWorth: (opts.mode || 'full') === 'short' ? BUILD_WORTH.short : BUILD_WORTH.full },
     players: [], lots: {}, turn: 0, round: 1, month: opts.startMonth ?? 0, year: 0, monthsPlayed: 0,
     phase: 'roll', pending: null, debts: [], resume: null, dice: [0, 0], again: false, forced: null,
     decks: { news: [], talk: [] }, headline: null, lastCard: null, mods: [], treasury: 0,
@@ -55,12 +56,20 @@ export function createGame(opts = {}) {
   for (const i of OWNABLE) s.lots[i] = { owner: -1, level: 0, mortgaged: false };
   s.decks.news = shuffle(s, NEWS.map((c) => c.id));
   s.decks.talk = shuffle(s, TALK.map((c) => c.id));
-  if (s.opts.mode === 'short') {
-    const pool = shuffle(s, OWNABLE.filter((i) => SPACES[i].type === 'lot' && !isRow(i)));
-    for (const p of s.players) for (let k = 0; k < 2; k++) s.lots[pool.pop()].owner = p.id;
-  }
+  if (s.opts.mode === 'short') dealShort(s);
   log(s, `${MONTHS[s.month]}, Year 1. ${s.players.length} barons arrive at the Depot.`);
   return s;
+}
+
+// Short game deal (S3-05): each baron gets one lot from the dearer half of the plain lots and one from the cheaper half, the
+// dearest paired with the cheapest, so every baron starts with about the same value. (Before: two lots drawn from the whole pool.)
+function dealShort(s) {
+  const lots = OWNABLE.filter((i) => SPACES[i].type === 'lot' && !isRow(i)).sort((a, b) => SPACES[a].price - SPACES[b].price || a - b);
+  const half = lots.length >> 1, n = s.players.length;
+  const high = shuffle(s, lots.slice(half)).slice(0, n).sort((a, b) => SPACES[b].price - SPACES[a].price);
+  const low = shuffle(s, lots.slice(0, half)).slice(0, n).sort((a, b) => SPACES[a].price - SPACES[b].price);
+  const seats = shuffle(s, s.players.map((p) => p.id));
+  seats.forEach((id, k) => { s.lots[high[k]].owner = id; s.lots[low[k]].owner = id; });
 }
 
 // ---------- queries ----------
@@ -122,10 +131,13 @@ export function rentParts(s, i, diceTotal) {
 export const rentOf = (s, i, d) => rentParts(s, i, d).total;
 
 export function buildCost(i) { const d = SPACES[i].d; return d === undefined ? 0 : DISTRICTS[d].build; }
+// What a building counts for in net worth: half its cost, or all of it in the Short game, where there is no time to
+// earn a building back (S3-05; it was half in every mode). A game records its rate when it starts, so a Short game saved
+// before this change keeps scoring at half.
 export function lotWorth(s, i) {
   const sp = SPACES[i], lot = s.lots[i];
   let w = lot.mortgaged ? sp.price * RULES.mortgageRate : sp.price;
-  if (lot.level) w += (lot.level === 4 ? 4 : lot.level) * buildCost(i) * RULES.sellRate;
+  if (lot.level) w += (lot.level === 4 ? 4 : lot.level) * buildCost(i) * (s.opts.buildWorth ?? BUILD_WORTH.full);
   return w;
 }
 export function netWorth(s, pid) {
