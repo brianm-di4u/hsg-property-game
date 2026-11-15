@@ -23,7 +23,7 @@ const NOSAVE_TOAST = 'Saving is off: a reload will lose this game.';
 const NOSAVE_NOTE = 'Saving is off in this browser, so your progress will not be kept. You can still play.';
 
 const G = {
-  s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal', felt: 'green', tipsSeen: null, tipsDone: [] },
+  s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal', autoEnd: false, felt: 'green', tipsSeen: null, tipsDone: [] },
   career: null, careerLocked: false, gameRes: null, news: [], tipsOn: false, input: 'mouse', coach: { rent: false, month: false, turns: 0, shown: null, key: '', timer: 0 },
   noSave: false, noSaveTold: false, queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, hidden: false, stale: false, fast: false, waitingOk: false,
   dialog: null, dialogRender: null, nextSeed: null, lastSetup: null, helpTab: 'rules', setup: null, liveBuf: [], logSeen: 0,
@@ -39,6 +39,7 @@ function loadSettings() {
   st.tipsDone = Array.isArray(st.tipsDone) ? st.tipsDone.filter((x) => typeof x === 'string').slice(0, 20) : [];
   if (typeof st.felt !== 'string' || !feltOpen(G.career, st.felt)) st.felt = 'green'; // a felt that is not open falls back to the original // the sound fields added with music and ambience: a missing or damaged one falls back to its default
   for (const k of ['sfx', 'music', 'amb']) if (typeof st[k] !== 'boolean') st[k] = true;
+  if (typeof st.autoEnd !== 'boolean') st.autoEnd = false; // an option added later: off, as the game has always played
   if (typeof st.vol !== 'number' || !(st.vol >= 0 && st.vol <= 1)) st.vol = 0.35;
   for (const k of ['mvol', 'avol']) if (typeof st[k] !== 'number' || !(st[k] >= 0 && st[k] <= 1)) st[k] = 0.7;
   applySettings();
@@ -437,11 +438,27 @@ async function showCard(e) {
 function schedule() {
   clearTimeout(G.aiTimer); G.aiTimer = 0;
   const s = G.s;
-  if (!s || s.ended || G.scene !== 'game' || G.busy || G.aiPaused || G.hidden || G.stale) return;
+  if (!s || s.ended || G.scene !== 'game' || G.busy || G.hidden || G.stale) return;
+  if (autoEndPending()) { G.aiTimer = setTimeout(() => { G.aiTimer = 0; if (!G.busy && !G.hidden && !G.stale && autoEndPending()) perform({ type: 'end' }); }, AUTO_END_MS); return; }
+  if (G.aiPaused) return;
   const a = E.actor(s);
   if (a < 0 || s.players[a].kind !== 'ai') return;
   if (G.dialog && G.dialog !== 'auction' && G.dialog !== 'deed' && G.dialog !== 'ledger') return;
   G.aiTimer = setTimeout(() => { G.aiTimer = 0; if (G.busy || !G.s || G.s.ended || G.aiPaused || G.hidden) return; const act = aiAction(G.s); if (act) { const r = perform(act); if (!r.ok) { console.warn('AI action failed', act, r.error); perform({ type: legalFallback() }); } } }, aiDelay());
+}
+// Auto end turn (S1-05, an option, off by default): once a human has landed and there is nothing to build or lift, the turn ends
+// by itself after a moment. Selling and mortgaging stay in Manage but do not hold the turn: they only raise cash, and
+// the game offers them the moment a debt needs them. Doubles end the same way: the next roll is one tap sooner.
+const AUTO_END_MS = 600, MOVED_SUB = 'Moved: manage, trade or end the turn', MOVED_ENDING = 'Moved: ending your turn…';
+// The bar says whether the turn is about to end by itself; a dialog opening or closing changes the answer.
+function autoEndNote() {
+  if (!G.settings.autoEnd || G.scene !== 'game' || !G.s || G.s.phase !== 'post' || G.busy) return;
+  const sub = document.querySelector('#turnbar .who .sub:last-child'); if (sub) sub.textContent = autoEndPending() ? MOVED_ENDING : MOVED_SUB;
+}
+function autoEndPending() {
+  const s = G.s;
+  if (!G.settings.autoEnd || !s || s.ended || s.phase !== 'post' || G.dialog || G.waitingOk || !humanActor()) return false;
+  return !E.legal(s).some((x) => x.type === 'build' || x.type === 'unmortgage');
 }
 function legalFallback() { const L = E.legal(G.s); return (L.find((a) => ['end', 'roll', 'pass', 'decline', 'bankrupt'].includes(a.type)) || L[0]).type; }
 
@@ -472,7 +489,7 @@ function refreshView() {
   $('#clock').innerHTML = `<div class="month">${MONTHS[s.month]} · Year ${s.year + 1}</div><div class="seasons">${len ? `<span class="chip len">${len}</span>` : ''}${sea.map((x) => { const up = Object.values(x.d).some((m) => m > 1); return `<span class="chip ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${esc(x.name)}</span>`; }).join('') || '<span class="chip">Off season</span>'}</div>`;
   // turn bar
   const a = s.ended ? s.winner : E.actor(s), A = s.players[a];
-  const sub = s.ended ? 'Game over' : s.phase === 'auction' ? `Auction: ${SPACES[s.pending.space].name}` : s.phase === 'trade' ? `Considering ${s.players[s.pending.from].name}'s offer` : s.phase === 'debt' ? `Owes ${money(s.debts[0].amount)}: must raise cash` : s.phase === 'buy' ? `Landed on ${SPACES[s.pending.space].name} (${money(SPACES[s.pending.space].price)})` : A.held && s.phase === 'roll' ? 'Held in the Grand Jury Room' : s.phase === 'roll' ? (s.players[s.turn].doubles ? 'Doubles! Roll again' : 'To roll') : 'Moved: manage, trade or end the turn';
+  const sub = s.ended ? 'Game over' : s.phase === 'auction' ? `Auction: ${SPACES[s.pending.space].name}` : s.phase === 'trade' ? `Considering ${s.players[s.pending.from].name}'s offer` : s.phase === 'debt' ? `Owes ${money(s.debts[0].amount)}: must raise cash` : s.phase === 'buy' ? `Landed on ${SPACES[s.pending.space].name} (${money(SPACES[s.pending.space].price)})` : A.held && s.phase === 'roll' ? 'Held in the Grand Jury Room' : s.phase === 'roll' ? (s.players[s.turn].doubles ? 'Doubles! Roll again' : 'To roll') : (autoEndPending() ? MOVED_ENDING : MOVED_SUB);
   const tb = $('#turnbar'); tb.innerHTML = '';
   const tface = A.kind === 'ai' ? artSrc('face-' + A.persona) : '';
   if (tface) { const im = document.createElement('img'); im.className = 'face'; im.src = tface; im.alt = ''; tb.append(im); }
@@ -582,7 +599,7 @@ function openDialog(html, opts = {}) {
   const m = $('#modal');
   G.dialog = opts.name || 'dialog'; G.dialogRender = opts.render || null; G.dialogClosable = opts.closable !== false; G.onClose = opts.onClose || null;
   m.innerHTML = `<div class="dlg${animOn() ? ' anim' : ''}" role="dialog" aria-modal="true" aria-labelledby="dlg-title">${html}</div>`;
-  m.hidden = false;
+  m.hidden = false; autoEndNote();
   if (animOn()) { G.dlgAnim = true; const d = m.querySelector('.dlg'); d.addEventListener('animationend', () => { G.dlgAnim = false; }, { once: true }); setTimeout(() => { G.dlgAnim = false; }, 400); }
   wireDialog();
   if (G.dialog === 'pause') holdAudio('pause', true);
@@ -602,7 +619,7 @@ function closeDialog(force) {
   if (was === 'mixer') $('#modal').oninput = null;
   if (was === 'pause') holdAudio('pause', false);
   G.dialog = null; G.dialogRender = null;
-  const m = $('#modal'); m.hidden = true; m.innerHTML = '';
+  const m = $('#modal'); m.hidden = true; m.innerHTML = ''; autoEndNote();
   if (was === 'card' && G.cardDone) { const d = G.cardDone; G.cardDone = null; d(); }
   if (G.onClose) { const f = G.onClose; G.onClose = null; f(); }
   if (G.scene === 'game') { const k = document.querySelector('#actions .btn.primary'); if (k) k.focus({ preventScroll: true }); }
@@ -973,12 +990,13 @@ function screenSettings(scr) {
     <p><strong>Text size</strong><br>${seg('text', [[1, '100%'], [1.25, '125%'], [1.5, '150%']])}</p>
     <p><strong>Theme</strong><br>${seg('theme', [['auto', 'Follow system'], ['light', 'Gilded day'], ['dark', 'Neon night']])}</p>
     <p><strong>AI speed</strong><br>${seg('ai', [['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']])}</p>
+    <p><strong>Auto end turn</strong><br>${seg('autoEnd', [[false, 'Off'], [true, 'On']])}<br><span class="fine">Ends your turn a moment after you land when you have nothing to build or lift. Manage and Trade stay open until then.</span></p>
     <div class="felts" role="group" aria-label="Dice tray felt"><strong>Dice tray felt</strong><div class="feltrow">${feltButtons(true)}</div><p class="fine">New felts are earned by playing. Your choice is shown on the table's dice tray.</p></div>
     <p><strong>First-game tips</strong><br><button type="button" class="btn" data-tips-again>Show tips again</button> <span class="fine" id="tipsnote" role="status"></span></p></div>
     <button class="btn primary" data-back>Back</button></div>`;
   scr.onclick = (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.set) { const k = b.dataset.set; let v = b.dataset.v; if (k === 'sound' || k === 'sfx' || k === 'music' || k === 'amb') v = v === 'true'; if (k === 'text') v = +v; st[k] = v; saveSettings(); unlock(); if ((k === 'sound' || k === 'sfx') && v) sfx('coin'); screenSettings(scr); scr.querySelector(`[data-set="${k}"][aria-pressed="true"]`).focus(); }
+    if (b.dataset.set) { const k = b.dataset.set; let v = b.dataset.v; if (k === 'sound' || k === 'sfx' || k === 'music' || k === 'amb' || k === 'autoEnd') v = v === 'true'; if (k === 'text') v = +v; st[k] = v; saveSettings(); unlock(); if ((k === 'sound' || k === 'sfx') && v) sfx('coin'); screenSettings(scr); scr.querySelector(`[data-set="${k}"][aria-pressed="true"]`).focus(); }
     else if (b.dataset.felt) { if (feltOpen(G.career, b.dataset.felt)) { st.felt = b.dataset.felt; saveSettings(); unlock(); screenSettings(scr); scr.querySelector(`[data-felt="${b.dataset.felt}"]`).focus(); } }
     else if (b.dataset.tipsAgain != null) { st.tipsSeen = false; st.tipsDone = []; G.tipsOn = !!G.s && !G.s.ended; saveSettings(); $('#tipsnote').textContent = G.tipsOn ? 'The tips will show when you are back at the table.' : 'The tips will show in your next game.'; }
     else if (b.dataset.back != null) scene(G.back === 'game' && G.s ? 'game' : 'title');

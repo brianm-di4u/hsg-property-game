@@ -1,6 +1,7 @@
 import { start, g, act, mod, rollTo, TWO_HUMANS, click } from './helpers.mjs';
 import * as E from '../src/js/engine.js';
 import { OWNABLE, SPACES, isRow } from '../src/js/data.js';
+import { shuffle } from '../src/js/rng.js';
 
 // Wave 3, batch A: menu screens dressed like the table, storage notice, volume controls, tests for every space type,
 // Resign, auto end turn, Help layout, Short-game fairness and the results table on a phone.
@@ -266,6 +267,68 @@ export const tests = [
         t.equal(st.scene, 'over', `${c.name}: the results screen is showing`);
         t.expect(await t.page.locator('.over table.t tbody tr').count() === c.opts.seats.length, `${c.name}: one results row for every baron`);
       }
+    },
+  },
+  {
+    name: 'S1-05 Auto end turn is off by default, and when on ends a turn with nothing to build or lift',
+    async run(t) {
+      await start(t);
+      const turn = async () => (await g(t)).turn;
+      t.equal((await t.state()).settings.autoEnd, false, 'off for a new profile');
+      await rollTo(t, 2, 3); await act(t, { type: 'buy' }); await t.waitForStable();
+      await t.page.waitForTimeout(1000); // nothing should happen: there is no event to wait for
+      t.equal((await g(t)).phase, 'post', 'with the option off the turn waits for End turn');
+      // switch it on in Settings, as a player would
+      await t.game('scene', 'settings'); await t.waitForStable();
+      t.equal(await t.page.locator('[data-set="autoEnd"][aria-pressed="true"]').textContent(), 'Off', 'Settings shows it Off');
+      await t.page.click('[data-set="autoEnd"][data-v="true"]');
+      t.equal((await t.state()).settings.autoEnd, true, 'and On after a tap');
+      await t.shot('S1-05-settings');
+      await t.game('scene', 'game'); await t.waitForStable();
+      await t.page.waitForFunction(() => window.__game.getState().game.turn !== 0, null, { timeout: 8000 });
+      t.equal(await turn(), 1, 'now the turn ended by itself');
+      // a turn that can still build keeps waiting
+      await t.game('act', 'aiPause', true);
+      await mod(t, (x) => { x.turn = 0; x.phase = 'post'; x.again = false; for (const i of [1, 3]) x.lots[i].owner = 0; x.players[0].cash = 1000; });
+      await t.page.waitForTimeout(1000);
+      t.equal((await g(t)).phase, 'post', 'a whole district to build on holds the turn');
+      t.equal((await g(t)).turn, 0, 'still Ada');
+      // doubles: the end goes back to rolling
+      await mod(t, (x) => { x.lots[1].owner = -1; x.lots[3].owner = -1; x.turn = 0; x.phase = 'post'; x.again = true; });
+      await t.page.waitForFunction(() => window.__game.getState().game.phase === 'roll', null, { timeout: 8000 });
+      t.equal((await g(t)).turn, 0, 'after doubles Ada rolls again');
+    },
+  },
+  {
+    name: 'S1-05 Manage and Trade stay reachable until the turn ends, and an open dialog holds it',
+    async run(t) {
+      await start(t);
+      await t.game('scene', 'settings'); await t.page.click('[data-set="autoEnd"][data-v="true"]'); await t.game('scene', 'game'); await t.waitForStable();
+      // load the state and open Manage in one breath: mod() would wait for the turn to end first
+      await t.page.evaluate(() => { const x = window.__game.getState().game; x.turn = 0; x.phase = 'post'; x.again = false; x.lots[5].owner = 0; window.__game.setState({ game: x }); window.__game.act('open', 'manage'); });
+      t.equal((await t.state()).dialog, 'manage', 'Manage opens');
+      await t.page.waitForTimeout(1000);
+      t.equal((await g(t)).phase, 'post', 'an open Manage holds the turn');
+      t.equal(await t.page.locator('#turnbar .who .sub').last().textContent(), 'Moved: manage, trade or end the turn', 'and the bar does not promise to end it');
+      await t.game('act', 'close');
+      t.expect(/ending your turn/.test(await t.page.locator('#turnbar .who .sub').last().textContent()) || (await g(t)).turn !== 0, 'closing it lets the turn end (the bar says so first)');
+      await t.page.waitForFunction(() => window.__game.getState().game.turn !== 0, null, { timeout: 8000 });
+    },
+  },
+  {
+    name: 'S1-05 an old settings record loads with Auto end turn off, and the choice survives a reload',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.page.evaluate(() => localStorage.setItem('hs-barons-settings-v1', JSON.stringify({ sound: true, vol: 0.35, ai: 'fast' })));
+      await t.reload();
+      t.equal((await t.state()).settings.autoEnd, false, 'a record from before the option reads Off');
+      t.equal((await t.state()).settings.ai, 'fast', 'and keeps its other choices');
+      await t.game('scene', 'settings'); await t.page.click('[data-set="autoEnd"][data-v="true"]');
+      await t.reload();
+      t.equal((await t.state()).settings.autoEnd, true, 'On is remembered');
+      await t.page.evaluate(() => localStorage.setItem('hs-barons-settings-v1', JSON.stringify({ autoEnd: 'yes' })));
+      await t.reload();
+      t.equal((await t.state()).settings.autoEnd, false, 'a damaged value falls back to Off');
     },
   },
   {
