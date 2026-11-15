@@ -486,6 +486,7 @@ body.theme-dark { --grain: rgba(216, 207, 189, .035); }
   .title-hero { padding-top: 0; }
   .title-hero .lid { min-width: 0; width: min(100%, calc(45vh * 1.5)); margin-bottom: 10px; }
   .title-hero .lede { display: none; }
+  .title-hero .menu { display: grid; grid-template-columns: 1fr 1fr; max-width: 460px; } /* S6-11: six buttons in three rows, so the lot is above the fold */
 }
 @media (max-height: 600px) and (max-aspect-ratio: 1/1) {
   .title-hero .lid { width: min(100%, calc(45vh * .8)); }

@@ -251,3 +251,21 @@ tests.push({
     t.expect(at(3) > at(6) && at(6) > at(8), 'and each bounce is softer than the last');
   },
 });
+
+// ---------- S6-11: the title menu is above the fold on a short screen ----------
+for (const [w, h] of [[320, 568], [844, 390], [1024, 600]]) tests.push({
+  name: `S6-11 the title buttons are on screen at ${w}x${h}`,
+  viewports: ['desktop'],
+  async run(t) {
+    await t.page.setViewportSize({ width: w, height: h });
+    await t.game('scene', 'title'); await t.waitForStable();
+    const r = await t.page.evaluate(() => {
+      const bs = [...document.querySelectorAll('#screen .title-hero .menu .btn')].map((b) => { const q = b.getBoundingClientRect(); return { name: b.textContent.trim(), top: q.top, bottom: q.bottom }; });
+      return { bs, h: innerHeight, lid: document.querySelector('.title-hero .lid').getBoundingClientRect().height };
+    });
+    t.log(`${w}x${h}: lid ${Math.round(r.lid)} px, buttons ${r.bs.map((b) => `${b.name} ${Math.round(b.top)}-${Math.round(b.bottom)}`).join(', ')}`);
+    t.expect(r.bs.length >= 4, `${r.bs.length} menu buttons`);
+    for (const b of r.bs) t.expect(b.bottom <= r.h, `${b.name} ends at ${Math.round(b.bottom)} of ${r.h}`);
+    await t.shot(`S6-11-title-${w}x${h}`);
+  },
+});
