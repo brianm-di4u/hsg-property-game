@@ -194,6 +194,24 @@ export function canUnmortgage(s, pid, i) { const lot = s.lots[i]; return !!lot &
 export function tradeable(s, i) { const sp = SPACES[i]; return sp.type !== 'lot' || !districtHasBuildings(s, sp.d); }
 
 // ---------- legality ----------
+// Why a manage action is refused on a lot of pid's (S2-04): the words under a greyed-out Build, Mortgage or Lift button.
+// '' when the action is allowed, or when there is nothing to say (the lot is not theirs, or the action does not apply to it).
+export function whyNot(s, pid, type, i) {
+  const sp = SPACES[i], lot = s.lots[i], p = s.players[pid];
+  if (!lot || !p || lot.owner !== pid) return '';
+  const short = (c) => (p.cash < c ? `Short $${c - p.cash}` : '');
+  if (type === 'build') {
+    if (sp.type !== 'lot' || canBuild(s, pid, i)) return '';
+    if (lot.level >= 4) return 'Already a Grand Resort';
+    if (!ownsDistrict(s, sp.d, pid)) return `Need all ${LOTS_BY_D[sp.d].length} ${DISTRICTS[sp.d].name} lots`;
+    if (LOTS_BY_D[sp.d].some((j) => s.lots[j].mortgaged)) return 'Lift the mortgages in this district first';
+    if (s.built.includes(i)) return 'Built this turn';
+    return short(buildCost(i));
+  }
+  if (type === 'mortgage') return canMortgage(s, pid, i) || lot.mortgaged || isRow(i) ? '' : 'Sell the buildings in this district first';
+  if (type === 'unmortgage') return lot.mortgaged && !canUnmortgage(s, pid, i) ? short(unmortgageCost(i)) : '';
+  return '';
+}
 export function legal(s) {
   if (s.ended) return [];
   const a = actor(s), out = [];

@@ -563,13 +563,15 @@ function renderActions() {
     const P0 = s.players[s.turn];
     if (P0.held) {
       el.append(btn('Roll for doubles', 'R', () => perform({ type: 'roll' }), 'primary', busy));
-      el.append(btn(`Pay ${money(RULES.bail)}`, 'B', () => perform({ type: 'bail' }), '', busy || !can('bail')));
+      const bailNeed = RULES.bail - P0.cash;
+      el.append(btn(`Pay ${money(RULES.bail)}${bailNeed > 0 ? ` <small class="need">need ${money(bailNeed)} more</small>` : ''}`, 'B', () => perform({ type: 'bail' }), '', busy || !can('bail'), `Pay ${money(RULES.bail)} to leave${bailNeed > 0 ? `, you need ${money(bailNeed)} more` : ''} (B)`));
       if (P0.pardons) el.append(btn('Use Pardon', '', () => perform({ type: 'pardon' }), '', busy));
     } else el.append(btn('Roll', 'R', () => perform({ type: 'roll' }), 'primary', busy));
     el.append(btn('Manage', 'M', () => openManage(), '', busy), btn('Trade', 'T', () => openTrade(), '', busy));
   } else if (p === 'buy') {
     const i = s.pending.space;
-    el.append(btn(`Buy ${money(SPACES[i].price)}`, 'B', () => perform({ type: 'buy' }), 'primary', busy || h.cash < SPACES[i].price));
+    const need = SPACES[i].price - h.cash;
+    el.append(btn(`Buy ${money(SPACES[i].price)}${need > 0 ? ` <small class="need">need ${money(need)} more</small>` : ''}`, 'B', () => perform({ type: 'buy' }), 'primary', busy || need > 0, `Buy for ${money(SPACES[i].price)}${need > 0 ? `, you need ${money(need)} more` : ''} (B)`));
     el.append(btn('Auction', 'A', () => perform({ type: 'decline' }), '', busy));
     el.append(btn('Deed', '', () => openDeed(i), 'ghost', false, `Read the deed for ${SPACES[i].name}`));
   } else if (p === 'post') {
@@ -712,11 +714,15 @@ function manageRender(debt) {
   const rows = groups.map(([n, ids]) => `<h3>${esc(n)}</h3><ul class="mlist">${ids.map((i) => {
     const lot = s.lots[i], sp = SPACES[i];
     const st = lot.mortgaged ? 'mortgaged' : lot.level === 4 ? 'Grand Resort' : lot.level ? `${lot.level} bathhouse${lot.level > 1 ? 's' : ''}` : 'no buildings';
+    // Why a button is greyed out, in words under the row (S2-04); the buttons point at the line for screen readers.
+    const bw = !debt && sp.type === 'lot' ? E.whyNot(s, a, 'build', i) : '', mw = E.whyNot(s, a, 'mortgage', i) || (debt && lot.mortgaged ? 'Not while you owe a debt' : E.whyNot(s, a, 'unmortgage', i));
+    const dby = (w) => (w ? ` aria-describedby="why${i}"` : '');
+    const why = [bw && `Build: ${bw}`, mw && `${lot.mortgaged ? 'Lift' : 'Mortgage'}: ${mw}`].filter(Boolean).join(' · ');
     return `<li><span class="lname">${lotLabel(i)} <span class="fine">· ${st} · rent ${money(E.rentOf(s, i, 7))}</span></span>
-      ${sp.type === 'lot' && !debt ? `<button class="btn" data-f="b${i}" data-act="build" data-i="${i}" ${has('build', i) ? '' : 'disabled'}>Build ${money(E.buildCost(i))}</button>` : ''}
+      ${sp.type === 'lot' && !debt ? `<button class="btn" data-f="b${i}" data-act="build" data-i="${i}" ${has('build', i) ? '' : 'disabled'}${dby(bw)}>Build ${money(E.buildCost(i))}</button>` : ''}
       ${sp.type === 'lot' ? `<button class="btn" data-f="s${i}" data-act="sell" data-i="${i}" ${has('sell', i) ? '' : 'disabled'}>Sell +${money(Math.floor(E.buildCost(i) * RULES.sellRate))}</button>` : ''}
-      ${lot.mortgaged ? `<button class="btn" data-f="u${i}" data-act="unmortgage" data-i="${i}" ${has('unmortgage', i) ? '' : 'disabled'}>Lift −${money(E.unmortgageCost(i))}</button>`
-        : `<button class="btn" data-f="m${i}" data-act="mortgage" data-i="${i}" ${has('mortgage', i) ? '' : 'disabled'}>Mortgage +${money(sp.price / 2)}</button>`}</li>`;
+      ${lot.mortgaged ? `<button class="btn" data-f="u${i}" data-act="unmortgage" data-i="${i}" ${has('unmortgage', i) ? '' : 'disabled'}${dby(mw)}>Lift −${money(E.unmortgageCost(i))}</button>`
+        : `<button class="btn" data-f="m${i}" data-act="mortgage" data-i="${i}" ${has('mortgage', i) ? '' : 'disabled'}${dby(mw)}>Mortgage +${money(sp.price / 2)}</button>`}${why ? `<span class="why" id="why${i}">${esc(why)}</span>` : ''}</li>`;
   }).join('')}</ul>`).join('');
   const head = debt ? `<h2 id="dlg-title">Raise cash</h2><p><strong>${esc(p.name)}</strong> owes <strong>${money(s.debts[0].amount)}</strong>${s.debts[0].to >= 0 ? ` to ${esc(s.players[s.debts[0].to].name)}` : ''} and has <strong>${money(p.cash)}</strong>. Sell bathhouses or mortgage lots; the debt is paid as soon as you have enough.</p>`
     : `<h2 id="dlg-title">Manage lots · ${money(p.cash)}</h2><p class="fine">Build on districts you own outright (one level per lot per turn). Selling returns half the cost.</p>`;
