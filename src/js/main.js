@@ -491,8 +491,9 @@ function refreshView() {
   // clock
   const sea = E.seasonsNow(s);
   // the game length rides in the chip row, so the month title never wraps
-  const len = s.opts.mode === 'short' ? `Month ${Math.min(12, s.monthsPlayed + 1)} of 12` : s.opts.years ? `${s.opts.years}-year game` : '';
-  $('#clock').innerHTML = `<div class="month">${MONTHS[s.month]} · Year ${s.year + 1}</div><div class="seasons">${len ? `<span class="chip len">${len}</span>` : ''}${sea.map((x) => { const up = Object.values(x.d).some((m) => m > 1); return `<span class="chip ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${esc(x.name)}</span>`; }).join('') || '<span class="chip">Off season</span>'}</div>`;
+  const total = s.opts.mode === 'short' ? 12 : s.opts.years ? s.opts.years * 12 : 0, at = Math.min(total, s.monthsPlayed + 1);
+  const len = total ? `Month ${at} of ${total}` : '';
+  $('#clock').innerHTML = `<div class="month">${MONTHS[s.month]} · Year ${s.year + 1}</div><div class="seasons">${len ? `<span class="chip len" style="--p:${Math.round((at - 1) / total * 100)}%">${len}</span>` : ''}${sea.map((x) => { const up = Object.values(x.d).some((m) => m > 1); return `<span class="chip ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${esc(x.name)}</span>`; }).join('') || '<span class="chip">Off season</span>'}</div>`;
   // turn bar
   const a = s.ended ? s.winner : E.actor(s), A = s.players[a];
   const sub = s.ended ? 'Game over' : s.phase === 'auction' ? `Auction: ${SPACES[s.pending.space].name}` : s.phase === 'trade' ? `Considering ${s.players[s.pending.from].name}'s offer` : s.phase === 'debt' ? `Owes ${money(s.debts[0].amount)}: must raise cash` : s.phase === 'buy' ? `Landed on ${SPACES[s.pending.space].name} (${money(SPACES[s.pending.space].price)})` : A.held && s.phase === 'roll' ? 'Held in the Grand Jury Room' : s.phase === 'roll' ? (s.players[s.turn].doubles ? 'Doubles! Roll again' : 'To roll') : (autoEndPending() ? MOVED_ENDING : MOVED_SUB);
@@ -958,8 +959,20 @@ const DEFAULT_SEATS = () => [
   { kind: 'ai', name: '', persona: 'speculator', level: 'normal' },
   { kind: 'ai', name: '', persona: 'banker', level: 'normal' },
 ];
+// Game length on the New game screen (S3-09, S2-06): Short, Standard (24 months) and Full are three buttons over the same two
+// settings, the mode and the year limit. A newcomer (nothing finished, nothing saved) starts on Standard, a player with a history
+// on the Full game with no limit, as before. The minutes are the council's estimate for one person against three rivals.
+const STANDARD_YEARS = 2;
+const LENGTHS = [['short', 'Short: 12 months'], ['standard', 'Standard: 24 months'], ['full', 'Full game']];
+const LENGTH_HINT = 'Short takes about 20 minutes, Standard about 40, and a Full game with no year limit 60 to 90.';
+const newPlayer = () => !G.career.games && !hasSave();
+const lengthKey = (st) => st.mode === 'short' ? 'short' : +st.years === STANDARD_YEARS ? 'standard' : 'full';
+function setLength(st, v) {
+  if (v === 'short') st.mode = 'short';
+  else { st.mode = 'full'; if (v === 'standard') st.years = STANDARD_YEARS; else if (+st.years === STANDARD_YEARS) st.years = 0; }
+}
 function screenSetup(scr) {
-  const st = G.setup || (G.setup = { seats: DEFAULT_SEATS(), mode: 'full', variant: 'standard', years: 0, seed: '' });
+  const st = G.setup || (G.setup = { seats: DEFAULT_SEATS(), mode: 'full', variant: 'standard', years: newPlayer() ? STANDARD_YEARS : 0, seed: '' });
   const seg = (key, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button type="button" data-seg="${key}" data-v="${v}" aria-pressed="${st[key] === v}">${l}</button>`).join('')}</div>`;
   const today = localDate(), dbest = G.career.daily[today], dstreak = dailyStreak(G.career, today);
   scr.innerHTML = `<div class="wrap"><h2>New game</h2><p class="goal">${esc(GOAL_TEXT)}</p>
@@ -975,10 +988,11 @@ function screenSetup(scr) {
       <button type="button" class="iconbtn" data-rm="${k}" aria-label="Remove seat ${k + 1}" ${st.seats.length <= 2 ? 'disabled' : ''}>✕</button></div>`).join('')}</div>
       <button type="button" class="btn" data-add ${st.seats.length >= 6 ? 'disabled' : ''} style="margin-top:8px">Add a baron</button></div>
     <div class="card"><div class="row" style="gap:18px;align-items:flex-start">
-      <div><strong>Game length</strong><br>${seg('mode', [['full', 'Full game'], ['short', 'Short: 12 months']])}</div>
+      <div><strong>Game length</strong><br><div class="seg lens" role="group">${LENGTHS.map(([v, l]) => `<button type="button" data-seg="mode" data-v="${v}" aria-pressed="${lengthKey(st) === v}">${l}</button>`).join('')}</div></div>
       <label>Year limit (full game)<select data-years ${st.mode === 'short' ? 'disabled' : ''}>${[[0, 'No limit'], [1, '1 year'], [2, '2 years'], [3, '3 years'], [5, '5 years']].map(([v, l]) => `<option value="${v}" ${+st.years === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <div><strong>Rules</strong><br>${seg('variant', [['standard', 'Standard'], ['common', 'Common Ground']])}</div>
       <label>Seed (optional)<input type="number" data-seed value="${esc(st.seed)}" placeholder="random" style="width:130px"></label></div>
+      <p class="fine" id="lenhint">${LENGTH_HINT}${newPlayer() ? ' New here? Short is the quickest first game.' : ''}</p>
       <p class="fine">Common Ground: base rent, fares, the utility and taxes feed a public treasury that pays everyone a dividend each month (inspired by the public-domain Landlord's Game, 1904).</p></div>
     <div class="row"><button type="button" class="btn ghost" data-back>Back</button><button type="button" class="btn primary" data-start>Start the game</button></div></div>`;
   scr.querySelectorAll('.seat').forEach((row, k) => { const tk = row.querySelector('.tk'), p = st.seats[k], f = artSrc(p.kind === 'ai' && p.persona !== 'random' ? 'face-' + p.persona : p.kind === 'ai' ? '' : 'face-human');
@@ -988,6 +1002,7 @@ function screenSetup(scr) {
     if (b.dataset.kind) { st.seats[+b.dataset.k].kind = b.dataset.kind; if (b.dataset.kind === 'human' && !st.seats[+b.dataset.k].name) st.seats[+b.dataset.k].name = `Player ${+b.dataset.k + 1}`; screenSetup(scr); }
     else if (b.dataset.rm) { st.seats.splice(+b.dataset.rm, 1); screenSetup(scr); }
     else if (b.dataset.add != null) { st.seats.push({ kind: 'ai', name: '', persona: PERSONA_KEYS[st.seats.length % PERSONA_KEYS.length], level: 'normal' }); screenSetup(scr); }
+    else if (b.dataset.seg === 'mode') { setLength(st, b.dataset.v); screenSetup(scr); }
     else if (b.dataset.seg) { st[b.dataset.seg] = b.dataset.v; screenSetup(scr); }
     else if (b.dataset.back != null) scene('title');
     else if (b.dataset.daily != null) startFromSetup(true);

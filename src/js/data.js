@@ -147,7 +147,7 @@ export const CARD = Object.fromEntries([...NEWS, ...TALK].map((c) => [c.id, c]))
 export const PERSONAS = {
   speculator: { name: 'Speculator', who: 'Cornelius Vane', reserve: 0.55, bid: 1.15, buyBar: 0.75, build: 0.8, trade: 0.6, margin: 0.02, taste: {} , blurb: 'Buys nearly everything and bids high.' },
   hotelier: { name: 'Hotelier', who: 'Odessa Marlow', reserve: 0.9, bid: 1.0, buyBar: 0.9, build: 0.6, trade: 0.4, margin: 0.05, taste: { gh: 1.3 }, blurb: 'Builds early and loves the Grand Hotels.' },
-  banker: { name: 'Banker', who: 'Thaddeus Crane', reserve: 1.5, bid: 0.85, buyBar: 1.05, build: 1.2, trade: 0.2, margin: 0.12, taste: {}, blurb: 'Keeps a fat cash reserve and drives hard bargains.' },
+  banker: { name: 'Banker', who: 'Thaddeus Crane', reserve: 1.2, bid: 0.95, buyBar: 0.95, build: 1.2, trade: 0.2, margin: 0.12, taste: {}, blurb: 'Keeps a fat cash reserve and drives hard bargains.' },
   showman: { name: 'Showman', who: 'Lulu Delacroix', reserve: 0.8, bid: 1.05, buyBar: 0.85, build: 0.8, trade: 0.4, margin: 0.07, taste: { cl: 1.15, ra: 1.15 }, blurb: 'Trades often and loves the clubs and attractions.' },
   preservationist: { name: 'Preservationist', who: 'Hazel Ashby', reserve: 1.0, bid: 1.0, buyBar: 0.9, build: 0.9, trade: 0.4, margin: 0.06, taste: { br: 1.35, ps: 1.3 }, blurb: 'Prizes Bathhouse Row and Pleasant Street.' },
   gambler: { name: 'Gambler', who: 'Jack Tolliver', reserve: 0.4, bid: 1.25, buyBar: 0.8, build: 0.7, trade: 0.5, margin: 0.0, taste: {}, blurb: 'Plays it loose: thin reserve, wild bids.', wild: true },

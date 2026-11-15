@@ -7,6 +7,10 @@ import { playGame, data } from './sim.mjs';
 
 const N = +(process.argv[2] || 600), NP = +(process.argv[3] || 4), CAP = 120;
 const K = data.PERSONA_KEYS;
+// Bands by number of barons (S3-08). They were written for 4 and are the same at 4: a persona's win rate is judged against its fair
+// share 1/NP (0.32 to 1.4 times it), and with fewer barons rent comes in more slowly, so the first bankruptcy comes later.
+const FIRST_BR_HI = { 2: 60, 3: 50 }[NP] || 40;
+const PERSONA_BAND = [(1 / NP) * 0.32, (1 / NP) * 1.4];
 // Every 4-of-6 persona combination, rotated through the seats, so each persona sits in each seat equally.
 const combos = [];
 (function pick(start, cur) { if (cur.length === NP) { combos.push(cur.slice()); return; } for (let i = start; i < K.length; i++) { cur.push(K[i]); pick(i + 1, cur); cur.pop(); } })(0, []);
@@ -47,9 +51,9 @@ const A = run(N);
 const decided = A.games - A.stalls;
 check('Months to a winner (median)', med(A.rounds), 30, 80);
 check('Stalled games (cap reached)', A.stalls / A.games, 0, 0.10, P);
-check('First bankruptcy (median month)', med(A.firstBR), 12, 40);
+check('First bankruptcy (median month)', med(A.firstBR), 12, FIRST_BR_HI);
 A.seatWins.forEach((w, i) => check(`Seat ${i + 1} win rate`, w / decided, 1 / NP - 0.08, 1 / NP + 0.08, P));
-for (const p of K) check(`${data.PERSONAS[p].name} win rate`, (A.personaWins[p] || 0) / (A.personaGames[p] * decided / A.games), 0.08, 0.35, P);
+for (const p of K) check(`${data.PERSONAS[p].name} win rate`, (A.personaWins[p] || 0) / (A.personaGames[p] * decided / A.games), PERSONA_BAND[0], PERSONA_BAND[1], P);
 check('Trades per game (mean)', mean(A.trades), 0.5, 6, (v) => v.toFixed(2));
 check('Auctions per game (mean)', mean(A.auctions), 1, 99, (v) => v.toFixed(2));
 

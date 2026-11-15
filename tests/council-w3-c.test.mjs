@@ -94,3 +94,92 @@ tests.push({
     t.expect(a.type !== 'build', `while the Army has the hotels it does not (${a.type})`);
   },
 });
+
+// ---------- S3-08, S3-09, S2-06: how long a game is ----------
+const CAREER = 'hs-barons-career-v1';
+const lens = (t) => t.page.evaluate(() => ({
+  pressed: [...document.querySelectorAll('[data-seg="mode"]')].filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.v),
+  labels: [...document.querySelectorAll('[data-seg="mode"]')].map((b) => b.textContent.trim()),
+  years: document.querySelector('[data-years]').value, yearsOff: document.querySelector('[data-years]').disabled,
+  hint: document.querySelector('#lenhint').textContent,
+}));
+tests.push({
+  name: 'S3-09 a newcomer\'s New game starts on Standard (24 months), the three lengths say how long they take, and Short is the quick first game',
+  async run(t) {
+    await t.game('scene', 'setup');
+    await t.waitForStable();
+    let r = await lens(t);
+    t.equal(r.labels.join('|'), 'Short: 12 months|Standard: 24 months|Full game', 'three lengths');
+    t.equal(r.pressed.join(), 'standard', 'a newcomer starts on Standard, not on an open-ended game');
+    t.equal(r.years, '2', 'which is a two-year limit');
+    t.expect(/Short takes about 20 minutes, Standard about 40, and a Full game with no year limit 60 to 90\./.test(r.hint), `the hint gives the times (${r.hint})`);
+    t.expect(/New here\? Short is the quickest first game\./.test(r.hint), 'and points a newcomer at Short');
+    await t.page.locator('#lenhint').scrollIntoViewIfNeeded();
+    await t.shot('S3-09-setup-newcomer');
+    await t.checkLayout({ allowScrollY: true });
+    await t.page.click('[data-seg="mode"][data-v="short"]');
+    r = await lens(t);
+    t.expect(r.pressed.join() === 'short' && r.yearsOff, 'Short is pressed and the year limit is off');
+    await t.page.click('[data-seg="mode"][data-v="full"]');
+    r = await lens(t);
+    t.expect(r.pressed.join() === 'full' && r.years === '0' && !r.yearsOff, 'Full game is no limit');
+    await t.page.selectOption('[data-years]', '3');
+    r = await lens(t);
+    t.expect(r.pressed.join() === 'full' && r.years === '3', 'a three-year limit is still the Full game');
+    await t.page.click('[data-seg="mode"][data-v="standard"]');
+    t.equal((await lens(t)).years, '2', 'Standard sets two years');
+    await t.page.click('[data-start]');
+    await t.waitForStable();
+    const s = await g(t);
+    t.equal(s.opts.years, 2, 'and the game that starts has a 24-month limit');
+    t.equal(s.opts.mode, 'full', 'in the Full rules');
+  },
+});
+tests.push({
+  name: 'S3-08 a player with a history still starts on the Full game with no limit, and a game saved before this has no hint about it',
+  async run(t) {
+    await t.page.evaluate(([k, v]) => localStorage.setItem(k, JSON.stringify(v)), [CAREER, { v: 1, games: 4, wins: 1 }]);
+    await t.reload();
+    await t.game('scene', 'setup');
+    await t.waitForStable();
+    const r = await lens(t);
+    t.equal(r.pressed.join(), 'full', 'a player who has finished games starts on the Full game, as before');
+    t.equal(r.years, '0', 'with no year limit');
+    t.expect(!/New here/.test(r.hint) && /60 to 90/.test(r.hint), 'the times are there, the newcomer line is not');
+    await t.shot('S3-09-setup-veteran');
+  },
+});
+tests.push({
+  name: 'S3-08 the clock says Month n of N for a year-limited game and fills as the months pass',
+  async run(t) {
+    await start(t, { seats: AI2, seed: 4, years: 2 });
+    const chip = () => t.page.evaluate(() => { const c = document.querySelector('#clock .chip.len'); return c ? { text: c.textContent, p: c.style.getPropertyValue('--p') } : null; });
+    let c = await chip();
+    t.equal(c && c.text, 'Month 1 of 24', 'a 24-month game starts at Month 1 of 24');
+    t.equal(c && c.p, '0%', 'with nothing filled');
+    await mod(t, (s) => { s.monthsPlayed = 11; s.month = 11; });
+    c = await chip();
+    t.equal(c && c.text, 'Month 12 of 24', 'twelve months in it reads Month 12 of 24');
+    t.equal(c && c.p, '46%', 'and the chip is about half filled');
+    await t.shot('S3-09-month-chip');
+    await t.checkLayout();
+    await mod(t, (s) => { s.opts.years = 0; });
+    t.equal(await chip(), null, 'a game with no limit shows no count');
+    await mod(t, (s) => { s.opts.years = 0; s.opts.mode = 'short'; s.monthsPlayed = 3; });
+    c = await chip();
+    t.equal(c && c.text, 'Month 4 of 12', 'a Short game still reads Month 4 of 12');
+  },
+});
+tests.push({
+  name: 'S3-08 balance.mjs judges each table size against its own bands, and the Banker is tuned',
+  node: true,
+  async run(t) {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync(new URL('../tools/balance.mjs', import.meta.url), 'utf8');
+    t.expect(/FIRST_BR_HI = \{ 2: 60, 3: 50 \}\[NP\] \|\| 40/.test(src) && /PERSONA_BAND = \[\(1 \/ NP\) \* 0\.32, \(1 \/ NP\) \* 1\.4\]/.test(src), 'the first-bankruptcy and persona bands depend on the number of barons');
+    const D = await import('../src/js/data.js');
+    t.equal(D.PERSONAS.banker.reserve, 1.2, 'the Banker keeps a reserve of 1.2 (it was 1.5)');
+    const four = [0.25 * 0.32, 0.25 * 1.4].map((x) => +x.toFixed(2));
+    t.equal(four.join(), '0.08,0.35', 'and at four barons the persona band is the old 8 to 35 percent');
+  },
+});

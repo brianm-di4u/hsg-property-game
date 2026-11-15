@@ -376,7 +376,7 @@ body.theme-dark { --highlight: #F6E3A8; }
   #modal .dlg:has(> .news) .btns, #modal .dlg:has(> .postcard) .btns { margin: 0; padding: 14px 0 calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(rgba(12,6,2,0), rgba(12,6,2,.72) 50%); }
 }
 /* turn bar: the season chips wrap rather than slide under the view button */
-#clock .chip.len { border-style: dashed; color: var(--muted); }
+#clock .chip.len { border-style: dashed; color: var(--muted); background-image: linear-gradient(90deg, rgba(217, 162, 58, .3) var(--p, 0%), transparent var(--p, 0%)); }
 @media (max-width: 820px), (max-aspect-ratio: 1/1) { #clock .seasons { gap: 3px; } #clock .chip { padding: 0 6px; } }
 /* auction: bidders hold paddles; the high bid sits on a brass plaque */
 .bidplaque { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 8px 0 10px; padding: 8px 14px; border-radius: 10px; color: #2A2219;
@@ -526,3 +526,6 @@ table.t.results .bn .fine { overflow-wrap: anywhere; }
 .over .podium > div { min-width: 0; }
 @media (max-width: 420px) { .over h2 { font-size: 1.75em; overflow-wrap: anywhere; } .over .kicker { overflow-wrap: anywhere; } }
 .daily-line { font-family: var(--font-serif); margin: 12px 2px; }
+
+/* game length on a phone: the three lengths stack (wave 3: S3-09) */
+@media (max-width: 600px) { .seg.lens { display: flex; flex-direction: column; min-width: 200px; } .seg.lens button { min-height: 44px; text-align: left; } .seg.lens button + button { border-top: 2px solid var(--primary); } }
