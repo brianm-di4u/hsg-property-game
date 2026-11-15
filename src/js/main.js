@@ -7,7 +7,7 @@ import { audio, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAu
 import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
-import { qs, esc, money, deedHtml, cardHtml, seasonHtml, helpHtml, aboutHtml, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
+import { qs, esc, money, deedHtml, cardHtml, seasonHtml, helpHtml, aboutHtml, peekHtml, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
 import { CAREER_KEY, CAREER_VERSION, ACH, ACH_BY_ID, FELTS, FELT_BY_ID, feltOpen, blankCareer, cleanCareer, localDate, playAchievements, recordGame, unlockFelts, dailySeed, dailyStreak } from './career.js';
 
 const $ = qs;
@@ -623,7 +623,7 @@ function openDialog(html, opts = {}) {
   const m = $('#modal');
   G.dialog = opts.name || 'dialog'; G.dialogRender = opts.render || null; G.dialogClosable = opts.closable !== false; G.onClose = opts.onClose || null;
   m.innerHTML = `<div class="dlg${animOn() ? ' anim' : ''}" role="dialog" aria-modal="true" aria-labelledby="dlg-title">${html}</div>`;
-  m.hidden = false; autoEndNote();
+  m.hidden = false; autoEndNote(); hidePeek();
   if (animOn()) { G.dlgAnim = true; const d = m.querySelector('.dlg'); d.addEventListener('animationend', () => { G.dlgAnim = false; }, { once: true }); setTimeout(() => { G.dlgAnim = false; }, 400); }
   wireDialog();
   if (G.dialog === 'pause') holdAudio('pause', true);
@@ -1312,14 +1312,53 @@ function padPoll() {
   requestAnimationFrame(padPoll);
 }
 function padStart() { if (G.padLoop) return; G.padLoop = true; requestAnimationFrame(padPoll); }
+// The board space under a pointer event, in either board (-1 for none).
+function spaceAtEvent(ev) {
+  if (B.B3.on) { const p = B.boardPoint(ev.clientX, ev.clientY); return p ? R.hit(p.x, p.y) : -1; }
+  const r = R.view.cv.getBoundingClientRect(); return R.hit(ev.clientX - r.left, ev.clientY - r.top);
+}
 function onBoardPointer(ev) {
-  if (G.lookDrag) return; // the end of a drag is not a tap on a space
+  if (G.lookDrag || G.peeked) return; // the end of a drag, or of a held peek, is not a tap on a space
   unlock();
   if (G.busy && !G.waitingOk && !G.dialog) { G.skip = true; return; } // tap to skip the rest of a move
-  let i = -1;
-  if (B.B3.on) { const p = B.boardPoint(ev.clientX, ev.clientY); if (p) i = R.hit(p.x, p.y); }
-  else { const r = R.view.cv.getBoundingClientRect(); i = R.hit(ev.clientX - r.left, ev.clientY - r.top); }
+  const i = spaceAtEvent(ev);
   if (i >= 0) openDeed(i);
+}
+// A peek at a space (S1-07): a mouse over the board lights the space and shows a small card; on touch a finger held on a space
+// (PEEK_HOLD ms, without moving) does the same until it lifts. Tap and click still open the full deed.
+const PEEK_HOLD = 450, PEEK_MOVE = 10;
+function hidePeek() {
+  const el = $('#peek'); if (el) el.hidden = true;
+  if (R.view.peek >= 0) { R.view.peek = -1; if (G.scene === 'game') draw(); }
+}
+function showPeek(i, x, y, touch) {
+  const el = $('#peek'); if (!el || !G.s || G.dialog || i < 0) { hidePeek(); return; }
+  if (R.view.peek !== i) { R.view.peek = i; draw(); el.innerHTML = peekHtml(G.s, i, touch); }
+  el.hidden = false;
+  const w = el.offsetWidth, h = el.offsetHeight, W = innerWidth, H = innerHeight, fit = (v, max) => Math.max(8, Math.min(max - 8, v));
+  // a mouse card sits below and right of the pointer; a finger's sits above it, so the hand does not cover it
+  const left = touch ? x - w / 2 : x + 16, top = touch ? (y - h - 56 < 8 ? y + 56 : y - h - 56) : (y + 22 + h > H - 8 ? y - h - 14 : y + 22);
+  el.style.left = fit(left, W - w + 8) + 'px'; el.style.top = fit(top, H - h + 8) + 'px';
+}
+function wirePeek() {
+  const wrap = $('#boardwrap'); let timer = 0, from = null;
+  const stop = () => { clearTimeout(timer); timer = 0; from = null; };
+  wrap.addEventListener('pointerdown', (ev) => {
+    if (ev.pointerType === 'mouse' || ev.target.id !== 'board' || !G.s || G.dialog) return;
+    stop(); from = { x: ev.clientX, y: ev.clientY };
+    timer = setTimeout(() => { timer = 0; const i = spaceAtEvent({ clientX: from.x, clientY: from.y }); if (i >= 0 && !G.lookDrag) { G.peeked = true; showPeek(i, from.x, from.y, true); } }, PEEK_HOLD);
+  });
+  wrap.addEventListener('pointermove', (ev) => {
+    if (ev.target.id !== 'board' || !G.s) return;
+    if (ev.pointerType === 'mouse') {
+      if (ev.buttons || G.dialog || G.busy) { hidePeek(); return; }
+      const i = spaceAtEvent(ev); if (i >= 0) showPeek(i, ev.clientX, ev.clientY, false); else hidePeek();
+    } else if (from && Math.hypot(ev.clientX - from.x, ev.clientY - from.y) > PEEK_MOVE) { stop(); if (G.peeked) { hidePeek(); setTimeout(() => { G.peeked = false; }, 0); } }
+  });
+  const up = (ev) => { stop(); if (G.peeked) { hidePeek(); setTimeout(() => { G.peeked = false; }, 0); } else if (ev.type === 'pointercancel') hidePeek(); };
+  wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
+  wrap.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') hidePeek(); });
+  wrap.addEventListener('contextmenu', (ev) => { if (ev.target.id === 'board' && G.input === 'touch') ev.preventDefault(); });
 }
 const boardEl = () => document.getElementById('board');
 // Screen position of space i's centre (page coordinates), in either board.
@@ -1424,7 +1463,7 @@ window.__game = {
 // ---------- boot ----------
 function boot() {
   R.setCanvas($('#board'));
-  $('#board').tabIndex = 0; $('#board').addEventListener('click', onBoardPointer);
+  $('#board').tabIndex = 0; $('#board').addEventListener('click', onBoardPointer); wirePeek();
   G.noSave = !store.works();
   loadCareer();
   loadSettings();

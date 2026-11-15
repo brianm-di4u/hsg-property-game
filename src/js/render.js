@@ -11,7 +11,7 @@ import { mapXY, labelXY, LABELS, MAP_FRAME } from './geo.js';
 
 export const view = {
   cv: null, ctx: null, W: 0, H: 0, dpr: 1, ux: 0, uy: 0, theme: 'light',
-  cache: null, cacheKey: '', cursor: -1, flash: -1, flashT: 0, pops: [], coins: [], puffs: [],
+  cache: null, cacheKey: '', cursor: -1, peek: -1, flash: -1, flashT: 0, pops: [], coins: [], puffs: [],
   tokens: [], // display positions: { x, y, lift, squash } per player (animated)
   dice: { a: 1, b: 1, tumbling: 0, x: null, y: null, frame: 0, yawA: 0, yawB: 1 },
   feltC: null, // dice-tray felt colours (career.js FELTS); null = baize green
@@ -453,6 +453,7 @@ function paintDynamic(ctx, s, t, opts) {
     if (!view.pieces3d) drawPops(ctx);
   }
   if (view.cursor >= 0) highlight(ctx, view.cursor, t.cursor, true);
+  if (view.peek >= 0 && view.peek !== view.cursor) highlight(ctx, view.peek, t.cursor, true);
 }
 
 function highlight(ctx, i, col, dashed) {

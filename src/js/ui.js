@@ -60,6 +60,20 @@ export function deedHtml(s, i) {
     ${rentTable(i)}${owner}${sp.fact ? factHtml(sp.fact) : ''}</div>`;
 }
 
+// A small card for a space under the pointer or a held finger (S1-07): its name, what it is, who has it, and the rent now.
+export function peekHtml(s, i, touch) {
+  const sp = SPACES[i], lot = s && s.lots[i];
+  const kind = sp.type === 'lot' ? DISTRICTS[sp.d].name : sp.type === 'line' ? 'Transit line' : sp.type === 'util' ? 'Utility' : '';
+  const color = sp.type === 'lot' ? DISTRICTS[sp.d].color : '#355E41';
+  let l2 = '', l3 = '';
+  if (lot && sp.price) {
+    const o = lot.owner;
+    l2 = o < 0 ? `Unowned · ${money(isRow(i) ? sp.price / 2 : sp.price)}${isRow(i) ? ' opening bid' : ''}` : `${esc(s.players[o].name)}${lot.mortgaged ? ' · mortgaged' : lot.level ? ' · ' + (lot.level === 4 ? 'Grand Resort' : lot.level + ' bathhouse' + (lot.level > 1 ? 's' : '')) : ''}`;
+    if (o >= 0 && !lot.mortgaged) l3 = `Rent now ${money(rentOf(s, i, 7))}`;
+  } else l2 = esc(spaceRules(sp));
+  return `<div class="pk" style="--dc:${color}"><strong>${esc(sp.name)}</strong>${kind ? `<span>${esc(kind)}</span>` : ''}<span>${l2}</span>${l3 ? `<span>${l3}</span>` : ''}<em>${touch ? 'Tap' : 'Click'} for the deed</em></div>`;
+}
+
 export function cardHtml(id, s, who) {
   const c = CARD[id], news = id.startsWith('n-');
   if (news) {

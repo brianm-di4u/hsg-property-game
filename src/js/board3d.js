@@ -366,7 +366,7 @@ export function camBusy() { return B3.on && !B3.cam.settled; }
 // ---------- per-frame sync ----------
 function texKey(s) {
   const v = R.view;
-  return [v.theme, v.cacheKey, v.flash, v.cursor, v.hiOwner, s ? JSON.stringify(s.lots) : '', s && s.month, s && s.year, s && s.headline && s.headline.id, s && s.treasury, s && s.round, s && s.mods && JSON.stringify(s.mods)].join('|');
+  return [v.theme, v.cacheKey, v.flash, v.cursor, v.peek, v.hiOwner, s ? JSON.stringify(s.lots) : '', s && s.month, s && s.year, s && s.headline && s.headline.id, s && s.treasury, s && s.round, s && s.mods && JSON.stringify(s.mods)].join('|');
 }
 function place(obj, px, py, lift = 0) { obj.position.set(wx(px), TOP + lift, wz(py)); }
 
