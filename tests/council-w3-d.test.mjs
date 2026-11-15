@@ -308,18 +308,20 @@ tests.push({
     const txt = await card.innerText();
     t.expect(/led from the first month to the last|The lead changed hands \d+ times?; .* took it for good after month \d+\./.test(txt), `the lead: "${txt.split('\n').find((l) => /lead/.test(l))}"`);
     t.expect(/Biggest rent: \$[\d,]+, paid by .* to .* on .* in month \d+\./.test(txt), 'the biggest rent');
-    const head = await t.page.locator('.over table.results thead').innerText();
-    t.expect(/Rent paid|Paid/.test(head), 'the table gives the rent each baron paid');
+    t.expect(/Rent paid: .*\$[\d,]+/.test(txt), 'and the rent each baron paid');
+    t.equal(await t.page.locator('.over table.results thead th').count(), 6, 'the results table keeps its six columns, so it still fits a phone');
     const pad = await t.page.evaluate(() => { const r = document.querySelector('.over .why svg').getBoundingClientRect(); return { w: r.width, h: r.height, vw: innerWidth }; });
     t.expect(pad.w > 200 && pad.w <= pad.vw && pad.h > 80, `the chart is a usable size (${Math.round(pad.w)} x ${Math.round(pad.h)})`);
     await t.page.locator('.over .why').scrollIntoViewIfNeeded();
     await t.shot('S3-13-how-it-was-won');
     await t.checkLayout();
-    // A game with no record (a save from before this) shows the rest of the screen and no empty card.
+    // A game with no record (a save from before this) shows the rest of the screen and what it can still say.
     await mod(t, (x) => { delete x.history; delete x.stats.bigRent; });
     await t.game('scene', 'over');
     await t.waitForStable();
-    t.equal(await t.page.locator('.over .why').count(), 0, 'an old game has no "How it was won" card');
+    t.equal(await t.page.locator('.over .why svg').count(), 0, 'an old game has no chart');
+    const old = await t.page.locator('.over .why').innerText();
+    t.expect(!/lead|Biggest rent/.test(old) && /Rent paid/.test(old), 'and no story of the lead or the biggest rent, only the rent each baron paid');
     t.expect((await t.page.locator('.over table.results').count()) === 1, 'and the table is still there');
   },
 });

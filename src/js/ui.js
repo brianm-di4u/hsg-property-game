@@ -83,6 +83,7 @@ export function whyLines(s) {
       : `The lead changed hands ${st.changes} time${st.changes === 1 ? '' : 's'}; ${who} took it for good after month ${st.since}.`);
   }
   if (big && s.players[big.from] && s.players[big.to]) out.push(`Biggest rent: ${money(big.amount)}, paid by ${nm(big.from)} to ${nm(big.to)} on ${SPACES[big.space].name} in month ${big.m + 1}.`);
+  if (s.players.some((p) => p.stat && p.stat.rentOut > 0)) out.push(`Rent paid: ${s.players.map((p) => `${p.name} ${money(p.stat.rentOut || 0)}`).join(', ')}.`);
   return out;
 }
 const DASH = ['', '7 3', '2 3', '9 3 2 3', '', '7 3'];
