@@ -280,3 +280,42 @@ tests.push({
     await t.shot('S2-05-board');
   },
 });
+
+// ---------- S4-03: the town changes with the months ----------
+import { monthTint } from '../src/js/render.js';
+tests.push({
+  name: 'S4-03 the painted map is cooler in winter, greener in spring and warmer in summer and autumn',
+  node: true,
+  async run(t) {
+    const rgb = (m) => monthTint(m).match(/[\d.]+/g).map(Number);
+    const [jr, , jb] = rgb(0), [ar, , ab] = rgb(7), [sr, sg] = rgb(3), [or_, , ob] = rgb(9);
+    t.expect(jb > jr, 'January is blue-grey');
+    t.expect(sg > sr, 'April is green');
+    t.expect(ar > ab && or_ > ob, 'August and October are warm');
+    t.equal(new Set([0, 3, 7, 9].map((m) => monthTint(m))).size, 4, 'four seasons, four colours');
+    t.equal(monthTint(12), null, 'no tint for a month that does not exist');
+  },
+});
+tests.push({
+  name: 'S4-03 the 2D board is painted differently in January and in August',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t);
+    t.expect(await t.game('force2D'), 'the 2D board is showing');
+    const sample = () => t.page.evaluate(() => {
+      const cv = document.querySelector('#board'), c = cv.getContext('2d'), W = cv.width, H = cv.height;
+      const d = c.getImageData(Math.round(W * 0.3), Math.round(H * 0.3), Math.round(W * 0.4), Math.round(H * 0.1)).data; let r = 0, b = 0, n = 0;
+      for (let i = 0; i < d.length; i += 4) { r += d[i]; b += d[i + 2]; n++; }
+      return (b - r) / n;
+    });
+    await mod(t, (s) => { s.month = 0; }); await t.waitForStable();
+    const jan = await sample();
+    await mod(t, (s) => { s.month = 7; }); await t.waitForStable();
+    const aug = await sample();
+    t.log(`blue minus red over the map: January ${jan.toFixed(1)}, August ${aug.toFixed(1)}`);
+    t.expect(jan > aug + 8, `January reads bluer than August (${jan.toFixed(1)} against ${aug.toFixed(1)})`);
+    await t.shot('S4-03-august');
+    await mod(t, (s) => { s.month = 0; }); await t.waitForStable();
+    await t.shot('S4-03-january');
+  },
+});

@@ -10,7 +10,7 @@ import { SPRITES } from './sprites-data.js';
 import { mapXY, labelXY, LABELS, MAP_FRAME } from './geo.js';
 
 export const view = {
-  cv: null, ctx: null, W: 0, H: 0, dpr: 1, ux: 0, uy: 0, theme: 'light',
+  cv: null, ctx: null, W: 0, H: 0, dpr: 1, ux: 0, uy: 0, theme: 'light', month: -1,
   cache: null, cacheKey: '', cursor: -1, peek: -1, flash: -1, flashT: 0, pops: [], coins: [], puffs: [],
   tokens: [], // display positions: { x, y, lift, squash } per player (animated)
   dice: { a: 1, b: 1, tumbling: 0, x: null, y: null, frame: 0, yawA: 0, yawB: 1 },
@@ -222,7 +222,7 @@ export function tokenCanvas(k, px, num) {
 
 // ---------- static layer ----------
 function drawStatic() {
-  const key = `${view.W}x${view.H}@${view.dpr}:${view.theme}:${art.ready ? 1 : 0}:${art.on ? 1 : 0}:${view.feltC ? view.feltC[0] : ''}`;
+  const key = `${view.W}x${view.H}@${view.dpr}:${view.month}:${view.theme}:${art.ready ? 1 : 0}:${art.on ? 1 : 0}:${view.feltC ? view.feltC[0] : ''}`;
   if (view.cacheKey === key) return;
   const c = view.cache || (view.cache = document.createElement('canvas'));
   c.width = Math.round(view.W * view.dpr); c.height = Math.round(view.H * view.dpr);
@@ -264,6 +264,10 @@ function clubNeon(ctx) {
   ctx.restore();
 }
 
+// The painted map takes the season (S4-03): winter blue-grey, spring green, summer gold light, autumn amber, a wash over the
+// painting by month (January first). Changing a number here changes the colour; alpha 0 turns a month off.
+const MONTH_TINT = ['110,140,185,.15', '120,150,185,.12', '120,170,110,.10', '110,175,100,.13', '105,170,95,.12', '230,200,110,.08', '240,200,100,.10', '240,190,90,.10', '215,160,70,.12', '210,130,50,.16', '190,130,70,.13', '110,140,185,.14'];
+export const monthTint = (m) => (MONTH_TINT[m] ? `rgba(${MONTH_TINT[m]})` : null);
 // The centre map, cover-fitted; its transform is kept so pins and labels land on the painted geography.
 export const mapT = { s: 1, ox: 0, oy: 0, w: 0, h: 0, C: null };
 function drawMap(ctx, C, t) {
@@ -279,6 +283,7 @@ function drawMap(ctx, C, t) {
     const g = ctx.createRadialGradient(C.x + C.w / 2, C.y + C.h / 2, Math.min(C.w, C.h) * 0.35, C.x + C.w / 2, C.y + C.h / 2, Math.max(C.w, C.h) * 0.75);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, dark ? 'rgba(8,6,20,.55)' : 'rgba(120,90,50,.28)');
     ctx.fillStyle = g; ctx.fillRect(inset.x, inset.y, inset.w, inset.h);
+    const wash = monthTint(view.month); if (wash) { ctx.fillStyle = wash; ctx.fillRect(inset.x, inset.y, inset.w, inset.h); }
     ctx.restore();
     drawMapLabels(ctx, C, t);
   } else {
@@ -436,6 +441,7 @@ function drawCorner(ctx, sp, P, t) {
 export function draw(s, opts = {}) {
   const ctx = view.ctx, t = TH[view.theme];
   if (!ctx || !view.W) return;
+  view.month = s ? s.month : -1;
   drawStatic();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(view.cache, 0, 0);
