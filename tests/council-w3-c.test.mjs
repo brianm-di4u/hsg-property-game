@@ -229,3 +229,56 @@ tests.push({
     t.equal(await risk(), null, 'and not while a rival is to move');
   },
 });
+
+// ---------- S4-04: card effects in the voice of the town ----------
+const AMOUNTS = {
+  'n-badenbaden': '$30', 'n-freebath': '$600 $50', 'n-fire1878': '$20 $50', 'n-creek': '$20', 'n-opening': '$50', 'n-park': '×1.5', 'n-rowdone': '$50',
+  'n-flood1923': '$15 $40', 'n-dam': '$100', 'n-derby': '$150', 'n-army': '$60', 'n-vapors': '×1.5', 'n-register': '$30 $20', 'n-maurice': '$40',
+  't-water': '$75', 't-street': '$25', 't-course': '$40', 't-merman': '$15', 't-ostrich': '$50', 't-radio': '$15', 't-cornedbeef': '$10', 't-inspector': '$25 $60',
+};
+// What each rewritten effect must still say: the rule, as it was.
+const RULE = {
+  'n-railroad': /fares are doubled this month/, 'n-capital': /Frontier Valley rents are doubled this month/, 'n-fire1878': /pay \$20 per bathhouse and \$50 per Grand Resort/,
+  'n-training': /Ballpark rents are doubled this month/, 'n-park': /Bathhouse Row rents ×1\.5 this month/, 'n-rowdone': /lease holder collects \$50 per lease/,
+  'n-arlington': /collects no rent this month and loses one bathhouse/, 'n-dam': /Water Co\. owner collects \$100 from the bank/, 'n-record': /Bathhouse Row rents are doubled this month/,
+  'n-vapors': /Club rents ×1\.5 this month/, 'n-lasttrain': /Diamond Jo Railroad fares are halved for three months/, 'n-majestic': /loses one bathhouse/,
+  't-narrow': /advance to the Diamond Jo Railroad/, 't-waters': /advance to the Free Bathhouse/, 't-streetcar': /advance to the Streetcar Line/, 't-water': /collect \$75/,
+  't-batter': /advance to Fogel Field/, 't-inspector': /pay \$25 per bathhouse and \$60 per Grand Resort/, 't-payday': /advance to the Depot and collect Payday/,
+};
+tests.push({
+  name: 'S4-04 the card effects speak in the town\'s voice and still say exactly what they do',
+  node: true,
+  async run(t) {
+    const D = await import('../src/js/data.js');
+    const cards = [...D.NEWS, ...D.TALK];
+    for (const c of cards) {
+      const got = (c.effect.match(/\$\d+|×[\d.]+/g) || []).join(' ');
+      if (c.id in AMOUNTS) t.equal(got, AMOUNTS[c.id], `${c.id}: the amounts are as they were`);
+      else t.equal(got, '', `${c.id}: no amounts to check`);
+      t.expect(/\.$/.test(c.effect) && c.effect.length <= 105, `${c.id}: one sentence-ended line that fits the card (${c.effect.length})`);
+    }
+    for (const [id, re] of Object.entries(RULE)) t.expect(re.test(D.CARD[id].effect), `${id}: the rule is still stated: ${D.CARD[id].effect}`);
+    t.expect(/Mountain Valley/.test(D.CARD['t-water'].effect) && /royalty/.test(D.CARD['t-water'].effect), 'the bottled-water card pays a royalty and names the spring');
+    const voiced = Object.keys(RULE).filter((id) => /^[A-Z][^:]*: /.test(D.CARD[id].effect) || id === 't-water' || id === 'n-fire1878');
+    t.expect(voiced.length >= 18, `${voiced.length} of the rewritten effects open in the town's voice`);
+    t.expect(/Mountain Valley Spring Water dates to 1871\./.test(D.CARD['t-water'].fact.text) && /500 rooms/.test(D.SPACES.find((x) => x.short === 'Eastman').fact.text), 'and the sourced facts are untouched');
+  },
+});
+tests.push({
+  name: 'S4-04 a rewritten card still fits its dialog',
+  async run(t) {
+    await start(t, { seats: AI2, seed: 2 });
+    await t.game('act', 'open', 'card', 'n-park');
+    await t.waitForStable();
+    const eff = await t.page.locator('#modal .effect').innerText();
+    t.expect(/A national park draws the crowds: Bathhouse Row rents ×1\.5 this month\./.test(eff), `the dialog shows it (${eff})`);
+    await t.shot('S4-04-card-news');
+    await t.checkLayout();
+    await t.game('act', 'close');
+    await t.game('act', 'open', 'card', 't-water');
+    await t.waitForStable();
+    t.expect(/royalty/.test(await t.page.locator('#modal .effect').innerText()), 'and the Town Talk card');
+    await t.shot('S4-04-card-talk');
+    await t.checkLayout();
+  },
+});
