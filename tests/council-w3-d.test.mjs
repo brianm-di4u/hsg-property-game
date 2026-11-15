@@ -201,3 +201,58 @@ tests.push({
     await t.checkLayout();
   },
 });
+
+// ---------- S2-20: take back the last build, sale, mortgage or lift ----------
+tests.push({
+  name: 'S2-20 Manage can take back the last builds, sales, mortgages and lifts, exactly, until another move is made',
+  async run(t) {
+    await start(t, { seed: 3 });
+    await mod(t, (s) => {
+      for (const i of OWNABLE) s.lots[i].owner = -1;
+      for (const i of BP) s.lots[i].owner = 0;
+      s.lots[FV[0]].owner = 0; s.lots[BP[2]].level = 1;
+      s.players[0].cash = 1000; s.phase = 'roll'; s.built = [];
+    });
+    const snap = async () => { const s = await g(t); return JSON.stringify({ lots: s.lots, cash: s.players[0].cash, built: s.built, stat: s.players[0].stat, log: s.log.length }); };
+    const undoBtn = t.page.locator('#modal [data-undo]');
+    await t.game('act', 'open', 'manage');
+    await t.waitForStable();
+    t.equal(await undoBtn.count(), 0, 'nothing to take back at first');
+    const s0 = await snap();
+    await t.page.locator(`#modal [data-act="build"][data-i="${BP[0]}"]`).click();
+    await t.page.waitForFunction(() => !window.__G.busy, null, { timeout: 8000 });
+    t.equal((await g(t)).lots[BP[0]].level, 1, 'a build is made');
+    t.expect(/Undo build/.test(await undoBtn.innerText()), 'the button reads "Undo build"');
+    t.expect(/Undo the last build, on /.test(await undoBtn.getAttribute('aria-label')), 'and says where, to a screen reader');
+    await t.page.locator(`#modal [data-act="sell"][data-i="${BP[2]}"]`).click();
+    await t.page.waitForFunction(() => !window.__G.busy, null, { timeout: 8000 });
+    t.equal((await g(t)).lots[BP[2]].level, 0, 'a building is sold');
+    t.expect(/Undo sale/.test(await undoBtn.innerText()), 'now "Undo sale"');
+    await t.shot('S2-20-undo');
+    await t.checkLayout();
+    await undoBtn.click();
+    await t.page.waitForFunction(() => !window.__G.busy, null, { timeout: 8000 });
+    let s = await g(t);
+    t.equal(s.lots[BP[2]].level, 1, 'undo puts the building back');
+    t.equal(s.lots[BP[0]].level, 1, 'and leaves the earlier build');
+    t.expect(/Undo build/.test(await undoBtn.innerText()), 'the next step back is the build');
+    await undoBtn.click();
+    await t.page.waitForFunction(() => !window.__G.busy, null, { timeout: 8000 });
+    t.equal(await snap(), s0, 'two steps back is the game exactly as it was: lots, cash, the built list, the stats and the ledger');
+    t.equal(await undoBtn.count(), 0, 'and the button is gone');
+    t.equal((await t.page.locator(`#modal [data-act="build"][data-i="${BP[0]}"]`).isDisabled()), false, 'the lot can be built on again this turn');
+    // A mortgage and its lift
+    await t.page.locator(`#modal [data-act="mortgage"][data-i="${FV[0]}"]`).click();
+    await t.page.waitForFunction(() => !window.__G.busy, null, { timeout: 8000 });
+    t.equal((await g(t)).lots[FV[0]].mortgaged, true, 'a mortgage is taken');
+    t.expect(/Undo mortgage/.test(await undoBtn.innerText()), 'and can be undone');
+    await t.page.locator(`#modal [data-act="unmortgage"][data-i="${FV[0]}"]`).click();
+    await t.page.waitForFunction(() => !window.__G.busy, null, { timeout: 8000 });
+    t.expect(/Undo lift/.test(await undoBtn.innerText()), 'a lift likewise');
+    // Another move closes the way back.
+    await t.page.keyboard.press('Escape');
+    await act(t, { type: 'roll' });
+    await t.waitForStable();
+    t.equal(await t.page.evaluate(() => window.__G.undo.length), 0, 'after a roll the way back is closed');
+  },
+});
