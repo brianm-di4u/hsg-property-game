@@ -8,7 +8,7 @@ import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
 import { qs, esc, money, deedHtml, cardHtml, helpHtml, aboutHtml, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
-import { CAREER_KEY, CAREER_VERSION, ACH, ACH_BY_ID, FELTS, FELT_BY_ID, feltOpen, blankCareer, cleanCareer, localDate, playAchievements, recordGame, unlockFelts } from './career.js';
+import { CAREER_KEY, CAREER_VERSION, ACH, ACH_BY_ID, FELTS, FELT_BY_ID, feltOpen, blankCareer, cleanCareer, localDate, playAchievements, recordGame, unlockFelts, dailySeed, dailyStreak } from './career.js';
 
 const $ = qs;
 const SAVE = 'hs-barons-save-v1', SETS = 'hs-barons-settings-v1';
@@ -83,7 +83,7 @@ function afterAction(events) {
   const today = localDate(), res = G.gameRes || (G.gameRes = { records: [], earned: [], unlocked: [] });
   const ach = playAchievements(G.career, s, events, today);
   let end = null;
-  if (s.ended && !s.rec) { s.rec = true; end = recordGame(G.career, s, today); if (end.counted) { ach.push(...end.earned); res.records.push(...end.records); } }
+  if (s.ended && !s.rec) { s.rec = true; end = recordGame(G.career, s, today); if (end.counted) { ach.push(...end.earned); res.records.push(...end.records); if (end.daily) res.daily = end.daily; } }
   const unl = [...(end && end.counted ? end.unlocked : []), ...unlockFelts(G.career, today)];
   if (!ach.length && !unl.length && !(end && end.counted)) return;
   res.earned.push(...ach); res.unlocked.push(...unl);
@@ -958,7 +958,11 @@ const DEFAULT_SEATS = () => [
 function screenSetup(scr) {
   const st = G.setup || (G.setup = { seats: DEFAULT_SEATS(), mode: 'full', variant: 'standard', years: 0, seed: '' });
   const seg = (key, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button type="button" data-seg="${key}" data-v="${v}" aria-pressed="${st[key] === v}">${l}</button>`).join('')}</div>`;
+  const today = localDate(), dbest = G.career.daily[today], dstreak = dailyStreak(G.career, today);
   scr.innerHTML = `<div class="wrap"><h2>New game</h2><p class="goal">${esc(GOAL_TEXT)}</p>
+    <div class="card daily"><h3 style="margin-top:0">Daily game</h3><p>Everyone who plays on the same date gets the same Short game: you and three rivals, the same deal and the same Headlines. Try to beat your own best net worth for today.</p>
+      <p class="fine" id="dailynote">${dbest ? `Today, ${esc(today)}: your best net worth is ${usd(dbest)}.` : `Today, ${esc(today)}: not played yet.`}${dstreak > 1 ? ` Daily streak: ${dstreak} days.` : ''}</p>
+      <div class="row"><button type="button" class="btn" data-daily>Play today's daily game</button></div></div>
     <div class="card"><h3 style="margin-top:0">Barons (${st.seats.length} of 6)</h3><div id="seats">${st.seats.map((p, k) => `<div class="seat ${p.kind}" data-k="${k}" style="--seat:${TOKENS[k].color}"><span class="tk"></span>
       <div class="seg kind" role="group" aria-label="Seat ${k + 1} player type"><button type="button" data-kind="human" data-k="${k}" aria-pressed="${p.kind === 'human'}">Human</button><button type="button" data-kind="ai" data-k="${k}" aria-pressed="${p.kind === 'ai'}">AI</button></div>
       <input type="text" class="nm" aria-label="Seat ${k + 1} name" data-name="${k}" value="${esc(p.name)}" placeholder="${p.kind === 'ai' ? esc(PERSONAS[p.persona]?.who || 'AI baron') : 'Name'}" maxlength="18">
@@ -983,6 +987,7 @@ function screenSetup(scr) {
     else if (b.dataset.add != null) { st.seats.push({ kind: 'ai', name: '', persona: PERSONA_KEYS[st.seats.length % PERSONA_KEYS.length], level: 'normal' }); screenSetup(scr); }
     else if (b.dataset.seg) { st[b.dataset.seg] = b.dataset.v; screenSetup(scr); }
     else if (b.dataset.back != null) scene('title');
+    else if (b.dataset.daily != null) startFromSetup(true);
     else if (b.dataset.start != null) startFromSetup();
   };
   scr.onchange = (ev) => {
@@ -994,15 +999,21 @@ function screenSetup(scr) {
     if (t.dataset.seed != null) st.seed = t.value;
   };
 }
-function startFromSetup() {
+function startFromSetup(daily) {
   const save = hasSave();
   if (save) {
     openDialog(`<h2 id="dlg-title">Replace your saved game?</h2><p>Starting a new game replaces your saved game (${MONTHS[save.month]}, Year ${save.year + 1}). This cannot be undone.</p>
       <div class="btns"><button class="btn primary" data-replace>Replace</button><button class="btn" data-ok>Cancel</button></div>`, { name: 'replace' });
-    $('#modal').querySelector('[data-replace]').addEventListener('click', () => { closeDialog(true); beginSetupGame(); });
+    $('#modal').querySelector('[data-replace]').addEventListener('click', () => { closeDialog(true); if (daily) beginDaily(); else beginSetupGame(); });
     return;
   }
-  beginSetupGame();
+  if (daily) beginDaily(); else beginSetupGame();
+}
+// Today's game: a Short game for you and the Hotelier, the Speculator and the Banker at Normal, seeded from the date (S3-03).
+function beginDaily() {
+  const date = localDate();
+  if (!G.settings.tipsSeen) saveSettings();
+  newGame({ seats: [{ kind: 'human' }, ...['hotelier', 'speculator', 'banker'].map((persona) => ({ kind: 'ai', persona, level: 'normal' }))], mode: 'short', variant: 'standard', years: 0, seed: dailySeed(date), daily: date, coach: true });
 }
 function beginSetupGame() {
   const st = G.setup;
@@ -1076,7 +1087,7 @@ function feltButtons(pick) {
 const pct = (w, g) => (g ? Math.round(w / g * 100) + '%' : '–');
 const usd = (n) => '$' + n.toLocaleString('en-US');
 function screenCareer(scr) {
-  const c = G.career, n = Object.keys(c.ach).length;
+  const c = G.career, n = Object.keys(c.ach).length, dailyDates = Object.keys(c.daily).sort();
   const rows = (list) => list.map(([label, r]) => `<tr><th scope="row">${esc(label)}</th><td>${r.games}</td><td>${r.wins}</td><td>${pct(r.wins, r.games)}</td></tr>`).join('');
   const table = (cap, list) => `<table class="t career-t"><caption>${cap}</caption><thead><tr><th scope="col">Type</th><th scope="col">Games</th><th scope="col">Won</th><th scope="col">Rate</th></tr></thead><tbody>${rows(list)}</tbody></table>`;
   const best = (label, v, fmt = usd) => `<div><dt>${label}</dt><dd>${v ? fmt(v) : 'None yet'}</dd></div>`;
@@ -1087,6 +1098,7 @@ function screenCareer(scr) {
     <div class="card">${table('By game type', [['Full game', c.mode.full], ['Short game', c.mode.short], ['Standard rules', c.variant.standard], ['Common Ground', c.variant.common]])}
       ${table('By the hardest AI baron at the table', [['Easy', c.level.easy], ['Normal', c.level.normal], ['Hard', c.level.hard], ['No AI baron', c.level.none]])}
       ${table('Against each baron', PERSONA_KEYS.map((k) => [`${PERSONAS[k].name} (${PERSONAS[k].who})`, c.persona[k]]))}</div>
+    <div class="card" id="dailycard"><h3>Daily games</h3>${dailyDates.length ? `<p class="fine">${dailyDates.length} day${dailyDates.length === 1 ? '' : 's'} played · streak ${dailyStreak(c, localDate())}</p><table class="t career-t"><thead><tr><th scope="col">Date</th><th scope="col">Best net worth</th></tr></thead><tbody>${dailyDates.slice(-7).reverse().map((d) => `<tr><th scope="row">${esc(d)}</th><td>${usd(c.daily[d])}</td></tr>`).join('')}</tbody></table>` : '<p class="fine">Play today\'s daily game from New game, and your best for each date is kept here.</p>'}</div>
     <div class="card"><h3>Achievements <span class="fine">${n} of ${ACH.length}</span></h3><ul class="achs">${ACH.map((a) => c.ach[a.id]
       ? `<li class="got"><span class="mark" aria-hidden="true">★</span><span><b>${esc(a.name)}</b><span class="d">${esc(a.text)}</span><small>Earned ${esc(c.ach[a.id])}</small></span></li>`
       : `<li><span class="mark" aria-hidden="true">☆</span><span><b>${esc(a.name)}</b><span class="d">${esc(a.text)}</span><small>Not yet</small></span></li>`).join('')}</ul></div>
@@ -1097,8 +1109,9 @@ function screenCareer(scr) {
 // What this game added to the career: personal bests, achievements and felts. Nothing when it added none.
 function overCareer() {
   const r = G.gameRes, c = G.career;
-  if (!r || !c || !(r.records.length || r.earned.length || r.unlocked.length)) return c && c.games && r ? `<p class="fine career-line">Career: ${c.games} game${c.games === 1 ? '' : 's'}, ${c.wins} won.</p>` : '';
-  return `<div class="card newrec" role="status"><h3>Added to your career</h3><ul class="achs">${[
+  const dl = G.s && G.s.opts.daily && r && r.daily ? `<p class="daily-line" role="status"><strong>Daily game, ${esc(r.daily.date)}:</strong> you finished with ${usd(r.daily.worth)}${r.daily.first ? '.' : r.daily.worth >= r.daily.best ? ', your best for the day.' : `; your best for the day is ${usd(r.daily.best)}.`} Play it again to beat that.</p>` : '';
+  if (!r || !c || !(r.records.length || r.earned.length || r.unlocked.length)) return dl + (c && c.games && r ? `<p class="fine career-line">Career: ${c.games} game${c.games === 1 ? '' : 's'}, ${c.wins} won.</p>` : '');
+  return dl + `<div class="card newrec" role="status"><h3>Added to your career</h3><ul class="achs">${[
     ...r.records.map((x) => `<li class="got"><span class="ribbon">New personal best</span> ${esc(x)}</li>`),
     ...r.earned.map((id) => `<li class="got"><span class="mark" aria-hidden="true">★</span><span><b>${esc(ACH_BY_ID[id].name)}</b><span class="d">${esc(ACH_BY_ID[id].text)}</span></span></li>`),
     ...r.unlocked.map((id) => `<li class="got"><span class="mark" aria-hidden="true">✦</span><span><b>${esc(FELT_BY_ID[id].name)} felt</b> is open for the dice tray (Settings).</span></li>`),
@@ -1125,7 +1138,7 @@ function newGame(opts = {}) {
   const seed = opts.seed ?? G.nextSeed ?? ((Date.now() % 1e9) | 0);
   G.nextSeed = null;
   G.tipsOn = !!opts.coach && !G.settings.tipsSeen; // the first-run tips ride on games started from the setup screen
-  G.lastSetup = { ...opts, seed: undefined };
+  G.lastSetup = { ...opts, seed: opts.daily ? seed : undefined };
   const s = E.createGame({ ...opts, seed });
   loadGame(s);
   saveGame();

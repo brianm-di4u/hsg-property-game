@@ -53,7 +53,7 @@ export function blankCareer() {
     level: { none: rec(), ...Object.fromEntries(LEVEL_KEYS.map((k) => [k, rec()])) },
     persona: Object.fromEntries(PERSONA_KEYS.map((k) => [k, rec()])),
     bestShort: 0, bestFull: 0, longest: 0, biggestRent: 0, bankrupted: 0, resorts: 0, trades: 0,
-    ach: {}, unlocked: {},
+    ach: {}, unlocked: {}, daily: {},
   };
 }
 
@@ -69,6 +69,9 @@ export function cleanCareer(raw) {
     if (!src || typeof src !== 'object') continue;
     for (const k of Object.keys(out[group])) if (src[k] && typeof src[k] === 'object') out[group][k] = { games: num(src[k].games), wins: num(src[k].wins) };
   }
+  if (raw.daily && typeof raw.daily === 'object' && !Array.isArray(raw.daily)) { // the best net worth for each date a daily game was played
+    for (const k of Object.keys(raw.daily).filter((d) => DATE_RE.test(d)).sort().slice(-DAILY_KEEP)) out.daily[k] = num(raw.daily[k]);
+  }
   for (const group of ['ach', 'unlocked']) {
     const src = raw[group];
     if (!src || typeof src !== 'object' || Array.isArray(src)) continue;
@@ -77,6 +80,23 @@ export function cleanCareer(raw) {
   return out;
 }
 
+// The daily game (S3-03): everyone who plays on a date gets the same Short game, so there is a score to compare.
+// The seed is a hash of the date; the best net worth for each date is kept, the newest DAILY_KEEP dates only.
+export const DAILY_KEEP = 60;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+export function dailySeed(date) {
+  let h = 2166136261;
+  for (const ch of String(date)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return (h >>> 0) % 1000000000 || 1;
+}
+// The days in a row, ending today (or yesterday, if today is not played yet), on which a daily game was played.
+export function dailyStreak(career, today) {
+  const day = (d) => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000; };
+  let n = 0, t = day(today);
+  if (!career.daily[today]) t--;
+  while (career.daily[new Date(t * 86400000).toISOString().slice(0, 10)] !== undefined) { n++; t--; }
+  return n;
+}
 export function localDate(now = new Date()) {
   const p = (n) => String(n).padStart(2, '0');
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
@@ -149,6 +169,13 @@ export function recordGame(career, s, today) {
   career.trades += hs.reduce((n, p) => n + p.stat.trades, 0);
   career.bankrupted += s.stats.bankruptcies.filter((b) => b.to >= 0 && s.players[b.to].kind === 'human' && b.to !== b.pid).length;
 
+  if (s.opts.daily && DATE_RE.test(s.opts.daily)) {
+    const before = career.daily[s.opts.daily] || 0;
+    career.daily[s.opts.daily] = Math.max(before, worth);
+    for (const k of Object.keys(career.daily).sort().slice(0, -DAILY_KEEP)) delete career.daily[k];
+    res.daily = { date: s.opts.daily, worth, best: career.daily[s.opts.daily], first: before === 0 };
+    if (before > 0 && worth > before) res.records.push(`Daily game ${s.opts.daily}: net worth $${worth.toLocaleString('en-US')}`);
+  }
   const ids = [];
   if (won && mode === 'short') ids.push('win-short');
   if (won && mode === 'full') ids.push('win-full');

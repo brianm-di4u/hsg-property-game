@@ -525,3 +525,4 @@ table.t.results td, table.t.results th { font-variant-numeric: tabular-nums; }
 table.t.results .bn .fine { overflow-wrap: anywhere; }
 .over .podium > div { min-width: 0; }
 @media (max-width: 420px) { .over h2 { font-size: 1.75em; overflow-wrap: anywhere; } .over .kicker { overflow-wrap: anywhere; } }
+.daily-line { font-family: var(--font-serif); margin: 12px 2px; }

@@ -254,3 +254,90 @@ tests.push({
     t.expect(Math.hypot(v2.tx - v1.tx, v2.tz - v1.tz) > 0.05, 'the left stick moves the view');
   },
 });
+
+// ---- S3-03: the daily game
+tests.push({
+  name: 'S3-03 the daily seed is the same all day and different on another day, and a daily deal is the same for everyone',
+  node: true,
+  async run(t) {
+    const C = await import('../src/js/career.js');
+    t.equal(C.dailySeed('2026-11-14'), C.dailySeed('2026-11-14'), 'the same date gives the same seed');
+    const seeds = new Set(Array.from({ length: 40 }, (_, k) => C.dailySeed(`2026-12-${String(k % 28 + 1).padStart(2, '0')}`)));
+    t.equal(seeds.size, 28, 'and 28 different dates give 28 different seeds');
+    const seats = [{ kind: 'human' }, ...['hotelier', 'speculator', 'banker'].map((persona) => ({ kind: 'ai', persona, level: 'normal' }))];
+    const a = E.createGame({ seats, mode: 'short', seed: C.dailySeed('2026-11-14'), daily: '2026-11-14' });
+    const b = E.createGame({ seats, mode: 'short', seed: C.dailySeed('2026-11-14'), daily: '2026-11-14' });
+    t.equal(JSON.stringify(a.lots), JSON.stringify(b.lots), 'two daily games on one date deal the same lots');
+    t.equal(JSON.stringify(a.decks), JSON.stringify(b.decks), 'and the same Headlines');
+    t.equal(a.opts.daily, '2026-11-14', 'the game knows its date');
+    t.equal(E.createGame({ seats, mode: 'short', seed: 3 }).opts.daily, '', 'an ordinary game has none');
+  },
+});
+tests.push({
+  name: 'S3-03 the best net worth for each date is kept, old dates fall away, and a damaged record is cleaned',
+  node: true,
+  async run(t) {
+    const C = await import('../src/js/career.js');
+    const finished = (date, worthCash) => {
+      const s = E.createGame({ seed: 4, mode: 'short', daily: date, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai' }] });
+      s.players[0].cash = worthCash; s.ended = true; s.winner = 0; s.monthsPlayed = 12;
+      return s;
+    };
+    const c = C.blankCareer();
+    const lots0 = E.netWorth(finished('2026-11-14', 0), 0);
+    let r = C.recordGame(c, finished('2026-11-14', 2000), '2026-11-14');
+    t.expect(r.daily && r.daily.first && r.daily.date === '2026-11-14', 'the first game of a date says so');
+    t.equal(c.daily['2026-11-14'], 2000 + lots0, 'and its net worth is kept');
+    r = C.recordGame(c, finished('2026-11-14', 1500), '2026-11-14');
+    t.equal(c.daily['2026-11-14'], 2000 + lots0, 'a worse replay does not lower the best');
+    t.expect(!r.daily.first && r.daily.best === 2000 + lots0 && r.records.length === 0, 'and is no record');
+    r = C.recordGame(c, finished('2026-11-14', 2600), '2026-11-14');
+    t.equal(c.daily['2026-11-14'], 2600 + lots0, 'a better one raises it');
+    t.expect(r.records.some((x) => /Daily game 2026-11-14/.test(x)), 'and is a record for the day');
+    for (let d = 1; d <= 70; d++) C.recordGame(c, finished(new Date(Date.UTC(2026, 5, 1) + d * 864e5).toISOString().slice(0, 10), 1000 + d), '2026-11-14');
+    t.equal(Object.keys(c.daily).length, C.DAILY_KEEP, `exactly ${C.DAILY_KEEP} dates are kept of 71`);
+    t.expect(c.daily['2026-11-14'] > 0, 'the newest date is still there');
+    const clean = C.cleanCareer({ daily: { '2026-11-14': 500, 'yesterday': 9, '2026-11-13': -4, '2026-11-12': 'lots', '2026-11-11': 1e12 } });
+    t.equal(JSON.stringify(clean.daily), JSON.stringify({ '2026-11-11': 0, '2026-11-12': 0, '2026-11-13': 0, '2026-11-14': 500 }), 'a damaged record keeps the good dates and zeroes the bad values');
+    t.equal(JSON.stringify(C.cleanCareer({ games: 3 }).daily), '{}', 'an old record with no daily field gets an empty one');
+    const k = C.blankCareer(); k.daily = { '2026-11-14': 1, '2026-11-13': 1, '2026-11-12': 1, '2026-11-10': 1 };
+    t.equal(C.dailyStreak(k, '2026-11-14'), 3, 'three days in a row');
+    t.equal(C.dailyStreak(k, '2026-11-15'), 3, 'the streak is still alive the day after, until that day is missed');
+    t.equal(C.dailyStreak(k, '2026-11-16'), 0, 'and gone after a missed day');
+  },
+});
+tests.push({
+  name: 'S3-03 the daily game starts from New game as a Short game with fixed rivals, and its score is kept and shown',
+  async run(t) {
+    await t.game('scene', 'setup');
+    await t.waitForStable();
+    t.equal(await t.page.locator('#screen .daily [data-daily]').count(), 1, 'New game offers the daily game');
+    t.expect(/not played yet/.test(await t.page.locator('#dailynote').innerText()), 'and says it has not been played today');
+    await t.shot('S3-03-setup-daily');
+    await t.checkLayout({ allowScrollY: true });
+    await t.page.click('[data-daily]');
+    await t.waitForStable();
+    let st = await t.state();
+    t.equal(st.scene, 'game', 'the game starts');
+    const s = st.game, today = await t.page.evaluate(() => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; });
+    t.equal(s.opts.daily, today, 'dated today');
+    t.equal(s.opts.mode, 'short', 'a Short game');
+    t.equal(s.players.map((p) => (p.kind === 'ai' ? p.persona : 'you')).join(','), 'you,hotelier,speculator,banker', 'against the same three rivals every day');
+    const C = await import('../src/js/career.js');
+    t.equal(s.seed, C.dailySeed(today), 'with the date\'s seed');
+    await t.game('act', 'autoplay', 4000);
+    await t.waitForStable();
+    st = await t.state();
+    t.equal(st.scene, 'over', 'the game plays through to the results');
+    const line = await t.page.locator('.daily-line').innerText();
+    t.expect(line.includes(today) && /\$[\d,]+/.test(line), 'the results say the date and the net worth: ' + line);
+    await t.shot('S3-03-results-daily');
+    await t.checkLayout({ allowScrollY: true });
+    await t.page.click('[data-career]');
+    await t.waitForStable();
+    t.expect((await t.page.locator('#dailycard').innerText()).includes(today), 'the career page lists the date');
+    await t.game('scene', 'setup');
+    await t.waitForStable();
+    t.expect(/your best net worth is \$[\d,]+/.test(await t.page.locator('#dailynote').innerText()), 'and New game now shows today\'s best');
+  },
+});

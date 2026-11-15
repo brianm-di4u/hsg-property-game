@@ -28,7 +28,7 @@ export function createGame(opts = {}) {
   const seed = opts.seed ?? 1;
   const s = {
     v: VERSION, seed, rng: seedState(seed),
-    opts: { mode: opts.mode || 'full', variant: opts.variant || 'standard', years: opts.years ?? 0, startCash: RULES.startCash, buildWorth: (opts.mode || 'full') === 'short' ? BUILD_WORTH.short : BUILD_WORTH.full },
+    opts: { mode: opts.mode || 'full', variant: opts.variant || 'standard', years: opts.years ?? 0, startCash: RULES.startCash, daily: typeof opts.daily === 'string' ? opts.daily : '', buildWorth: (opts.mode || 'full') === 'short' ? BUILD_WORTH.short : BUILD_WORTH.full },
     players: [], lots: {}, turn: 0, round: 1, month: opts.startMonth ?? 0, year: 0, monthsPlayed: 0,
     phase: 'roll', pending: null, debts: [], resume: null, dice: [0, 0], again: false, forced: null,
     decks: { news: [], talk: [] }, headline: null, lastCard: null, mods: [], treasury: 0,
