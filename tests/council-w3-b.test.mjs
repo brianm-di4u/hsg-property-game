@@ -162,3 +162,95 @@ tests.push({
     t.equal(r.status, 0, 'tools/check-facts.mjs passes: ' + (r.stdout.match(/FAIL.*/g) || []).join('; '));
   },
 });
+
+// ---- S4-21: looking round the 3D board
+const view = (t) => t.game('view');
+const settle3d = (t) => t.waitForStable();
+async function canvasCentre(t) { const b = await t.page.locator('#board').boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; }
+
+tests.push({
+  name: 'S4-21 the 3D board zooms with the wheel and the + - 0 keys, pans with a drag, and the view button resets it',
+  url: 'index.html?gl=3d',
+  async run(t) {
+    await start(t);
+    t.equal((await t.game('boardMode')).mode, '3d', 'the 3D table is on');
+    await settle3d(t);
+    const v0 = await view(t);
+    t.equal(v0.user, false, 'the automatic camera to begin with');
+    const [cx, cy] = await canvasCentre(t);
+    await t.page.mouse.move(cx, cy);
+    await t.page.mouse.wheel(0, -400);
+    await settle3d(t);
+    const v1 = await view(t);
+    t.expect(v1.user && v1.dist < v0.dist * 0.9, `the wheel zooms in (${v0.dist.toFixed(1)} to ${v1.dist.toFixed(1)})`);
+    t.equal(await t.page.locator('#b-view').getAttribute('aria-label'), 'Reset the view', 'the view button now says Reset the view');
+    await t.shot('S4-21-zoomed');
+    // a drag pans, and does not open a deed when it ends
+    const before = await view(t);
+    await t.page.mouse.move(cx, cy); await t.page.mouse.down(); await t.page.mouse.move(cx - 60, cy - 40, { steps: 6 }); await t.page.mouse.move(cx - 120, cy - 80, { steps: 6 }); await t.page.mouse.up();
+    await settle3d(t);
+    const after = await view(t);
+    t.expect(Math.hypot(after.tx - before.tx, after.tz - before.tz) > 0.05, `a drag moves the view (${before.tx.toFixed(2)},${before.tz.toFixed(2)} to ${after.tx.toFixed(2)},${after.tz.toFixed(2)})`);
+    t.equal((await t.state()).dialog, null, 'and the end of the drag opens no deed');
+    // keys
+    await t.page.keyboard.press('-'); await settle3d(t);
+    t.expect((await view(t)).dist > after.dist, 'the minus key zooms out');
+    await t.page.keyboard.press('+'); await t.page.keyboard.press('+'); await settle3d(t);
+    t.expect((await view(t)).dist < after.dist, 'the plus key zooms in');
+    // the view button, and a roll, put the automatic camera back
+    await t.page.click('#b-view'); await settle3d(t);
+    const v2 = await view(t);
+    t.expect(!v2.user && Math.abs(v2.dist - v0.dist) < 0.05, 'Reset the view returns to the whole board');
+    await t.page.keyboard.press('+'); await settle3d(t);
+    t.expect((await view(t)).user, 'zoomed again');
+    await t.page.keyboard.press('0'); await settle3d(t);
+    t.expect(!(await view(t)).user, 'the 0 key resets too');
+    await t.page.keyboard.press('+'); await settle3d(t);
+    await act(t, { type: 'roll' }); await settle3d(t);
+    t.expect(!(await view(t)).user, 'a roll gives the camera back so it can follow the move');
+    // a plain click still reads a deed
+    if ((await t.page.locator('#b-view').getAttribute('aria-label')) === 'Show the whole board') await t.page.click('#b-view');
+    await settle3d(t);
+    const p = await t.game('spaceScreen', 31);
+    await t.page.mouse.click(p[0], p[1]); await t.waitForStable();
+    t.equal((await t.state()).dialog, 'deed', 'a plain click on a space still opens its deed');
+  },
+});
+
+tests.push({
+  name: 'S4-21 a gamepad rolls, steps between buttons, opens and closes the Menu and moves the 3D view',
+  url: 'index.html?gl=3d',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t);
+    await settle3d(t);
+    await t.page.evaluate(() => {
+      const btn = () => ({ pressed: false, value: 0 });
+      window.__pad = { index: 0, connected: true, id: 'test pad', buttons: Array.from({ length: 17 }, btn), axes: [0, 0, 0, 0] };
+      navigator.getGamepads = () => [window.__pad];
+      window.dispatchEvent(new Event('gamepadconnected'));
+      window.__frames = (n) => new Promise((r) => { let k = 0; const f = () => (++k >= n ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
+    });
+    const press = async (i) => { await t.page.evaluate((i) => { window.__pad.buttons[i] = { pressed: true, value: 1 }; return window.__frames(3); }, i); await t.page.evaluate((i) => { window.__pad.buttons[i] = { pressed: false, value: 0 }; return window.__frames(3); }, i); };
+    t.equal((await g(t)).phase, 'roll', 'it is time to roll');
+    await press(0);
+    await until(t, 'A to roll the dice', (s) => s.game.phase !== 'roll');
+    await press(1);
+    t.equal((await t.state()).dialog, 'pause', 'B opens the Menu');
+    await press(13);
+    t.expect(await t.page.evaluate(() => !!document.querySelector('#modal :focus')), 'the d-pad moves focus to a button in the Menu');
+    await press(1);
+    t.equal((await t.state()).dialog, null, 'B closes it');
+    const v0 = await view(t);
+    await t.page.evaluate(() => { window.__pad.axes = [0, 0, 0, -1]; return window.__frames(40); });
+    await t.page.evaluate(() => { window.__pad.axes = [0, 0, 0, 0]; });
+    await settle3d(t);
+    const v1 = await view(t);
+    t.expect(v1.user && v1.dist < v0.dist * 0.9, 'the right stick zooms in');
+    await t.page.evaluate(() => { window.__pad.axes = [1, 0, 0, 0]; return window.__frames(20); });
+    await t.page.evaluate(() => { window.__pad.axes = [0, 0, 0, 0]; });
+    await settle3d(t);
+    const v2 = await view(t);
+    t.expect(Math.hypot(v2.tx - v1.tx, v2.tz - v1.tz) > 0.05, 'the left stick moves the view');
+  },
+});

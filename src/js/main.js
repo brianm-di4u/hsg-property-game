@@ -251,6 +251,7 @@ function perform(action) {
   const r = E.apply(G.s, action);
   if (!r.ok) { sfx('error'); return r; }
   if (byHuman) { G.rush = false; coachAction(action.type); }
+  if (action.type === 'roll' && B.B3.on) viewReset(); // the camera follows the move again
   afterAction(r.events);
   // Keep moving tokens at their old place until their move animation runs.
   for (const e of r.events) if (e.t === 'move' && !R.view.tokens[e.pid]) R.view.tokens[e.pid] = R.slot(e.from, e.pid);
@@ -1187,6 +1188,8 @@ function onKey(ev) {
     announce(`${sp.name}${sp.price ? ', ' + money(sp.price) : ''}${o >= 0 ? ', owned by ' + G.s.players[o].name : sp.price ? ', unowned' : ''}. Press Enter for the deed.`);
     draw(); return;
   }
+  if (B.B3.on && !ev.shiftKey && (k === '+' || k === '=' || k === '-' || k === '_' || k === '0')) { ev.preventDefault(); if (k === '0') viewReset(); else { B.userZoom(k === '+' || k === '=' ? 0.8 : 1.25); viewMoved(); } return; }
+  if (B.B3.on && ev.shiftKey && k.startsWith('Arrow')) { ev.preventDefault(); B.userPan(k === 'ArrowLeft' ? -0.25 : k === 'ArrowRight' ? 0.25 : 0, k === 'ArrowUp' ? -0.25 : k === 'ArrowDown' ? 0.25 : 0); viewMoved(); return; }
   if (k === ' ' && rushable()) { ev.preventDefault(); startRush(); return; }
   if (k === ' ' && G.busy && !G.waitingOk) { ev.preventDefault(); G.skip = true; return; }
   if ((k === 'Enter' || k === ' ') && ev.target === boardEl()) { ev.preventDefault(); openDeed(R.view.cursor >= 0 ? R.view.cursor : G.s.players[G.s.turn].pos); return; }
@@ -1200,7 +1203,73 @@ function trapFocus(ev) {
   if (ev.shiftKey && (i <= 0)) { ev.preventDefault(); f[f.length - 1].focus(); }
   else if (!ev.shiftKey && i === f.length - 1) { ev.preventDefault(); f[0].focus(); }
 }
+// Looking round the 3D board (S4-21): drag to pan, wheel or pinch to zoom, + - and Shift+arrows from the keyboard, the sticks on a
+// gamepad. The view button (labelled Reset the view while it is in use) and the next roll put the automatic camera back.
+function viewMoved() { if (G.setVb) G.setVb(); camLoop(); draw(); }
+function viewReset() { if (B.resetView()) viewMoved(); }
+function wireLook(gl) {
+  const pts = new Map();
+  let last = null, pinch = 0, moved = 0;
+  const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  gl.style.touchAction = 'none';
+  gl.addEventListener('pointerdown', (ev) => { pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); last = { x: ev.clientX, y: ev.clientY }; moved = 0; if (pts.size === 2) pinch = dist(); });
+  gl.addEventListener('pointermove', (ev) => {
+    const p = pts.get(ev.pointerId); if (!p) return;
+    if (ev.pointerType === 'mouse' && ev.buttons === 0) { pts.delete(ev.pointerId); return; } // the button was let go off the board
+    const was = { x: p.x, y: p.y }; p.x = ev.clientX; p.y = ev.clientY;
+    if (pts.size === 2) { const d = dist(); if (pinch > 0 && d > 0) { B.userZoom(pinch / d); viewMoved(); } pinch = d; moved = 99; return; }
+    moved += Math.abs(p.x - was.x) + Math.abs(p.y - was.y);
+    if (moved > 8) { B.userDrag(was.x, was.y, p.x, p.y); viewMoved(); if (gl.setPointerCapture) try { gl.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ } }
+  });
+  const up = (ev) => { pts.delete(ev.pointerId); if (pts.size < 2) pinch = 0; if (moved > 8) { G.lookDrag = true; setTimeout(() => { G.lookDrag = false; }, 0); } };
+  gl.addEventListener('pointerup', up); gl.addEventListener('pointercancel', up);
+  gl.addEventListener('wheel', (ev) => { ev.preventDefault(); B.userZoom(Math.exp(ev.deltaY * (ev.deltaMode === 1 ? 0.05 : 0.0015))); viewMoved(); }, { passive: false });
+}
+// Gamepad (S4-21): A presses the focused button (the main one when nothing is focused), B closes a dialog or opens the Menu, Start
+// opens the Menu, X skips ahead through the rivals' turns (or opens Manage on your own), the d-pad moves between buttons, the left
+// stick pans the 3D board and the right stick zooms it. Standard mapping; polled only while a pad is connected.
+const PAD_DEAD = 0.25;
+function padFocusables() {
+  const box = G.dialog ? $('#modal') : $('#actions');
+  return box ? [...box.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled)')].filter((e) => e.offsetParent !== null) : [];
+}
+function padStep(d) {
+  const f = padFocusables(); if (!f.length) return;
+  const i = f.indexOf(document.activeElement);
+  f[i < 0 ? (d > 0 ? 0 : f.length - 1) : (i + d + f.length) % f.length].focus({ preventScroll: true });
+}
+function padPress(b) {
+  if (G.scene !== 'game' || G.stale) { if (b === 0 && document.activeElement && document.activeElement.click) document.activeElement.click(); return; }
+  if (b === 0) {
+    const f = document.activeElement, inBox = f && (G.dialog ? $('#modal') : $('#actions')).contains(f);
+    const target = inBox && f.matches('button, input') ? f : (G.dialog ? $('#modal') : $('#actions')).querySelector('.btn.primary:not(:disabled)');
+    if (target) target.click();
+  } else if (b === 1) { if (G.dialog) closeDialog(); else openPause(); }
+  else if (b === 9) { if (!G.dialog) openPause(); }
+  else if (b === 2) { if (rushable()) startRush(); else if (!G.dialog) { const m = document.querySelector('#actions .btn[data-key="M"]:not(:disabled)'); if (m) m.click(); } }
+  else if (b === 12 || b === 14) padStep(-1);
+  else if (b === 13 || b === 15) padStep(1);
+}
+function padPoll() {
+  const pads = (navigator.getGamepads ? [...navigator.getGamepads()] : []).filter((p) => p && p.connected);
+  if (!pads.length) { G.padLoop = false; return; }
+  const was = G.padWas || (G.padWas = {});
+  for (const p of pads) {
+    const now = p.buttons.map((b) => !!(b && (b.pressed || b.value > 0.6)));
+    now.forEach((on, i) => { if (on && !(was[p.index] || [])[i]) padPress(i); });
+    was[p.index] = now;
+    if (G.scene === 'game' && !G.dialog && B.B3.on) {
+      const ax = (i) => (Math.abs(p.axes[i] || 0) > PAD_DEAD ? p.axes[i] : 0);
+      const dx = ax(0), dz = ax(1), zz = ax(3);
+      if (dx || dz) { B.userPan(dx * 0.03, dz * 0.03); viewMoved(); }
+      if (zz) { B.userZoom(Math.exp(zz * 0.03)); viewMoved(); }
+    }
+  }
+  requestAnimationFrame(padPoll);
+}
+function padStart() { if (G.padLoop) return; G.padLoop = true; requestAnimationFrame(padPoll); }
 function onBoardPointer(ev) {
+  if (G.lookDrag) return; // the end of a drag is not a tap on a space
   unlock();
   if (G.busy && !G.waitingOk && !G.dialog) { G.skip = true; return; } // tap to skip the rest of a move
   let i = -1;
@@ -1228,15 +1297,17 @@ function start3D() {
   flat.id = 'board2d'; flat.hidden = true; flat.tabIndex = -1;
   const gl = B.B3.canvas; gl.id = 'board'; gl.tabIndex = 0; gl.setAttribute('role', 'img'); gl.setAttribute('aria-label', flat.getAttribute('aria-label'));
   gl.addEventListener('click', onBoardPointer);
+  wireLook(gl);
   gl.addEventListener('webglcontextlost', (ev) => { ev.preventDefault(); fallback2D('lost'); });
   document.body.classList.add('gl');
   B.B3.closeUp = false; B.B3.instant = reduced(); // phones start on the whole board; the view button zooms in
   const vb = document.createElement('button'); vb.id = 'b-view'; vb.className = 'iconbtn'; vb.type = 'button';
-  const setVb = () => { vb.setAttribute('aria-pressed', String(!B.B3.closeUp)); vb.setAttribute('aria-label', B.B3.closeUp ? 'Show the whole board' : 'Close-up on the current baron'); vb.innerHTML = B.B3.closeUp
+  const setVb = () => { vb.setAttribute('aria-pressed', String(!B.B3.closeUp)); vb.setAttribute('aria-label', B.B3.user ? 'Reset the view' : B.B3.closeUp ? 'Show the whole board' : 'Close-up on the current baron'); vb.innerHTML = B.B3.closeUp
     ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>'
     : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" stroke="currentColor" stroke-width="2.2" fill="none"/><path d="M15 15l5 5M10.5 8v5M8 10.5h5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'; };
   setVb();
-  vb.addEventListener('click', () => { B.setCloseUp(!B.B3.closeUp); setVb(); layout(); camLoop(); });
+  vb.addEventListener('click', () => { if (B.B3.user) { viewReset(); return; } B.setCloseUp(!B.B3.closeUp); setVb(); layout(); camLoop(); });
+  G.setVb = setVb;
   $('#b-sound').before(vb);
   return true;
 }
@@ -1267,6 +1338,7 @@ window.__game = {
   setState(x) { const s = x && x.game ? x.game : x; if (!s || !s.players) return false; loadGame(JSON.parse(JSON.stringify(s))); store.set(SAVE, JSON.stringify(G.s)); scene(x.scene && x.scene !== 'game' ? x.scene : 'game'); return true; },
   isIdle() { return (!G.busy || G.waitingOk) && G.anim === 0 && !G.aiTimer && !drawQueued && !G.dlgAnim && !art.loading && !B.camBusy() && !G.imgWait; },
   spaceScreen(i) { return spaceScreen(i); },
+  view() { return B.B3.on ? B.viewInfo() : null; },
   boardMode() { return { mode: B.B3.on ? '3d' : '2d', why: G.glWhy || '', gpu: G.glName || '' }; },
   force2D() { fallback2D('forced'); return !B.B3.on; },
   art() { return { list: ART_LIST.slice(), ready: art.ready, ms: art.readyMs || null, wanted: art.want.slice(), loaded: Object.keys(art.imgs), failed: art.failed.slice() }; },
@@ -1314,6 +1386,8 @@ function boot() {
   loadSettings();
   G.input = matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse';
   start3D();
+  addEventListener('gamepadconnected', padStart);
+  if (navigator.getGamepads && [...navigator.getGamepads()].some((p) => p && p.connected)) padStart();
   loadArt(() => {
     R.view.cacheKey = '';
     if (B.B3.on) B.setTheme(R.view.theme);

@@ -93,12 +93,14 @@ export function helpHtml(tab) {
     const keys = `<table class="t"><tbody>
     <tr><th>R</th><td>Roll the dice</td></tr><tr><th>B</th><td>Buy the lot (or pay $50 at a hearing)</td></tr><tr><th>A</th><td>Send the lot to auction</td></tr>
     <tr><th>E</th><td>End turn</td></tr><tr><th>M</th><td>Manage lots: build, sell, mortgage</td></tr><tr><th>T</th><td>Propose a trade</td></tr>
-    <tr><th>P / Esc</th><td>Menu / close a dialog</td></tr><tr><th>Arrow keys</th><td>Move the board cursor (focus the board first with Tab)</td></tr><tr><th>Enter</th><td>Read the deed under the cursor</td></tr></tbody></table>`;
-    const touch = `<p class="prose">Tap any space to read its deed. Every action has a button under the board: Roll, Buy, Auction, End turn, Manage and Trade. While a move is playing, tap the board to skip the rest of it. The menu button (top left) opens the Menu, and the speaker button turns sound on and off.</p>`;
+    <tr><th>P / Esc</th><td>Menu / close a dialog</td></tr><tr><th>Arrow keys</th><td>Move the board cursor (focus the board first with Tab)</td></tr><tr><th>Enter</th><td>Read the deed under the cursor</td></tr>
+    <tr><th>+ / − / 0</th><td>3D board: zoom in, zoom out, back to the automatic view</td></tr><tr><th>Shift + arrows</th><td>3D board: move the view</td></tr></tbody></table><p class="prose">With a mouse, drag the 3D board to move it and use the wheel to zoom.</p>`;
+    const touch = `<p class="prose">Tap any space to read its deed. Every action has a button under the board: Roll, Buy, Auction, End turn, Manage and Trade. While a move is playing, tap the board to skip the rest of it. The menu button (top left) opens the Menu, and the speaker button turns sound on and off. Drag the 3D board to move it and pinch to zoom; the view button turns into Reset the view until you roll again.</p>`;
+    const pad = `<h4>With a gamepad</h4><p class="prose">A presses the highlighted button (the main one if none is), the d-pad moves between buttons, B closes a dialog or opens the Menu, Start opens the Menu, and X skips ahead while rivals play or opens Manage on your turn. On the 3D board the left stick moves the view and the right stick zooms.</p>`;
     // A phone leads with touch; a keyboard leads with the keys (S2-13)
     return coarsePointer()
-      ? `<h3>Controls</h3><h4>On a touch screen</h4>${touch}<h4>With a keyboard</h4>${keys}`
-      : `<h3>Controls</h3><h4>With a keyboard</h4>${keys}<h4>On a touch screen</h4>${touch}`;
+      ? `<h3>Controls</h3><h4>On a touch screen</h4>${touch}<h4>With a keyboard</h4>${keys}${pad}`
+      : `<h3>Controls</h3><h4>With a keyboard</h4>${keys}<h4>On a touch screen</h4>${touch}${pad}`;
   }
   const more = (title, body) => `<details class="rule"><summary>${title}</summary><div class="prose">${body}</div></details>`;
   return `<h3>Rules</h3><p class="goal"><strong>${esc(GOAL_TEXT)}</strong></p>

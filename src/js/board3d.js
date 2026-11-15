@@ -296,6 +296,7 @@ function clampPose(p) {
 // Where the camera wants to be this frame: centred on the followed token (wherever it is mid-hop), else at rest.
 function camGoal(s) {
   const f = B3.follow, o = B3.overview;
+  if (B3.user && o) return clampPose(poseAt(B3.user.tx, B3.user.tz, o.dist * B3.user.zoom));
   if (f && s && s.players[f.k]) { const q = R.view.tokens[f.k] || R.slot(s.players[f.k].pos, f.k); return poseAt(wx(q.x), wz(q.y), o.dist * f.zoom); }
   return restPose(s);
 }
@@ -311,7 +312,7 @@ function stepCam(s, now) {
   const c = B3.cam, g = camGoal(s), gap = now - (c.last || 0), dt = gap < 100 ? Math.min(0.05, Math.max(0, gap / 1000)) : 1 / 60; c.last = now;
   if (!g) return;
   if (!c.cur || B3.instant) { c.cur = { ...g }; c.vel = { tx: 0, tz: 0, dist: 0 }; c.settled = true; return; }
-  const f = B3.follow;
+  const f = B3.user ? null : B3.follow;
   // tracking: start with a gentle pan, then hold the token close to centre; returning: a slower glide out
   const tp = f ? 0.24 - 0.16 * Math.min(1, (now - f.t0) / 600) : 0.4, tz = f ? 0.3 : 0.42;
   // aim a little ahead of a moving token (by its smoothed speed) so the spring's lag does not leave it off-centre
@@ -324,6 +325,42 @@ function stepCam(s, now) {
   const still = Math.abs(c.vel.tx) < 1e-2 && Math.abs(c.vel.tz) < 1e-2 && Math.abs(c.vel.dist) < 2e-2;
   if (near && still) { c.cur = { ...g }; c.vel = { tx: 0, tz: 0, dist: 0 }; c.settled = true; } else c.settled = false;
 }
+// The player's own view (S4-21): drag to pan, wheel or pinch to zoom, within the table. It replaces the automatic camera until
+// resetView(), a new roll or the view button puts the automatic one back. The zoom is a share of the whole-board distance.
+export const ZOOM_MIN = 0.3, ZOOM_MAX = 1;
+function startUser() {
+  if (B3.user || !B3.overview) return !!B3.user;
+  const c = B3.cam.cur || B3.overview;
+  B3.user = { tx: c.tx, tz: c.tz, zoom: Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, c.dist / B3.overview.dist)) };
+  return true;
+}
+// Moves the view so the board point that was under (x0, y0) is under (x1, y1) (screen px).
+export function userDrag(x0, y0, x1, y1) {
+  if (!B3.on || !startUser()) return;
+  const a = groundAt(x0, y0), b = groundAt(x1, y1); if (!a || !b) return;
+  B3.user.tx += a.x - b.x; B3.user.tz += a.z - b.z;
+  holdUser();
+  if (B3.cam.cur) { B3.cam.cur.tx = B3.user.tx; B3.cam.cur.tz = B3.user.tz; B3.cam.vel.tx = 0; B3.cam.vel.tz = 0; } // the board follows the finger exactly
+}
+// Pans by a share of the view (stick or keys): dx and dz run from -1 to 1 across the visible board.
+export function userPan(dx, dz) {
+  if (!B3.on || !startUser()) return;
+  const o = B3.overview, span = o.dist * B3.user.zoom * 0.5;
+  B3.user.tx += dx * span; B3.user.tz += dz * span;
+  holdUser();
+}
+export function userZoom(factor) {
+  if (!B3.on || !startUser()) return;
+  B3.user.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, B3.user.zoom * factor));
+  holdUser();
+}
+function holdUser() {
+  const o = B3.overview, p = clampPose(poseAt(B3.user.tx, B3.user.tz, o.dist * B3.user.zoom));
+  B3.user.tx = p.tx; B3.user.tz = p.tz; B3.cam.settled = false;
+  if (B3.instant && B3.cam.cur) { B3.cam.cur = { ...p }; B3.cam.vel = { tx: 0, tz: 0, dist: 0 }; }
+}
+export function resetView() { if (!B3.user) return false; B3.user = null; B3.cam.settled = false; return true; }
+export const viewInfo = () => ({ user: !!B3.user, zoom: B3.user ? B3.user.zoom : null, tx: B3.cam.cur ? B3.cam.cur.tx : 0, tz: B3.cam.cur ? B3.cam.cur.tz : 0, dist: B3.cam.cur ? B3.cam.cur.dist : 0, whole: B3.overview ? B3.overview.dist : 0 });
 export function camBusy() { return B3.on && !B3.cam.settled; }
 
 // ---------- per-frame sync ----------
@@ -427,6 +464,11 @@ export function screenOf(px, py, liftPx = 0) {
 }
 // Board point under a client position (for clicks), in board px; null off the board.
 const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TOP), hitV = new THREE.Vector3();
+function groundAt(cx, cy) {
+  const r = B3.canvas.getBoundingClientRect(), p = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TOP), v = new THREE.Vector3();
+  const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), B3.camera);
+  return rc.ray.intersectPlane(p, v) ? { x: v.x, z: v.z } : null;
+}
 export function boardPoint(cx, cy) {
   const r = B3.canvas.getBoundingClientRect();
   ray.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), B3.camera);

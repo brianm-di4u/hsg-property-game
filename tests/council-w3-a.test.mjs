@@ -366,7 +366,8 @@ export const tests = [
       const coarse = await t.page.evaluate(() => matchMedia('(pointer: coarse)').matches);
       t.equal(coarse, t.viewport === 'mobile', 'the phone viewport reports a touch pointer');
       t.equal(first[0], coarse ? 'On a touch screen' : 'With a keyboard', 'the first block fits the input');
-      t.equal(first.length, 2, 'and the other is still there');
+      t.equal(first.length, 3, 'and the other two are still there (the gamepad block, S4-21, comes last)');
+      t.equal(first[2], 'With a gamepad', 'the gamepad block closes the page');
       t.expect(/Tap any space/.test(await t.page.locator('[role="tabpanel"]').innerText()), 'the touch text is shown');
       await t.shot('S2-13-controls', { fullPage: true });
       await t.checkLayout({ allowScrollY: true });
