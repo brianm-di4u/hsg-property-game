@@ -183,3 +183,49 @@ tests.push({
     t.equal(four.join(), '0.08,0.35', 'and at four barons the persona band is the old 8 to 35 percent');
   },
 });
+
+// ---------- S3-14: the risk of the next roll ----------
+tests.push({
+  name: 'S3-14 rollRisk counts the chance of landing on rent, and the most it could be',
+  node: true,
+  async run(t) {
+    const s = E.createGame({ seed: 3, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai' }, { kind: 'ai' }] });
+    for (const i of OWNABLE) s.lots[i].owner = -1;
+    s.players[0].pos = 0;
+    t.equal(JSON.stringify(E.rollRisk(s, 0)), JSON.stringify({ chance: 0, max: 0 }), 'with no lot owned there is no risk');
+    s.lots[5].owner = 1; s.lots[7].owner = 2;                // totals 5 (4 ways in 36) and 7 (6 ways)
+    const r = E.rollRisk(s, 0);
+    t.expect(Math.abs(r.chance - 10 / 36) < 1e-9, `two rival lots at five and seven away: ${r.chance}`);
+    t.equal(r.max, Math.max(E.rentOf(s, 5, 5), E.rentOf(s, 7, 7)), 'the most is the larger of the two rents');
+    s.lots[7].mortgaged = true; s.lots[5].owner = 0;
+    t.equal(E.rollRisk(s, 0).chance, 0, 'a mortgaged lot, and a lot of your own, charge nothing');
+    s.lots[5].owner = 1; s.players[1].out = true;
+    t.equal(E.rollRisk(s, 0).chance, 0, 'a baron who is out collects nothing');
+    s.players[1].out = false; s.lots[10].owner = 1;           // the utility, total 10: rent follows the dice
+    t.equal(E.rollRisk(s, 0).max, Math.max(E.rentOf(s, 5, 5), E.rentOf(s, 10, 10)), 'the utility is judged on the roll that lands there');
+    s.lots[10].owner = -1; s.lots[5].owner = -1;
+    s.players[0].pos = 30; s.lots[3].owner = 2;               // wraps past the Depot: 30 + 5 = space 3
+    t.expect(Math.abs(E.rollRisk(s, 0).chance - 4 / 36) < 1e-9, 'it wraps round the board');
+  },
+});
+tests.push({
+  name: 'S3-14 the turn bar tells a human what the next roll could cost',
+  async run(t) {
+    await start(t, { seats: AI2, seed: 6 });
+    await mod(t, (s) => { for (const i of OWNABLE) { s.lots[i].owner = -1; s.lots[i].level = 0; s.lots[i].mortgaged = false; } s.players[0].pos = 0; s.phase = 'roll'; s.turn = 0; s.pending = null; s.again = false; });
+    const risk = async () => ((await t.page.locator('#turnbar #risk').count()) ? t.page.locator('#turnbar #risk').innerText() : null);
+    t.equal(await risk(), 'No rent to pay on your next roll', 'nothing owned nearby: no rent');
+    await mod(t, (s) => { s.lots[6].owner = 1; });
+    const risk1 = E.rollRisk(await g(t), 0);
+    t.expect(risk1.max > 0, 'a rival lot six away');
+    t.equal(await risk(), `Rent risk next roll: up to $${risk1.max} (${Math.round(risk1.chance * 100)}% of rolls)`, 'the bar gives the most and the chance');
+    await t.shot('S3-14-rent-risk');
+    await t.checkLayout();
+    const box = await t.page.locator('#turnbar').boundingBox();
+    t.expect(box.height < 120, `the bar stays compact (${Math.round(box.height)} px)`);
+    await mod(t, (s) => { s.phase = 'post'; s.players[0].pos = 0; });
+    t.expect(/Rent risk next roll/.test((await risk()) || ''), 'it shows after the move too, when you decide whether to build');
+    await mod(t, (s) => { s.turn = 1; s.phase = 'roll'; });
+    t.equal(await risk(), null, 'and not while a rival is to move');
+  },
+});

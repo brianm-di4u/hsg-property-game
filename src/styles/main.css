@@ -40,6 +40,7 @@ button, input, select { font: inherit; color: inherit; }
 #turnbar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r); background: var(--surface); border: 2px solid var(--border); font-weight: 600; min-height: 56px; }
 #turnbar .who { flex: 1; line-height: 1.25; }
 #turnbar .sub { display: block; font-weight: 400; color: var(--muted); font-size: .88em; }
+#turnbar .risk { display: block; font-weight: 400; color: var(--muted); font-size: .8em; }
 #actions { display: flex; flex-wrap: wrap; gap: 8px; }
 #players { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 #players li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; background: var(--surface); border: 2px solid transparent; min-height: 52px; }

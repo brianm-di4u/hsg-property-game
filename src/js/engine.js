@@ -130,6 +130,20 @@ export function rentParts(s, i, diceTotal) {
 }
 export const rentOf = (s, i, d) => rentParts(s, i, d).total;
 
+// How exposed pid is on the next roll (S3-14): over the eleven totals two dice can make, the chance of landing on a space that
+// charges pid rent and the most it would charge. Rent as it stands now; doubles, cards and the Grand Jury are not counted.
+export function rollRisk(s, pid) {
+  const p = s.players[pid];
+  let chance = 0, max = 0;
+  for (let t = 2; t <= 12; t++) {
+    const i = (p.pos + t) % N_SPACES, lot = s.lots[i];
+    if (!lot || lot.owner < 0 || lot.owner === pid || s.players[lot.owner].out) continue;
+    const r = rentOf(s, i, t);
+    if (r > 0) { chance += (6 - Math.abs(t - 7)) / 36; if (r > max) max = r; }
+  }
+  return { chance, max };
+}
+
 export function buildCost(i) { const d = SPACES[i].d; return d === undefined ? 0 : DISTRICTS[d].build; }
 // What a building counts for in net worth: half its cost, or all of it in the Short game, where there is no time to
 // earn a building back (S3-05; it was half in every mode). A game records its rate when it starts, so a Short game saved

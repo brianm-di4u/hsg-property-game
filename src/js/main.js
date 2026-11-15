@@ -459,7 +459,7 @@ const AUTO_END_MS = 600, MOVED_SUB = 'Moved: manage, trade or end the turn', MOV
 // The bar says whether the turn is about to end by itself; a dialog opening or closing changes the answer.
 function autoEndNote() {
   if (!G.settings.autoEnd || G.scene !== 'game' || !G.s || G.s.phase !== 'post' || G.busy) return;
-  const sub = document.querySelector('#turnbar .who .sub:last-child'); if (sub) sub.textContent = autoEndPending() ? MOVED_ENDING : MOVED_SUB;
+  const sub = document.querySelector('#turnbar .who .status'); if (sub) sub.textContent = autoEndPending() ? MOVED_ENDING : MOVED_SUB;
 }
 function autoEndPending() {
   const s = G.s;
@@ -469,6 +469,11 @@ function autoEndPending() {
 function legalFallback() { const L = E.legal(G.s); return (L.find((a) => ['end', 'roll', 'pass', 'decline', 'bankrupt'].includes(a.type)) || L[0]).type; }
 
 // ---------- game HUD ----------
+// What the next roll could cost (S3-14), under the turn bar's status line.
+function riskText(s, pid) {
+  const { chance, max } = E.rollRisk(s, pid);
+  return max ? `Rent risk next roll: up to ${money(max)} (${Math.max(1, Math.round(chance * 100))}% of rolls)` : 'No rent to pay on your next roll';
+}
 function humanActor() { const s = G.s; if (!s || s.ended) return null; const a = E.actor(s); return a >= 0 && s.players[a].kind === 'human' ? s.players[a] : null; }
 const can = (type) => G.s && E.legal(G.s).some((a) => a.type === type);
 
@@ -502,7 +507,7 @@ function refreshView() {
   if (tface) { const im = document.createElement('img'); im.className = 'face'; im.src = tface; im.alt = ''; tb.append(im); }
   tb.append(R.tokenCanvas(A.token, 36, a + 1));
   const w = document.createElement('div'); w.className = 'who';
-  w.innerHTML = `${esc(A.name)}${A.kind === 'ai' ? ` <span class="sub" style="display:inline">(${esc(PERSONAS[A.persona].name)} AI)</span>` : ''}<span class="sub">${esc(sub)}</span>`;
+  w.innerHTML = `${esc(A.name)}${A.kind === 'ai' ? ` <span class="sub" style="display:inline">(${esc(PERSONAS[A.persona].name)} AI)</span>` : ''}<span class="sub status">${esc(sub)}</span>${A.kind === 'human' && !s.ended && (s.phase === 'roll' || s.phase === 'post') && !A.held ? `<span class="risk" id="risk">${esc(riskText(s, a))}</span>` : ''}`;
   tb.append(w);
   const cash = document.createElement('div'); cash.innerHTML = `<strong>${money(A.cash)}</strong>`; tb.append(cash);
   renderActions();
