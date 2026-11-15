@@ -398,6 +398,16 @@ tests.push({
     await t.shot('S2-08-chips');
     const hit = await t.page.evaluate(() => [...document.querySelectorAll('#clock button.chip')].map((b) => Math.round(b.getBoundingClientRect().height)));
     t.expect(hit.every((h) => h >= (t.viewport === 'mobile' ? 24 : 18)), `the chips are a fair size to tap (${hit})`);
+    if (t.viewport === 'mobile') {
+      // A finger 9.5 px above the top row or below the bottom row still lands on a chip: a 44 px target around a 24 px chip.
+      const edges = await t.page.evaluate(() => {
+        const bs = [...document.querySelectorAll('#clock button.chip')], rs = bs.map((b) => b.getBoundingClientRect());
+        const top = Math.min(...rs.map((r) => r.top)), bottom = Math.max(...rs.map((r) => r.bottom));
+        const hitChip = (x, y) => { const e = document.elementFromPoint(x, y); return !!(e && e.closest('#clock button.chip')); };
+        return rs.map((r, i) => ({ above: r.top === top ? hitChip(r.left + r.width / 2, r.top - 9.5) : true, below: r.bottom === bottom ? hitChip(r.left + r.width / 2, r.bottom + 9.5) : true }));
+      });
+      t.expect(edges.every((e) => e.above && e.below), `a tap 9.5 px above or below a chip still lands on it (${JSON.stringify(edges)})`);
+    }
   },
 });
 
