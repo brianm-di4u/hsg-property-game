@@ -20,7 +20,7 @@ export const tests = [
       await t.tap(c);
       await t.waitForStable();
       t.equal((await t.state()).dialog, null, 'tap Close');
-      const small = await t.page.evaluate(() => [...document.querySelectorAll('#actions .btn, #topbar .iconbtn')].map((b) => b.getBoundingClientRect()).filter((r) => r.width < 44 || r.height < 44).length);
+      const small = await t.page.evaluate(() => [...document.querySelectorAll('#actions .btn, #topbar .iconbtn')].filter((b) => getComputedStyle(b).display !== 'none').map((b) => b.getBoundingClientRect()).filter((r) => r.width < 44 || r.height < 44).length);
       t.equal(small, 0, 'action buttons are at least 44 px');
       const roll = await centerOf(t, '#actions [data-key="R"]');
       await t.tap(roll);

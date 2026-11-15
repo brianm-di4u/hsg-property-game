@@ -599,6 +599,7 @@ function closeDialog(force) {
   if (!G.dialog) return;
   if (!force && !G.dialogClosable) return;
   const was = G.dialog;
+  if (was === 'mixer') $('#modal').oninput = null;
   if (was === 'pause') holdAudio('pause', false);
   G.dialog = null; G.dialogRender = null;
   const m = $('#modal'); m.hidden = true; m.innerHTML = '';
@@ -632,14 +633,24 @@ function openLedger() {
   const box = $('#modal .dlg'); if (box) box.scrollTop = box.scrollHeight;
 }
 
+// A quick volume sheet from the top bar, so a level can be fixed without leaving the table (S5-07).
+function openMixer() {
+  const render = () => `<h2 id="dlg-title">Volume</h2>${G.settings.sound ? '' : '<p class="fine">Sound is off. Turn it on with the speaker button.</p>'}
+    <div class="mixer">${Object.keys(VOLS).map((k) => `<div class="mixrow"><span>${VOLS[k]}</span>${volSlider(k, true)}</div>`).join('')}</div>
+    <div class="btns"><button class="btn primary" data-ok>Done</button></div>`;
+  openDialog(render(), { name: 'mixer' });
+  $('#modal').oninput = onVolume;
+}
 function openPause() {
   if (!G.s) return;
   openDialog(`<h2 id="dlg-title">Menu</h2><p class="fine goal">${esc(GOAL_TEXT)}</p>${G.noSave ? `<p class="nosave" role="status">${NOSAVE_NOTE}</p>` : ''}<div class="menu">
     <button class="btn primary" data-ok>Resume</button>
     <button class="btn" data-go="help">How to play</button>
+    <button class="btn" data-mixer>Volume</button>
     <button class="btn" data-go="settings">Settings</button>
     <button class="btn" data-go="title">Save and quit to title</button></div>`, { name: 'pause' });
   $('#modal').querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => { const to = b.dataset.go; closeDialog(true); G.back = 'game'; scene(to); }));
+  $('#modal').querySelector('[data-mixer]').addEventListener('click', () => { closeDialog(true); openMixer(); }); // the card has let go of the music, so the sliders can be heard
 }
 
 // Manage: build, sell, mortgage, lift for the human who may act.
@@ -947,9 +958,9 @@ function screenSettings(scr) {
   const seg = (key, opts) => `<div class="seg" role="group" aria-label="${key}">${opts.map(([v, l]) => `<button type="button" data-set="${key}" data-v="${v}" aria-pressed="${String(st[key]) === String(v)}">${l}</button>`).join('')}</div>`;
   scr.innerHTML = `<div class="wrap settings"><h2>Settings</h2><div class="card">
     <p><strong>Sound</strong> <span class="fine">(the master switch)</span><br>${seg('sound', [[true, 'On'], [false, 'Off']])}</p>
-    <p><strong>Sound effects</strong><br>${seg('sfx', [[true, 'On'], [false, 'Off']])} <label class="chk" style="display:inline-flex">Volume <input type="range" min="0" max="1" step="0.05" value="${st.vol}" data-vol aria-label="Sound effects volume" style="width:150px"></label></p>
-    <p><strong>Music</strong><br>${seg('music', [[true, 'On'], [false, 'Off']])} <label class="chk" style="display:inline-flex">Volume <input type="range" min="0" max="1" step="0.05" value="${st.mvol}" data-mvol aria-label="Music volume" style="width:150px"></label></p>
-    <p><strong>Ambience</strong><br>${seg('amb', [[true, 'On'], [false, 'Off']])} <label class="chk" style="display:inline-flex">Volume <input type="range" min="0" max="1" step="0.05" value="${st.avol}" data-avol aria-label="Ambience volume" style="width:150px"></label></p>
+    <p><strong>Sound effects</strong><br>${seg('sfx', [[true, 'On'], [false, 'Off']])} ${volSlider('vol')}</p>
+    <p><strong>Music</strong><br>${seg('music', [[true, 'On'], [false, 'Off']])} ${volSlider('mvol')}</p>
+    <p><strong>Ambience</strong><br>${seg('amb', [[true, 'On'], [false, 'Off']])} ${volSlider('avol')}</p>
     <p><strong>Motion</strong><br>${seg('motion', [['system', 'Follow system'], ['reduce', 'Reduced'], ['full', 'Full']])}</p>
     <p><strong>Text size</strong><br>${seg('text', [[1, '100%'], [1.25, '125%'], [1.5, '150%']])}</p>
     <p><strong>Theme</strong><br>${seg('theme', [['auto', 'Follow system'], ['light', 'Gilded day'], ['dark', 'Neon night']])}</p>
@@ -964,7 +975,23 @@ function screenSettings(scr) {
     else if (b.dataset.tipsAgain != null) { st.tipsSeen = false; st.tipsDone = []; G.tipsOn = !!G.s && !G.s.ended; saveSettings(); $('#tipsnote').textContent = G.tipsOn ? 'The tips will show when you are back at the table.' : 'The tips will show in your next game.'; }
     else if (b.dataset.back != null) scene(G.back === 'game' && G.s ? 'game' : 'title');
   };
-  scr.oninput = (ev) => { const d = ev.target.dataset, k = d.vol != null ? 'vol' : d.mvol != null ? 'mvol' : d.avol != null ? 'avol' : null; if (k) { st[k] = +ev.target.value; saveSettings(); } };
+  scr.oninput = onVolume;
+}
+// The three volume sliders (S5-07), shared by Settings and the quick mixer: each says its level aloud, and the effects
+// slider plays a tick so the level can be judged (music and ambience are already playing, so they can be heard as they move).
+const VOLS = { vol: 'Sound effects', mvol: 'Music', avol: 'Ambience' };
+const volText = (k) => `${VOLS[k]} volume ${Math.round(G.settings[k] * 100)} percent`;
+function volSlider(k, bare) {
+  return `<label class="chk volume" style="display:inline-flex">${bare ? '' : 'Volume '}<input type="range" min="0" max="1" step="0.05" value="${G.settings[k]}" data-${k} aria-label="${VOLS[k]} volume" aria-valuetext="${volText(k)}" style="width:150px"></label>`;
+}
+let lastTick = 0;
+function onVolume(ev) {
+  const el = ev.target, k = el.dataset && Object.keys(VOLS).find((x) => el.dataset[x] != null);
+  if (!k || el.type !== 'range') return;
+  G.settings[k] = +el.value; saveSettings(); unlock();
+  el.setAttribute('aria-valuetext', volText(k));
+  const now = performance.now();
+  if (k === 'vol' && now - lastTick >= 150) { lastTick = now; sfx('click'); }
 }
 // The felt swatches: open ones can be chosen, a locked one says in plain words how to earn it.
 function feltButtons(pick) {
@@ -1197,7 +1224,7 @@ window.__game = {
       case 'summary': return s ? E.summary(s) : null;
       case 'open': {
         const [what, arg] = args;
-        if (what === 'deed') openDeed(arg); else if (what === 'manage') openManage(); else if (what === 'trade') openTrade(arg); else if (what === 'pause') openPause(); else if (what === 'card') openDialog(`${cardHtml(arg, s)}<div class="btns"><button class="btn primary" data-ok>OK</button></div>`, { name: 'card' });
+        if (what === 'deed') openDeed(arg); else if (what === 'manage') openManage(); else if (what === 'trade') openTrade(arg); else if (what === 'pause') openPause(); else if (what === 'mixer') openMixer(); else if (what === 'card') openDialog(`${cardHtml(arg, s)}<div class="btns"><button class="btn primary" data-ok>OK</button></div>`, { name: 'card' });
         return G.dialog;
       }
       case 'close': closeDialog(true); return true;
@@ -1230,6 +1257,7 @@ function boot() {
   $('#modal').addEventListener('click', onManageClick);
   $('#b-menu').addEventListener('click', () => openPause());
   $('#b-ledger').addEventListener('click', () => openLedger());
+  $('#b-mix').addEventListener('click', () => openMixer());
   $('#b-sound').addEventListener('click', () => { unlock(); G.settings.sound = !G.settings.sound; saveSettings(); if (G.settings.sound) sfx('coin'); });
   document.addEventListener('click', onAnyClick, true);
   document.addEventListener('keydown', onKey);

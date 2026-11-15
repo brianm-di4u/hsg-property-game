@@ -57,6 +57,57 @@ export const tests = [
     },
   },
   {
+    name: 'S5-07 the volume sliders say their level and the effects slider plays a tick, at most every 150 ms',
+    async run(t) {
+      await t.game('scene', 'settings');
+      await t.waitForStable();
+      const slide = (sel, values) => t.page.evaluate(([q, vs]) => { const el = document.querySelector(q); for (const v of vs) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); } return el.getAttribute('aria-valuetext'); }, [sel, values]);
+      const heard = async () => (await t.game('audioState')).count;
+      const stored = () => t.page.evaluate(() => JSON.parse(localStorage.getItem('hs-barons-settings-v1')));
+      t.equal(await t.page.locator('[data-vol]').getAttribute('aria-valuetext'), 'Sound effects volume 35 percent', 'effects slider reads its level');
+      let n = await heard();
+      t.equal(await slide('[data-vol]', [0.5, 0.6, 0.7, 0.8, 0.9]), 'Sound effects volume 90 percent', 'the text follows the slider');
+      t.equal((await heard()) - n, 1, 'five quick moves play one tick');
+      t.equal((await stored()).vol, 0.9, 'and the level is saved');
+      n = await heard();
+      t.equal(await slide('[data-mvol]', [0.2]), 'Music volume 20 percent', 'music slider reads its level');
+      t.equal(await slide('[data-avol]', [0.4]), 'Ambience volume 40 percent', 'ambience slider reads its level');
+      t.equal((await heard()) - n, 0, 'music and ambience are heard as they are, with no extra tick');
+      const st = await stored();
+      t.equal(st.mvol, 0.2, 'music level saved'); t.equal(st.avol, 0.4, 'ambience level saved');
+    },
+  },
+  {
+    name: 'S5-07 the quick volume sheet opens from the table, changes the levels and gives the game back',
+    async run(t) {
+      await start(t);
+      await t.shot('S5-07-topbar');
+      const bar = await t.page.evaluate(() => { const c = document.querySelector('#clock .month'); return { clipped: c.scrollWidth > c.clientWidth + 1, sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }; });
+      t.expect(!bar.clipped && bar.sw <= bar.cw, 'the month title is not squeezed and nothing scrolls sideways');
+      const before = await g(t);
+      const open = async () => {
+        if (await t.page.locator('#b-mix').isVisible()) await click(t, '#b-mix');
+        else { await t.game('act', 'open', 'pause'); await click(t, '#modal [data-mixer]'); } // a phone's top bar has no room: Menu, then Volume
+        await t.waitForStable();
+      };
+      t.equal(await t.page.locator('#b-mix').isVisible(), t.viewport === 'desktop', 'the top bar button shows where there is room (a phone uses Menu)');
+      await open();
+      t.equal((await t.state()).dialog, 'mixer', 'the volume sheet opens');
+      t.equal(await t.page.locator('#modal input[type=range]').count(), 3, 'with effects, music and ambience');
+      t.expect(/Music volume 70 percent/.test(await t.page.locator('#modal [data-mvol]').getAttribute('aria-valuetext')), 'each slider says its level');
+      await t.shot('S5-07-mixer');
+      await t.checkLayout();
+      await t.page.evaluate(() => { const el = document.querySelector('#modal [data-mvol]'); el.value = 0.3; el.dispatchEvent(new Event('input', { bubbles: true })); });
+      t.equal((await t.state()).settings.mvol, 0.3, 'the music level moved');
+      await t.page.keyboard.press('Escape');
+      t.equal((await t.state()).dialog, null, 'Escape closes the sheet');
+      t.equal(JSON.stringify((await g(t)).log), JSON.stringify(before.log), 'the game went on untouched');
+      await open();
+      await click(t, '#modal [data-ok]');
+      t.equal((await t.state()).dialog, null, 'Done closes it');
+    },
+  },
+  {
     name: 'S6-10 blocked storage says so on the title, in the first move and in the menu',
     initScript: () => { Storage.prototype.setItem = function () { throw new DOMException('blocked', 'SecurityError'); }; },
     async run(t) {
