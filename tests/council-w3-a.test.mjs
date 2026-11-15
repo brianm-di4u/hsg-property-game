@@ -108,6 +108,79 @@ export const tests = [
     },
   },
   {
+    name: 'S6-19 the engine lets a baron resign on their own turn and nowhere else',
+    node: true,
+    async run(t) {
+      const mk = () => E.createGame({ seed: 4, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }, { kind: 'ai', persona: 'banker' }] });
+      let s = mk();
+      t.expect(E.legal(s).some((a) => a.type === 'resign'), 'resign is legal before a roll');
+      s.lots[1].owner = 0; s.lots[1].level = 1; s.lots[4].owner = 0; s.players[0].cash = 400;
+      let r = E.apply(s, { type: 'resign' });
+      t.expect(r.ok, 'and works');
+      t.expect(s.players[0].out && s.players[0].cash === 0, 'the baron is out with no cash');
+      t.equal(s.lots[1].owner, -1, 'lots go back to the town'); t.equal(s.lots[1].level, 0, 'without buildings');
+      t.equal(s.turn, 1, 'the turn passes to the next baron'); t.equal(s.phase, 'roll', 'who may roll');
+      t.expect(!s.ended, 'two barons play on');
+      t.expect(r.events.some((e) => e.t === 'bankrupt' && e.resigned), 'the event says it was a resignation');
+      t.expect(/Ada resigns/.test(s.log[s.log.length - 1]), 'and so does the ledger');
+      s = mk(); E.apply(s, { type: 'roll' });
+      if (s.phase === 'buy') { t.expect(!E.legal(s).some((a) => a.type === 'resign'), 'not while a buy decision waits'); r = E.apply(s, { type: 'resign' }); t.expect(!r.ok, 'and refused if tried'); E.apply(s, { type: 'buy' }); }
+      t.expect(E.legal(s).some((a) => a.type === 'resign'), 'legal again after the landing is settled (post)');
+      s = E.createGame({ seed: 4, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }] });
+      E.apply(s, { type: 'resign' });
+      t.expect(s.ended && s.winner === 1, 'in a two-baron game the other baron wins');
+      s = mk(); s.turn = 1; r = E.apply(s, { type: 'resign', pid: 0 });
+      t.expect(!r.ok, 'no one can resign for another baron');
+    },
+  },
+  {
+    name: 'S6-19 Resign in the menu takes two taps, and only on your own turn',
+    async run(t) {
+      await start(t);
+      await mod(t, (s) => { s.lots[1].owner = 0; s.lots[3].owner = 0; s.lots[4].owner = 0; });
+      await t.game('act', 'open', 'pause');
+      const rb = t.page.locator('#modal [data-resign]');
+      t.equal(await rb.count(), 1, 'the menu has a Resign button');
+      t.expect(await rb.isEnabled(), 'enabled on your turn');
+      await t.shot('S6-19-menu');
+      await rb.click();
+      t.expect(/Tap again: Ada leaves the table/.test(await rb.textContent()), 'the first tap asks again');
+      t.equal((await g(t)).players[0].out, false, 'and changes nothing');
+      await t.page.keyboard.press('Escape');
+      await t.game('act', 'open', 'pause');
+      t.equal((await t.page.locator('#modal [data-resign]').textContent()).trim(), 'Resign', 'closing the menu forgets the first tap');
+      await t.page.locator('#modal [data-resign]').click();
+      await t.shot('S6-19-confirm', { wait: false });
+      await t.page.locator('#modal [data-resign]').click();
+      await t.waitForStable();
+      const s = await g(t);
+      t.expect(s.players[0].out, 'the second tap resigns');
+      t.equal(s.lots[1].owner, -1, 'her lots go back to the town');
+      t.equal((await t.state()).dialog, null, 'the menu is closed');
+      t.equal((await t.state()).scene, 'game', 'three barons play on');
+      t.expect(s.turn !== 0, 'the turn has moved on');
+      // an AI's turn: the button waits
+      await mod(t, (x) => { x.players[0].out = false; x.turn = 1; });
+      await t.game('act', 'aiPause', true);
+      await t.game('act', 'open', 'pause');
+      t.expect(!(await t.page.locator('#modal [data-resign]').isEnabled()), 'disabled while a rival is to play');
+      t.expect(/on your own turn/.test(await t.page.locator('#modal').textContent()), 'and says why');
+    },
+  },
+  {
+    name: 'S6-19 resigning from a two-baron game goes to the results',
+    async run(t) {
+      await start(t, { seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }] });
+      await t.game('act', 'open', 'pause');
+      await t.page.locator('#modal [data-resign]').click();
+      await t.page.locator('#modal [data-resign]').click();
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 8000 });
+      const s = await g(t);
+      t.equal(s.winner, 1, 'the rival wins');
+      await t.checkLayout({ allowScrollY: true });
+    },
+  },
+  {
     name: 'S6-10 blocked storage says so on the title, in the first move and in the menu',
     initScript: () => { Storage.prototype.setItem = function () { throw new DOMException('blocked', 'SecurityError'); }; },
     async run(t) {

@@ -484,3 +484,7 @@ body.theme-dark { --grain: rgba(216, 207, 189, .035); }
 .mixrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 700; }
 .mixrow input[type=range] { width: 170px; max-width: 100%; }
 @media (max-width: 820px), (max-aspect-ratio: 1/1) { #b-mix { display: none; } } /* the phone's top bar has no room: Menu has a Volume button */
+
+/* ---------- resign (wave 3: S6-19) ---------- */
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+.btn.danger.primary { background: var(--danger); color: var(--on-primary); }

@@ -375,7 +375,7 @@ async function present(e) {
     case 'month': G.coach.month = true; sfx('month', { m: e.month }); toast(`${MONTHS[e.month]}, Year ${e.year + 1}`); break;
     case 'trade': cue('coin', e.from); toast('Trade accepted'); break;
     case 'declined': sfx('declined'); toast(`${P(e.to).name} declines the offer`); break;
-    case 'bankrupt': cue('bust', e.pid); toast(`${P(e.pid).name} is bankrupt`, 2400); await sleep(500); break;
+    case 'bankrupt': cue('bust', e.pid); toast(`${P(e.pid).name} ${e.resigned ? 'resigns' : 'is bankrupt'}`, 2400); await sleep(500); break;
     case 'dividend': sfx('coin', { pitch: sumPitch(e.amount) }); toast(`Common dividend: ${money(e.amount)} each`); break;
     case 'turn': if (P(e.pid).kind === 'human') sfx('turn'); break;
     case 'again': cue('again', e.pid); break;
@@ -643,12 +643,20 @@ function openMixer() {
 }
 function openPause() {
   if (!G.s) return;
+  // Resign (S6-19): a human baron leaves the table on their own turn. Two taps, as for bankruptcy.
+  const me = humanActor(), canResign = !!me && can('resign'), anyHuman = G.s.players.some((p) => p.kind === 'human' && !p.out);
   openDialog(`<h2 id="dlg-title">Menu</h2><p class="fine goal">${esc(GOAL_TEXT)}</p>${G.noSave ? `<p class="nosave" role="status">${NOSAVE_NOTE}</p>` : ''}<div class="menu">
     <button class="btn primary" data-ok>Resume</button>
     <button class="btn" data-go="help">How to play</button>
     <button class="btn" data-mixer>Volume</button>
     <button class="btn" data-go="settings">Settings</button>
-    <button class="btn" data-go="title">Save and quit to title</button></div>`, { name: 'pause' });
+    ${anyHuman ? `<button class="btn danger" data-resign ${canResign ? '' : 'disabled aria-describedby="resign-why"'}>Resign</button>` : ''}
+    <button class="btn" data-go="title">Save and quit to title</button></div>${anyHuman && !canResign ? '<p class="fine" id="resign-why">You can resign on your own turn.</p>' : ''}`, { name: 'pause' });
+  const rb = $('#modal').querySelector('[data-resign]');
+  if (rb && canResign) rb.addEventListener('click', () => {
+    if (!rb.dataset.sure) { rb.dataset.sure = '1'; rb.textContent = `Tap again: ${me.name} leaves the table`; rb.classList.add('primary'); return; }
+    closeDialog(true); perform({ type: 'resign' });
+  });
   $('#modal').querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => { const to = b.dataset.go; closeDialog(true); G.back = 'game'; scene(to); }));
   $('#modal').querySelector('[data-mixer]').addEventListener('click', () => { closeDialog(true); openMixer(); }); // the card has let go of the music, so the sliders can be heard
 }

@@ -185,13 +185,14 @@ export function legal(s) {
       out.push({ type: 'roll' });
       if (p.held) { if (p.cash >= RULES.bail) out.push({ type: 'bail' }); if (p.pardons) out.push({ type: 'pardon' }); }
       manage(a, false); if (offersLeft(s) > 0) out.push({ type: 'propose' });
+      out.push({ type: 'resign' });
       break;
     }
     case 'buy': out.push({ type: 'buy' }, { type: 'decline' }); break;
     case 'auction': out.push({ type: 'bid', min: nextMin(s) }, { type: 'pass' }); break;
     case 'trade': out.push({ type: 'respond', accept: true }, { type: 'respond', accept: false }); break;
     case 'debt': manage(a, true); out.push({ type: 'bankrupt' }); break;
-    case 'post': manage(a, false); if (offersLeft(s) > 0) out.push({ type: 'propose' }); out.push({ type: 'end' }); break;
+    case 'post': manage(a, false); if (offersLeft(s) > 0) out.push({ type: 'propose' }); out.push({ type: 'end' }, { type: 'resign' }); break;
   }
   return out;
 }
@@ -272,6 +273,9 @@ export function apply(s, act) {
       endTurn(s, ev);
     } else if (t === 'bankrupt' && s.phase === 'debt') {
       goBankrupt(s, ev);
+    } else if (t === 'resign' && inManage) {
+      // A baron may leave the table on their own turn without owing anything: the same as bankruptcy to the town (S6-19).
+      goBankrupt(s, ev, { pid: p.id, to: -1 }, true); s.phase = 'post'; s.resume = null;
     } else return fail(`illegal action ${t} in ${s.phase}`);
   } catch (e) { return fail(String(e && e.message || e)); }
   settle(s, ev);
@@ -434,8 +438,8 @@ function settle(s, ev) {
   checkEnd(s, ev);
 }
 
-function goBankrupt(s, ev) {
-  const d = s.debts.shift(), p = s.players[d.pid];
+function goBankrupt(s, ev, owed = s.debts.shift(), resigned = false) {
+  const d = owed, p = s.players[d.pid];
   const creditor = d.to >= 0 && !s.players[d.to].out ? d.to : -1;
   for (const i of owned(s, p.id)) {
     const lot = s.lots[i];
@@ -450,8 +454,8 @@ function goBankrupt(s, ev) {
   s.debts = s.debts.filter((x) => x.pid !== p.id);
   s.stats.bankruptcies.push({ pid: p.id, round: s.round, to: creditor });
   if (!s.stats.firstBankruptRound) s.stats.firstBankruptRound = s.round;
-  ev.push({ t: 'bankrupt', pid: p.id, to: creditor });
-  log(s, `${p.name} is bankrupt${creditor >= 0 ? `; everything goes to ${s.players[creditor].name}` : '; lots return to the town'}.`);
+  ev.push({ t: 'bankrupt', pid: p.id, to: creditor, resigned });
+  log(s, `${p.name} ${resigned ? 'resigns' : 'is bankrupt'}${creditor >= 0 ? `; everything goes to ${s.players[creditor].name}` : '; lots return to the town'}.`);
   if (s.pending && s.pending.kind === 'auction') s.pending.out.push(p.id);
 }
 
