@@ -72,7 +72,8 @@ export function threat(s, q, i, extra = []) {
 }
 const maxThreat = (s, pid, i) => Math.max(0, ...active(s).filter((q) => q.id !== pid).map((q) => threat(s, q.id, i)));
 
-export function evalTrade(s, pid, o) {
+// The parts of a trade's worth to the baron pid, so a refusal can say which part sank it (S2-10).
+function tradeParts(s, pid, o) {
   // o from proposer's view: give (to pid) / get (from pid). Value to pid of accepting.
   const per = persona(s, pid), lv = levelOf(s, pid);
   const recv = o.give.lots, lose = o.get.lots;
@@ -81,12 +82,34 @@ export function evalTrade(s, pid, o) {
   for (const i of lose) gain -= lotValue(s, pid, i);
   gain += o.give.cash - o.get.cash;
   // Threat: lots that would complete the proposer's district.
-  for (const i of lose) gain -= 0.85 * lv.threat * threat(s, o.from, i, lose);
+  let threatCost = 0, net = gain; // net keeps the order of the sums the AI always used, so no old decision moves
+  for (const i of lose) { const c = 0.85 * lv.threat * threat(s, o.from, i, lose); threatCost += c; net -= c; }
   // Liquidity: don't accept trades that leave us broke.
   const cashAfter = s.players[pid].cash + o.give.cash - o.get.cash;
-  if (cashAfter < reserveFor(s, pid) * 0.5) gain -= (reserveFor(s, pid) * 0.5 - cashAfter);
+  const cashCost = cashAfter < reserveFor(s, pid) * 0.5 ? reserveFor(s, pid) * 0.5 - cashAfter : 0;
+  net -= cashCost;
   const moved = [...recv, ...lose].reduce((a, i) => a + SPACES[i].price, 0) + o.give.cash + o.get.cash;
-  return gain - margin(s, per) * lv.margin * (1 + TRADE_AI.repeat * earlierOffers(s, o)) * moved;
+  const marginCost = margin(s, per) * lv.margin * (1 + TRADE_AI.repeat * earlierOffers(s, o)) * moved;
+  return { threatCost, cashCost, marginCost, score: net - marginCost };
+}
+export const evalTrade = (s, pid, o) => tradeParts(s, pid, o).score;
+
+// Why baron pid turns an offer down, in a phrase for the toast and the ledger, with the nearest cash the proposer could add that
+// would be taken (S2-10); '' when it would be accepted. The reason is the first part that, taken out, would turn the answer to yes.
+export const COUNTER_STEP = 10, COUNTER_MAX = 3000;
+export function declineWhy(s, pid, o) {
+  const p = tradeParts(s, pid, o);
+  if (p.score > 0) return '';
+  let why;
+  if (p.cashCost > 0 && p.score + p.cashCost > 0) why = 'it would leave too little cash';
+  else if (p.threatCost > 0 && p.score + p.threatCost > 0) why = 'that lot would finish your district';
+  else if (o.get.lots.some((i) => SPACES[i].type === 'lot' && LOTS_BY_D[SPACES[i].d].some((j) => j !== i && ownerOf(s, j) === pid))) why = 'that lot is part of a district already held';
+  else why = 'the price is too low';
+  const room = s.players[o.from].cash - o.give.cash;
+  for (let extra = COUNTER_STEP; extra <= Math.min(COUNTER_MAX, room); extra += COUNTER_STEP) {
+    if (evalTrade(s, pid, { ...o, give: { lots: o.give.lots, cash: o.give.cash + extra } }) > 0) return `${why}; about ${'$' + extra.toLocaleString('en-US')} more might do`;
+  }
+  return why;
 }
 // Offers this baron already made this month, not counting this one: whoever keeps probing for the lowest
 // price the AI will take is met with a harder bargain each time.
@@ -131,7 +154,7 @@ export function aiAction(s) {
       }
       return { type: 'pass' };
     }
-    case 'trade': return { type: 'respond', accept: evalTrade(s, pid, s.pending) > 0 };
+    case 'trade': { const accept = evalTrade(s, pid, s.pending) > 0; return accept ? { type: 'respond', accept } : { type: 'respond', accept, why: declineWhy(s, pid, s.pending) }; }
     case 'debt': return raiseCash(s, pid, L);
     case 'roll': {
       if (p.held) {

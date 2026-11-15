@@ -313,7 +313,7 @@ export function apply(s, act) {
         const err = validateOffer(s, o.from, o);
         if (err) { s.phase = o.back; s.pending = null; return fail(err); }
         doTrade(s, o, ev);
-      } else { ev.push({ t: 'declined', from: o.from, to: o.to }); log(s, `${s.players[o.to].name} declines.`); }
+      } else { const why = typeof act.why === 'string' ? act.why.slice(0, 120) : ''; ev.push({ t: 'declined', from: o.from, to: o.to, why }); log(s, `${s.players[o.to].name} declines${why ? `: ${why}` : ''}.`); }
       s.phase = o.back; s.pending = null;
     } else if (t === 'end' && s.phase === 'post') {
       endTurn(s, ev);

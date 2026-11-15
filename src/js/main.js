@@ -379,7 +379,7 @@ async function present(e) {
     case 'card': await showCard(e); break;
     case 'month': G.coach.month = true; sfx('month', { m: e.month }); toast(`${MONTHS[e.month]}, Year ${e.year + 1}`); break;
     case 'trade': cue('coin', e.from); toast('Trade accepted'); break;
-    case 'declined': sfx('declined'); toast(`${P(e.to).name} declines the offer`); break;
+    case 'declined': sfx('declined'); toast(`${P(e.to).name} declines the offer${e.why ? `: ${e.why}` : ''}`, e.why ? 3400 : 1600); break;
     case 'bankrupt': cue('bust', e.pid); toast(`${P(e.pid).name} ${e.resigned ? 'resigns' : 'is bankrupt'}`, 2400); await sleep(500); break;
     case 'dividend': sfx('coin', { pitch: sumPitch(e.amount) }); toast(`Common dividend: ${money(e.amount)} each`); break;
     case 'turn': if (P(e.pid).kind === 'human') sfx('turn'); break;

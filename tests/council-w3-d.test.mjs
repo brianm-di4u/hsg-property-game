@@ -127,3 +127,77 @@ tests.push({
     }
   },
 });
+
+// ---------- S2-10: a rival's refusal of a trade says why ----------
+import * as AI from '../src/js/ai.js';
+const GH = LOTS_BY_D.gh;
+function tradeTable() {
+  const s = E.createGame({ seed: 4, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }, { kind: 'human', name: 'Ben' }] });
+  for (const i of OWNABLE) s.lots[i].owner = -1;
+  s.lots[BP[0]].owner = 1; s.lots[BP[1]].owner = 1; s.lots[BP[2]].owner = 0; // the rival holds two Ballparks, Ada the third
+  s.lots[FV[0]].owner = 1; s.lots[FV[1]].owner = 0;
+  return s;
+}
+const offer = (from, giveLots, giveCash, getLots, getCash) => ({ from, to: 1, give: { lots: giveLots, cash: giveCash }, get: { lots: getLots, cash: getCash } });
+const counterOf = (why) => { const m = /about \$([\d,]+) more/.exec(why); return m ? +m[1].replace(/,/g, '') : 0; };
+tests.push({
+  name: 'S2-10 the AI gives the reason it refuses an offer, and a counter that it would take',
+  node: true,
+  async run(t) {
+    const s = tradeTable();
+    let o = offer(0, [], 5, [FV[0]], 0), why = AI.declineWhy(s, 1, o);
+    t.expect(/^the price is too low/.test(why), `a $5 offer for a lot: "${why}"`);
+    const c = counterOf(why);
+    t.expect(c >= 10 && c % 10 === 0, `it names a counter in tens (${c})`);
+    t.expect(AI.evalTrade(s, 1, offer(0, [], 5 + c, [FV[0]], 0)) > 0, 'the counter is taken');
+    t.expect(AI.evalTrade(s, 1, offer(0, [], 5 + c - 10, [FV[0]], 0)) <= 0, 'and $10 less is not: it is the nearest');
+    t.equal(AI.declineWhy(s, 1, offer(0, [], 5 + c, [FV[0]], 0)), '', 'an offer it accepts has no reason');
+    why = AI.declineWhy(s, 1, offer(0, [], 300, [BP[0]], 0));
+    t.expect(/finish your district/.test(why), `asking for the lot that completes the proposer's district: "${why}"`);
+    why = AI.declineWhy(s, 1, offer(2, [], 100, [BP[0]], 0));
+    t.expect(/part of a district already held/.test(why), `a third baron asking for a lot of a district the rival is building: "${why}"`);
+    // A rich table makes the rival's reserve large; a thin purse then sinks an offer that the lot itself would have won.
+    for (const i of GH) { s.lots[i].owner = 2; s.lots[i].level = 4; }
+    s.players[1].cash = 400;
+    why = AI.declineWhy(s, 1, offer(0, [FV[1]], 0, [], 100));
+    t.expect(/too little cash/.test(why), `an offer that leaves the rival short: "${why}"`);
+    // The counter never asks for more than the proposer has.
+    s.players[0].cash = 30;
+    t.equal(counterOf(AI.declineWhy(s, 1, offer(0, [], 5, [FV[0]], 0))), 0, 'no counter is named that the proposer cannot pay');
+    // An AI decision carries the reason; the engine puts it in the event and the ledger.
+    const g = E.createGame({ seed: 9, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }] });
+    for (const i of OWNABLE) g.lots[i].owner = -1;
+    g.lots[FV[0]].owner = 1;
+    t.expect(E.apply(g, { type: 'propose', to: 1, give: { lots: [], cash: 5 }, get: { lots: [FV[0]], cash: 0 } }).ok, 'the offer is made');
+    const act = AI.aiAction(g);
+    t.equal(act.accept, false, 'the rival refuses');
+    t.expect(typeof act.why === 'string' && act.why.length > 5, 'and says why');
+    const r = E.apply(g, act), ev = r.events.find((e) => e.t === 'declined');
+    t.equal(ev && ev.why, act.why, 'the event carries it');
+    t.expect(g.log[g.log.length - 1].includes(act.why), 'and so does the ledger');
+    const h = E.createGame({ seed: 9, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'human', name: 'Ben' }] });
+    for (const i of OWNABLE) h.lots[i].owner = -1;
+    h.lots[FV[0]].owner = 1;
+    t.expect(E.apply(h, { type: 'propose', to: 1, give: { lots: [], cash: 5 }, get: { lots: [FV[0]], cash: 0 } }).ok, 'a human offer to a human');
+    E.apply(h, { type: 'respond', accept: false });
+    t.equal(h.log[h.log.length - 1], 'Ben declines.', 'a human declining is as before');
+  },
+});
+tests.push({
+  name: 'S2-10 the refusal is shown in the toast and the ledger',
+  async run(t) {
+    await start(t, { seed: 3 });
+    await mod(t, (s) => { for (const i of OWNABLE) s.lots[i].owner = -1; s.lots[FV[0]].owner = 1; });
+    await act(t, { type: 'propose', to: 1, give: { lots: [], cash: 5 }, get: { lots: [FV[0]], cash: 0 } });
+    await t.game('act', 'ai');
+    await t.waitForStable();
+    const s = await g(t);
+    t.equal(s.lots[FV[0]].owner, 1, 'the lowball was refused');
+    const want = /declines the offer: the price is too low; about \$[\d,]+ more might do/;
+    await t.page.waitForFunction((src) => new RegExp(src).test(document.getElementById('event').textContent), want.source, { timeout: 5000 });
+    t.expect(want.test(await t.page.locator('#event').innerText()), 'the toast under the turn bar says why');
+    t.expect(s.log.some((l) => /declines: the price is too low/.test(l)), 'the ledger says why');
+    await t.shot('S2-10-declined');
+    await t.checkLayout();
+  },
+});
