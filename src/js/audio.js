@@ -281,7 +281,8 @@ async function measureAudio(build, seconds, o = {}) {
   const rate = o.rate || 22050, OC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   const oc = new OC(2, Math.ceil(rate * seconds), rate), made = build(oc, oc.destination);
   const buf = await oc.startRendering(), L = buf.getChannelData(0), R = buf.getChannelData(1), n = L.length;
-  let peak = 0, mid = 0, side = 0, run = 0, longest = 0; const secs = [];
+  let peak = 0, mid = 0, side = 0, run = 0, longest = 0; const secs = [], tenths = [];
+  for (let k = 0; k * rate / 10 < Math.min(n, rate * 2); k++) { let e = 0; const a = Math.floor(k * rate / 10), b = Math.min(n, Math.floor((k + 1) * rate / 10)); for (let i = a; i < b; i++) e += (L[i] * L[i] + R[i] * R[i]) / 2; tenths.push(+Math.sqrt(e / Math.max(1, b - a)).toFixed(5)); }
   for (let s = 0; s * rate < n; s++) {
     const end = Math.min(n, (s + 1) * rate); let e = 0;
     for (let i = s * rate; i < end; i++) { const a = (L[i] + R[i]) / 2, d = (L[i] - R[i]) / 2, p = Math.max(Math.abs(L[i]), Math.abs(R[i])); if (p > peak) peak = p; e += a * a; side += d * d; }
@@ -289,7 +290,7 @@ async function measureAudio(build, seconds, o = {}) {
     if (r < 0.001) { run++; longest = Math.max(longest, run); } else run = 0;
   }
   const rms = Math.sqrt(mid / n), db = (x) => +(20 * Math.log10(Math.max(x, 1e-9))).toFixed(1);
-  const res = { seconds, peak: +peak.toFixed(4), rms: +rms.toFixed(4), peakDb: db(peak), rmsDb: db(rms), longestSilence: longest, stereo: +(Math.sqrt(side / n) / (rms || 1)).toFixed(3), secs, built: typeof made === 'function' ? made() : made };
+  const res = { seconds, peak: +peak.toFixed(4), rms: +rms.toFixed(4), peakDb: db(peak), rmsDb: db(rms), longestSilence: longest, tenths, stereo: +(Math.sqrt(side / n) / (rms || 1)).toFixed(3), secs, built: typeof made === 'function' ? made() : made };
   if (o.wav) {
     const bytes = new Uint8Array(44 + n * 4), v = new DataView(bytes.buffer), str = (at, s) => { for (let i = 0; i < s.length; i++) bytes[at + i] = s.charCodeAt(i); };
     str(0, 'RIFF'); v.setUint32(4, 36 + n * 4, true); str(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true); v.setUint32(24, rate, true); v.setUint32(28, rate * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 4, true);
@@ -364,7 +365,7 @@ const SCENES = {
 
 // ============================================================================================ cues
 // Per-cue trim, set from the measurements in tests/council-w2-a.test.mjs so every cue peaks near 0.3.
-const TRIM = { buy: 0.7, jail: 0.6, dice: 0.58, land: 0.7, tax: 0.65, build: 0.64, gavel: 0.62, bust: 0.45, mort: 0.6, unmort: 0.66, sell: 0.71, debt: 0.6, deed: 0.9, month: 0.8, turn: 0.82, release: 0.9, error: 0.85 };
+const TRIM = { buy: 0.7, jail: 0.6, dice: 0.7, land: 0.7, tax: 0.65, build: 0.64, gavel: 0.62, bust: 0.45, mort: 0.6, unmort: 0.66, sell: 0.71, debt: 0.6, deed: 0.9, month: 0.8, turn: 0.82, release: 0.9, error: 0.85 };
 const CUE_NAMES = ['click', 'open', 'close', 'deed', 'dice', 'step', 'land', 'coin', 'pay', 'tax', 'card', 'build', 'gavel', 'bid', 'drop', 'error', 'fanfare', 'bust',
   'turn', 'again', 'release', 'mort', 'unmort', 'sell', 'auctionStart', 'unsold', 'offer', 'declined', 'month', 'debt', 'ach', 'buy', 'jail'];
 // Each rival's voice (S5-19): its cues are sung a few semitones from the shared pitch, and a lot it buys is stamped with
@@ -378,6 +379,9 @@ export const VOICES = {
   preservationist: { semi: -2, type: 'sine', motif: [0, 2, 7] },
   gambler: { semi: 5, type: 'square', motif: [0, 6, 3] },
 };
+// The dice toss: how long the drawn throw lasts and where in it (0 to 1) the dice touch the table. main.js draws the bounce
+// as |sin(q * 2.5 pi)| (1 - q), which is on the table at 0.4 and 0.8 and settles at 1; the cue hits at the same moments.
+export const DICE_MS = 760, DICE_BOUNCES = 2.5, DICE_LANDS = [1, 2, 2.5].map((k) => k / 2.5);
 const PENTA = [72, 74, 76, 79, 81, 84, 86, 88, 91, 93];   // C pentatonic over two octaves, walked upward by a move
 const BELL = [[1, 1], [2.76, 0.35], [5.4, 0.15]];
 
@@ -415,14 +419,15 @@ function makeCues(ctx, out, kit) {
     open: (d, t, j) => { tone(d, t, 660 * j.f, { type: 'triangle', dur: 0.09, g: 0.26 * j.g, slide: 1.35, lp: 2600 }); hit(d, t, { f: 3200, dur: 0.02, g: 0.2 * j.g, off: j.o }); },
     close: (d, t, j) => { tone(d, t, 520 * j.f, { type: 'triangle', dur: 0.09, g: 0.26 * j.g, slide: 0.74, lp: 2200 }); hit(d, t, { f: 2200, dur: 0.02, g: 0.2 * j.g, off: j.o }); },
     deed: (d, t, j) => { hit(d, t, { f: 1200, to: 3600, q: 0.7, dur: 0.12, att: 0.03, g: 0.5 * j.g, off: j.o }); tone(d, t + 0.1, 740 * j.f, { type: 'triangle', dur: 0.06, g: 0.2 * j.g, lp: 2400 }); },
+    // S5-08: a soft rattle while the dice tumble, then an impact each time they meet the table, at the moments the drawn dice
+    // do (DICE_LANDS of DICE_MS), the second die a hair behind the first, each softer as the bounce dies.
     dice: (d, t, j) => {
-      const n = 5; let at = t;
-      for (let k = 0; k < n; k++) {
-        const fall = 1 - k / n;
-        hit(d, at, { f: 1200 + ((j.o * 977 + k * 613) % 2300), q: 0.8, dur: 0.05, g: 0.55 * j.g * (0.45 + 0.55 * fall), off: j.o + k * 0.13 });
-        tone(d, at, 150 * j.f * (1 + 0.1 * k), { dur: 0.07, g: 0.3 * j.g * (0.4 + 0.6 * fall), lp: 500, slide: 0.7 });
-        at += 0.055 + 0.02 * k + 0.012 * ((j.o * 10 + k) % 3);
-      }
+      hit(d, t, { f: 1800, q: 0.6, dur: 0.28, att: 0.08, g: 0.1 * j.g, off: j.o });
+      DICE_LANDS.forEach((q, n) => [0, 0.035].forEach((lag, k) => {
+        const at = t + DICE_MS / 1000 * q + lag, a = (1 - q) * 0.8 + 0.2, i = n * 2 + k;
+        hit(d, at, { f: 1200 + ((j.o * 977 + i * 613) % 2300), q: 0.8, dur: 0.05, att: 0.002, g: 0.55 * j.g * a * (k ? 0.85 : 1), off: j.o + i * 0.13 });
+        tone(d, at, 150 * j.f * (1 + 0.1 * i), { dur: 0.07, g: 0.3 * j.g * a, lp: 500, slide: 0.7 });
+      }));
     },
     step: (d, t, j, o) => {
       const i = o.i || 0, n = i < 10 ? i : 9 - (i % 2), f = hz(PENTA[n]) * j.f;

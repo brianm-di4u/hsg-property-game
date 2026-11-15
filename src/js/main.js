@@ -3,7 +3,7 @@ import { SPACES, DISTRICTS, DISTRICT_ORDER, LOTS_BY_D, MONTHS, PERSONAS, PERSONA
 import * as E from './engine.js';
 import { aiAction } from './ai.js';
 import * as R from './render.js';
-import { audio, haptic, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAudio, audioList, audioRender, audioState } from './audio.js';
+import { audio, haptic, DICE_MS, DICE_BOUNCES, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAudio, audioList, audioRender, audioState } from './audio.js';
 import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
@@ -322,12 +322,12 @@ function throwDice(a, b) {
   const end = [{ x: h.x - h.gap + (Math.random() - 0.5) * h.gap * 0.6, y: h.y + (Math.random() - 0.5) * h.gap * 0.5 }, { x: h.x + h.gap + (Math.random() - 0.5) * h.gap * 0.6, y: h.y + (Math.random() - 0.5) * h.gap * 0.6 }];
   const rot = [Math.random() - 0.5, Math.random() - 0.5];
   D.yawA = Math.random() < 0.5 ? 0 : 1;
-  return animate(760, (p) => {
+  return animate(DICE_MS, (p) => {
     const e = 1 - Math.pow(1 - p, 3);
     D.tumbling = p < 0.82; D.frame = Math.floor(p * 26);
     D.pos = [0, 1].map((k) => {
       const q = Math.max(0, Math.min(1, (p - k * 0.04) / 0.96)), ee = 1 - Math.pow(1 - q, 3);
-      const bounce = Math.abs(Math.sin(q * Math.PI * 2.5)) * (1 - q) * h.size * 1.8;
+      const bounce = Math.abs(Math.sin(q * Math.PI * DICE_BOUNCES)) * (1 - q) * h.size * 1.8;
       return { x: start[k].x + (end[k].x - start[k].x) * ee, y: start[k].y + (end[k].y - start[k].y) * ee, lift: bounce, rot: rot[k] * (1 - e) * 6 + rot[k] * 0.4 };
     });
     if (p >= 1) { D.a = a; D.b = b; D.tumbling = false; } else if (p > 0.82) { D.a = a; D.b = b; }

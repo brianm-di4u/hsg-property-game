@@ -232,3 +232,22 @@ tests.push({
     t.expect(!h.includes('step'), 'and no footsteps for a token that jumps');
   },
 });
+
+// ---------- S5-08: the dice sound lands when the drawn dice land ----------
+import { DICE_LANDS, DICE_BOUNCES } from '../src/js/audio.js';
+tests.push({
+  name: 'S5-08 the dice cue is a quiet rattle and then impacts at the moments the drawn dice touch the table',
+  viewports: ['desktop'],
+  async run(t) {
+    // the drawn lift is |sin(q * 2.5 pi)| (1 - q): it is on the table exactly where the cue strikes
+    for (const q of DICE_LANDS) t.expect(Math.abs(Math.abs(Math.sin(q * Math.PI * DICE_BOUNCES)) * (1 - q)) < 1e-9, `the drawn dice are down at ${q}`);
+    await start(t);
+    const med = (a) => a.slice().sort((x, y) => x - y)[a.length >> 1];
+    const runs = []; for (const seed of [1, 2, 3, 4, 5]) runs.push((await t.game('audioRender', 'cue:dice', 2, false, { seed })).tenths);
+    const at = (k) => med(runs.map((r) => r[k]));
+    t.log(`tenths of a second: ${[0, 1, 2, 3, 4, 5, 6, 7, 8].map((k) => at(k).toFixed(3)).join(' ')}`);
+    t.expect(at(3) > 2.5 * at(1), 'the first impact (at 0.30 s) is well above the rattle before it');
+    t.expect(at(6) > 0.008 && at(6) > 5 * at(5), 'the second (at 0.61 s) stands out of the quiet before it');
+    t.expect(at(3) > at(6) && at(6) > at(8), 'and each bounce is softer than the last');
+  },
+});
