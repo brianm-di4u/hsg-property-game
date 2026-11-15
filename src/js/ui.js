@@ -111,7 +111,7 @@ export function helpHtml(tab) {
       <p>Pass or land on the Depot: collect ${money(RULES.payday)} Payday. Bathhouse Row lease holders pay $10 per lease then.</p>`)}
     ${more('Buying and auctions', `<p>Land on an unowned lot: buy it at the game price, or send it to auction. Everyone bids up from $10; the highest bid wins.</p>
       <p><strong>Bathhouse Row</strong> lots are federal leases: they always go to auction (opening at half price) and can't be mortgaged.</p>`)}
-    ${more('Rent and building', `<p>Land on someone's lot: pay rent. Owning a whole district doubles the base rent and lets you build: up to three bathhouses, then a <strong>Grand Resort</strong>. One level per lot per turn; selling returns half.</p>`)}
+    ${more('Rent and building', `<p>Land on someone's lot: pay rent. Owning a whole district doubles the base rent and lets you build: up to three bathhouses, then a <strong>Grand Resort</strong>. One level per lot per turn, and you may build on one lot ahead of its neighbours. Selling takes one level off at a time and returns half its cost; a Grand Resort sells back to three bathhouses.</p>`)}
     ${more('Mortgages, debt and bankruptcy', `<p>Mortgage a lot for half its price; it charges no rent until you lift the mortgage (half price + 10%).</p>
       <p>If you owe more than you have, sell buildings or mortgage. If you still can't pay, you're bankrupt: your holdings go to the creditor (or back to the town). You can also resign from the Menu on your own turn.</p>`)}
     ${more('Trading', `<p>Trade lots and cash with any baron on your turn, up to ${RULES.offersPerTurn} offers a turn. A baron who keeps asking drives a harder bargain each time. Lots in districts with buildings can't be traded.</p>`)}

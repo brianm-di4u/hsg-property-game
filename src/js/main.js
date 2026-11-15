@@ -692,7 +692,7 @@ function manageRender(debt) {
     const st = lot.mortgaged ? 'mortgaged' : lot.level === 4 ? 'Grand Resort' : lot.level ? `${lot.level} bathhouse${lot.level > 1 ? 's' : ''}` : 'no buildings';
     return `<li><span class="lname">${lotLabel(i)} <span class="fine">· ${st} · rent ${money(E.rentOf(s, i, 7))}</span></span>
       ${sp.type === 'lot' && !debt ? `<button class="btn" data-f="b${i}" data-act="build" data-i="${i}" ${has('build', i) ? '' : 'disabled'}>Build ${money(E.buildCost(i))}</button>` : ''}
-      ${sp.type === 'lot' ? `<button class="btn" data-f="s${i}" data-act="sell" data-i="${i}" ${has('sell', i) ? '' : 'disabled'}>Sell +${money(Math.floor(E.buildCost(i) * RULES.sellRate * (lot.level === 4 ? 4 : 1)))}</button>` : ''}
+      ${sp.type === 'lot' ? `<button class="btn" data-f="s${i}" data-act="sell" data-i="${i}" ${has('sell', i) ? '' : 'disabled'}>Sell +${money(Math.floor(E.buildCost(i) * RULES.sellRate))}</button>` : ''}
       ${lot.mortgaged ? `<button class="btn" data-f="u${i}" data-act="unmortgage" data-i="${i}" ${has('unmortgage', i) ? '' : 'disabled'}>Lift −${money(E.unmortgageCost(i))}</button>`
         : `<button class="btn" data-f="m${i}" data-act="mortgage" data-i="${i}" ${has('mortgage', i) ? '' : 'disabled'}>Mortgage +${money(sp.price / 2)}</button>`}</li>`;
   }).join('')}</ul>`).join('');

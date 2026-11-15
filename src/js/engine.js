@@ -254,8 +254,10 @@ export function apply(s, act) {
       log(s, `${p.name} builds ${lot.level === 4 ? 'a Grand Resort' : 'a bathhouse'} on ${SPACES[i].name} ($${c}).`);
     } else if (t === 'sell' && (inManage || s.phase === 'debt') && canSell(s, p.id, act.space)) {
       const i = act.space, lot = s.lots[i];
-      const back = Math.floor(buildCost(i) * RULES.sellRate * (lot.level === 4 ? 4 : 1));
-      lot.level = lot.level === 4 ? 0 : lot.level - 1; p.cash += back;
+      // One step at a time: a Grand Resort goes back to three bathhouses for one step's refund (P-N01; it was wiped to
+      // nothing for four steps' refund).
+      const back = Math.floor(buildCost(i) * RULES.sellRate);
+      lot.level--; p.cash += back;
       ev.push({ t: 'sell', pid: p.id, space: i, amount: back }); log(s, `${p.name} sells a building on ${SPACES[i].name} for $${back}.`);
     } else if (t === 'mortgage' && (inManage || s.phase === 'debt') && canMortgage(s, p.id, act.space)) {
       const i = act.space, amt = Math.floor(SPACES[i].price * RULES.mortgageRate);
