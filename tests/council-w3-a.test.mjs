@@ -454,6 +454,9 @@ export const tests = [
         t.expect(inside || (w < 390 && r.scrolls), `${w}px: every column header ends inside the card, or on the narrowest phones the table scrolls inside it (${r.ths.map((h) => Math.round(h.right)).join(', ')} of ${Math.round(r.cardRight)})`);
         if (w >= 360 || t.viewport === 'desktop') t.expect(!r.scrolls, `${w}px: nothing needs sideways scrolling, so the Trades column is whole`);
         t.equal(r.fineWide, 0, `${w}px: a persona's name wraps between words, never inside one`);
+        // C4-10: nothing is wide enough to overflow only because the line may break inside a word, so the rule itself is pinned
+        const brk = await t.page.evaluate(() => [...document.querySelectorAll('.over table.results .bn .fine')].filter((f) => { const c = getComputedStyle(f); return c.overflowWrap !== 'normal' || c.wordBreak !== 'normal'; }).length);
+        t.equal(brk, 0, `${w}px: the persona line may not break inside a word (overflow-wrap and word-break stay normal)`);
         if (w >= 390) t.expect(Math.max(...r.rows) < 130, `${w}px: rows stay compact (${Math.round(Math.max(...r.rows))} px)`);
         await t.shot(`S4-61-results-${w}`, { fullPage: true });
       }
