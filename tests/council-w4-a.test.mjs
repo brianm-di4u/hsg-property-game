@@ -169,3 +169,26 @@ tests.push({
   },
 });
 
+// ---------- C4-08: the loss sting plays once ----------
+tests.push({
+  name: 'C4-08 the last human going out sounds the loss sting once; an earlier human going out still sounds one',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t, { seed: 5, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'human', name: 'Ben' }, { kind: 'ai', persona: 'hotelier' }] });
+    await mod(t, (s) => { s.phase = 'post'; s.pending = null; s.turn = 0; });
+    await t.game('audioState', true);
+    await t.game('act', 'do', { type: 'resign' });
+    await t.waitForStable();
+    const first = (await t.game('audioState')).heard;
+    t.equal(first.filter((n) => n === 'bust').length, 1, `Ada resigns with a human still in: one bust (${first.join(',')})`);
+    t.equal((await g(t)).ended, false, 'the game goes on');
+    await mod(t, (s) => { s.phase = 'post'; s.pending = null; s.turn = 1; });
+    await t.game('audioState', true);
+    await t.game('act', 'do', { type: 'resign' });
+    await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 8000 });
+    const last = (await t.game('audioState')).heard;
+    t.equal(last.filter((n) => n === 'bust').length, 1, `Ben resigns as the last human: one bust, the ending's (${last.join(',')})`);
+    t.expect(!last.includes('fanfare'), 'and no fanfare');
+  },
+});
+

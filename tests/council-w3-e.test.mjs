@@ -85,9 +85,9 @@ tests.push({
   name: 'S3-19 a win sounds the fanfare and a loss the falling motif',
   async run(t) {
     const won = await finishWith(t, true), lost = await finishWith(t, false);
-    // the rival's resignation sounds one bust of its own; the ending adds the sting
+    // the rival's resignation sounds one bust of its own; the ending adds the sting. When the last human goes out, only the ending's sting plays (C4-08)
     t.expect(won[won.length - 1] === 'fanfare' && won.filter((n) => n === 'bust').length === 1, `the human's win: ${won.join(',')}`);
-    t.expect(!lost.includes('fanfare') && lost.filter((n) => n === 'bust').length === 2, `the human's loss: ${lost.join(',')}`);
+    t.expect(!lost.includes('fanfare') && lost.filter((n) => n === 'bust').length === 1, `the human's loss: ${lost.join(',')}`);
   },
 });
 tests.push({
