@@ -35,6 +35,7 @@ const G = {
 window.__G = G;
 
 // ---------- settings ----------
+const TEXT_SIZES = [1, 1.25, 1.5];
 function loadSettings() {
   const had = store.get(SETS) !== null || store.get(SAVE) !== null || store.get(CAREER_KEY) !== null; // a player who has been here before is not a newcomer
   try { const o = JSON.parse(store.get(SETS) || '{}'); if (o && typeof o === 'object' && !Array.isArray(o)) Object.assign(G.settings, o); } catch (e) { /* defaults */ }
@@ -45,6 +46,10 @@ function loadSettings() {
   for (const k of ['sfx', 'music', 'amb']) if (typeof st[k] !== 'boolean') st[k] = true;
   if (typeof st.haptics !== 'boolean') st.haptics = matchMedia('(pointer: coarse)').matches; // Vibration: on for a touch device, off elsewhere, until the player says
   if (typeof st.autoEnd !== 'boolean') st.autoEnd = false; // an option added later: off, as the game has always played
+  // a stored value that is not one the controls offer falls back to the default, so a hand-edited or damaged record cannot reach the CSS or the gain (S6-09)
+  if (typeof st.sound !== 'boolean') st.sound = true;
+  if (!TEXT_SIZES.includes(st.text)) st.text = 1;
+  for (const [k, ok, dflt] of [['motion', ['system', 'reduce', 'full'], 'system'], ['theme', ['auto', 'light', 'dark'], 'auto'], ['ai', Object.keys(AI_THINK), 'normal']]) if (!ok.includes(st[k])) st[k] = dflt;
   if (typeof st.vol !== 'number' || !(st.vol >= 0 && st.vol <= 1)) st.vol = 0.35;
   for (const k of ['mvol', 'avol']) if (typeof st[k] !== 'number' || !(st[k] >= 0 && st[k] <= 1)) st[k] = 0.7;
   applySettings();

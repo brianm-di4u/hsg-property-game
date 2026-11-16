@@ -195,3 +195,31 @@ tests.push({
     t.equal((await t.game('audioState')).errors, 1, 'audioState reports the same count');
   },
 });
+
+// ---------- S6-09: the settings record is not trusted ----------
+tests.push({
+  name: 'S6-09 a settings record with values the controls do not offer falls back to the defaults, and a good one is kept',
+  async run(t) {
+    const set = async (o) => { await t.page.evaluate(([k, v]) => localStorage.setItem(k, v), [SETS, JSON.stringify(o)]); await t.reload(); };
+    const read = () => t.page.evaluate(() => ({ st: window.__game.getState().settings, ts: document.documentElement.style.getPropertyValue('--ts'), dark: document.body.classList.contains('theme-dark'), reduce: document.body.classList.contains('reduce') }));
+    await set({ sound: 'yes', vol: 'abc', text: 'abc', motion: 'sideways', theme: 7, ai: null, sfx: 'x', mvol: {}, avol: [], autoEnd: 1 });
+    let r = await read();
+    t.equal(r.st.sound, true, 'sound is a boolean again');
+    t.equal(r.st.text, 1, 'text size is one of the three');
+    t.equal(r.ts, '1', 'and the page was given a number, not the junk');
+    t.equal(r.st.motion, 'system', 'motion falls back');
+    t.equal(r.st.theme, 'auto', 'theme falls back');
+    t.equal(r.st.ai, 'normal', 'AI speed falls back');
+    t.expect(r.st.vol === 0.35 && r.st.mvol === 0.7 && r.st.avol === 0.7, 'volumes fall back');
+    t.expect(r.st.sfx === true && r.st.autoEnd === false, 'the on/off options fall back');
+    await set({ sound: false, vol: 0.2, text: '1.25', motion: 'reduce', theme: 'dark', ai: 'bogus' });
+    r = await read();
+    t.equal(r.st.text, 1, 'a size written as text is not one the control offers');
+    t.expect(r.st.sound === false && r.st.vol === 0.2 && r.st.motion === 'reduce' && r.st.theme === 'dark', 'the good values are kept');
+    t.expect(r.dark && r.reduce, 'and still applied');
+    t.equal(r.st.ai, 'normal', 'while the bad one beside them is replaced');
+    await set({ sound: true, text: 1.5, motion: 'full', theme: 'light', ai: 'instant' });
+    r = await read();
+    t.expect(r.st.text === 1.5 && r.ts === '1.5' && r.st.motion === 'full' && r.st.theme === 'light' && r.st.ai === 'instant', 'every value the controls offer survives a reload');
+  },
+});
