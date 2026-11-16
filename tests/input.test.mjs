@@ -60,6 +60,7 @@ export const tests = [
       const r = await humanTurns(t, 3, true);
       t.expect(r.ended >= 3, `three turns by keys (${r.actions} key actions)`);
       // Board cursor and deed by keyboard
+      await t.page.waitForFunction(() => { const s = window.__game.getState(); return window.__game.isIdle() && s.dialog === null && !!s.game && s.game.players[s.actor]?.kind === 'human'; }, null, { timeout: 20000 }); // a rival's card may still be on screen
       await t.page.focus('#board');
       await t.page.keyboard.press('ArrowRight');
       await t.page.keyboard.press('Enter');
