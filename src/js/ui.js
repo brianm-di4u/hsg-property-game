@@ -75,6 +75,8 @@ export function peekHtml(s, i, touch) {
 }
 
 // Why the winner won (S3-13): sentences from the game's own record, and a line for each baron's net worth by month.
+// Did this baron leave by resigning, not by running out of money? (older saves did not record it: they read as bankrupt)
+export const resigned = (s, id) => !!(s.stats && Array.isArray(s.stats.bankruptcies) && s.stats.bankruptcies.some((b) => b && b.pid === id && b.resigned));
 export const firstRecorded = (s) => { const h = (Array.isArray(s.history) ? s.history : []).find((x) => x && Array.isArray(x.w) && Number.isFinite(x.m)); return h ? h.m : 0; };
 export function whyLines(s) {
   const nm = (id) => (s.players[id] ? s.players[id].name : 'A baron'), out = [], st = leadStory(s), big = s.stats && s.stats.bigRent;
@@ -101,7 +103,7 @@ export function endingStory(s) {
   const lots = owned(s, hid).length, lotsText = lots === 0 ? 'no lots' : `${lots} lot${lots === 1 ? '' : 's'}`;
   let epilogue;
   if (humanWon) epilogue = `${h.name} closes the books on Bathhouse Row with ${money(netWorth(s, hid))} and ${lotsText} to the name.`;
-  else if (h.out) epilogue = `${h.name} left the Row in month ${h.outRound}, bankrupt. ${winner.name} holds it now.`;
+  else if (h.out) epilogue = `${h.name} left the Row in month ${h.outRound}, ${resigned(s, hid) ? 'resigned' : 'bankrupt'}. ${winner.name} holds it now.`;
   else epilogue = `${h.name} finished ${ORD[rank.indexOf(hid)] || 'last'} with ${money(netWorth(s, hid))}; ${winner.name} took the Row. The ledger stays open for another game.`;
   return { humanWon, anyHuman: true, focus: hid, mono: mono(h.name), kicker: humanWon ? 'New baron of Bathhouse Row' : 'The Row has a new baron', epilogue };
 }

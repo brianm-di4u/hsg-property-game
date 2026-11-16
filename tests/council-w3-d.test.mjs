@@ -248,7 +248,7 @@ tests.push({
     t.expect(/Undo mortgage/.test(await undoBtn.innerText()), 'and can be undone');
     await t.page.locator(`#modal [data-act="unmortgage"][data-i="${FV[0]}"]`).click();
     await t.page.waitForFunction(() => !window.__G.busy, null, { timeout: 8000 });
-    t.expect(/Undo lift/.test(await undoBtn.innerText()), 'a lift likewise');
+    t.expect(/Undo the lift/.test(await undoBtn.innerText()), 'a lift likewise, in words that do not echo the Lift button');
     // Another move closes the way back.
     await t.page.keyboard.press('Escape');
     await act(t, { type: 'roll' });

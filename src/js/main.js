@@ -7,7 +7,7 @@ import { audio, haptic, DICE_MS, DICE_BOUNCES, unlock, suspendAudio, sfx, holdAu
 import { art, loadArt } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
-import { qs, esc, money, deedHtml, cardHtml, seasonHtml, helpHtml, aboutHtml, peekHtml, whyLines, endingStory, historyChart, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
+import { qs, esc, money, deedHtml, cardHtml, seasonHtml, helpHtml, aboutHtml, peekHtml, whyLines, endingStory, resigned, historyChart, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
 import { CAREER_KEY, CAREER_VERSION, ACH, ACH_BY_ID, FELTS, FELT_BY_ID, feltOpen, blankCareer, cleanCareer, localDate, playAchievements, recordGame, unlockFelts, dailySeed, dailyStreak } from './career.js';
 
 const $ = qs;
@@ -255,8 +255,9 @@ function noSaveNote() {
 // undone, a few steps back. Any other move (a roll, a trade, ending the turn) or a rival's move closes the way back.
 const UNDOABLE = { build: 'build', sell: 'sale', mortgage: 'mortgage', unmortgage: 'lift' }, UNDO_DEPTH = 8;
 function undoLast() {
-  const u = G.undo.pop();
-  if (!u || !G.s || G.busy || G.stale || !humanActor()) return;
+  const u = G.undo[G.undo.length - 1];
+  if (!u || !G.s || G.busy || G.stale || !humanActor()) return; // the step stays when the way back is shut (C4-11)
+  G.undo.pop();
   G.s = JSON.parse(u.snap); G.logSeen = G.s.log.length; R.view.drop = {}; R.view.puffs = [];
   saveGame(); sfx('close'); announce(`Took back the ${u.what} on ${u.where}.`);
   refresh();
@@ -638,8 +639,8 @@ function renderPlayers() {
     const fan = E.owned(s, p.id).map((i) => SPACES[i].d ? DISTRICTS[SPACES[i].d].color : '#355E41').map((c) => `<i style="background:${c}"></i>`).join('');
     d.innerHTML = `<span class="nm"><span class="full">${esc(p.name)}</span><span class="first">${esc(firsts.filter((f) => f === first(p)).length > 1 ? short(p) : first(p))}</span></span><span class="cash"></span>${p.out ? '' : `<span class="mini">${n} lot${n === 1 ? '' : 's'} · ${miniMoney(E.netWorth(s, p.id))}</span>${p.held || p.pardons ? `<span class="mini tag">${[p.held ? 'Held' : '', p.pardons ? 'Pardon' : ''].filter(Boolean).join(' · ')}</span>` : ''}`}${fan ? `<span class="fan" aria-hidden="true">${fan}</span>` : ''}<span class="meta">${p.kind === 'ai' ? esc(PERSONAS[p.persona].name) + ' AI · ' + esc(levelName(p)) : 'Human'} · ${n} lot${n === 1 ? '' : 's'} · worth ${money(E.netWorth(s, p.id))}${p.held ? ' · held' : ''}${p.pardons ? ' · pardon' : ''}</span>`;
     li.append(d);
-    const cashEl = d.querySelector('.cash'); if (p.out) cashEl.textContent = 'Bankrupt'; else countCash(cashEl, p.id, p.cash);
-    li.setAttribute('aria-label', `${p.name}${p.kind === 'ai' ? ` (${levelName(p)} AI)` : ''}${p.id === s.turn ? ', current turn' : ''}: ${p.out ? 'bankrupt' : money(p.cash) + ' cash, ' + n + ' lots, net worth ' + money(E.netWorth(s, p.id)) + (p.held ? ', held in the Grand Jury Room' : '') + (p.pardons ? ', holds a pardon' : '')}`);
+    const cashEl = d.querySelector('.cash'); if (p.out) cashEl.textContent = resigned(s, p.id) ? 'Resigned' : 'Bankrupt'; else countCash(cashEl, p.id, p.cash);
+    li.setAttribute('aria-label', `${p.name}${p.kind === 'ai' ? ` (${levelName(p)} AI)` : ''}${p.id === s.turn ? ', current turn' : ''}: ${p.out ? (resigned(s, p.id) ? 'resigned' : 'bankrupt') : money(p.cash) + ' cash, ' + n + ' lots, net worth ' + money(E.netWorth(s, p.id)) + (p.held ? ', held in the Grand Jury Room' : '') + (p.pardons ? ', holds a pardon' : '')}`);
     ol.append(li);
   }
 }
@@ -752,7 +753,7 @@ function manageRender(debt) {
   }).join('')}</ul>`).join('');
   const head = debt ? `<h2 id="dlg-title">Raise cash</h2><p><strong>${esc(p.name)}</strong> owes <strong>${money(s.debts[0].amount)}</strong>${s.debts[0].to >= 0 ? ` to ${esc(s.players[s.debts[0].to].name)}` : ''} and has <strong>${money(p.cash)}</strong>. Sell bathhouses or mortgage lots; the debt is paid as soon as you have enough.</p>`
     : `<h2 id="dlg-title">Manage lots · ${money(p.cash)}</h2><p class="fine">Build on districts you own outright (one level per lot per turn). Selling returns half the cost.</p>`;
-  return `${head}${rows || '<p>No lots yet.</p>'}<div class="btns">${!debt && G.undo.length ? `<button class="btn" data-f="undo" data-undo aria-label="Undo the last ${esc(G.undo[G.undo.length - 1].what)}, on ${esc(G.undo[G.undo.length - 1].where)}" ${G.busy ? 'disabled' : ''}>Undo ${esc(G.undo[G.undo.length - 1].what)}</button>` : ''}${debt ? `<button class="btn" data-f="bk" data-act="bankrupt">Declare bankruptcy</button>` : `<button class="btn primary" data-ok>Done</button>`}</div>`;
+  return `${head}${rows || '<p>No lots yet.</p>'}<div class="btns">${!debt && G.undo.length ? `<button class="btn" data-f="undo" data-undo aria-label="Undo the last ${esc(G.undo[G.undo.length - 1].what)}, on ${esc(G.undo[G.undo.length - 1].where)}" ${G.busy ? 'disabled' : ''}>Undo ${G.undo[G.undo.length - 1].what === 'lift' ? 'the lift' : esc(G.undo[G.undo.length - 1].what)}</button>` : ''}${debt ? `<button class="btn" data-f="bk" data-act="bankrupt">Declare bankruptcy</button>` : `<button class="btn primary" data-ok>Done</button>`}</div>`;
 }
 function wireManage() {
   $('#modal').addEventListener('click', onManageClick);
@@ -812,7 +813,7 @@ function auctionRender() {
       ${steps.map((v, k) => `<button class="btn ${k === 0 ? 'primary' : ''}" data-f="bid${k}" data-bid="${v}" ${v > bidder.cash ? 'disabled' : ''}>Bid ${money(v)}</button>`).join('')}
       <button class="btn" data-f="pass" data-pass>Drop out</button></div>${bidRow(min, bidder.cash)}`
     : `<p class="ai-note">${esc(bidder.name)} is deciding…</p>`}
-    <div class="btns"><button class="btn ghost" data-f="deed" data-deed="${A.space}">Deed</button></div>`;
+    <div class="btns plain"><button class="btn ghost" data-f="deed" data-deed="${A.space}">Deed</button></div>`;
 }
 function openAuction() { if (G.s.phase !== 'auction') return; openDialog(auctionRender(), { name: 'auction', closable: false, render: auctionRender }); }
 
@@ -1195,7 +1196,7 @@ function screenOver(scr) {
   scr.innerHTML = `<div class="wrap over"><div class="extra"><div class="mast">The Barons' Gazette</div><div class="dateline"><span>Extra!</span><span>${MONTHS[s.month]}, Year ${s.year + 1}</span><span>Hot Springs, Ark.</span></div></div>
     <div class="podium">${portrait}<div class="plinth"><span id="wintok"></span></div><div><div class="kicker">${esc(story.kicker)}</div><h2>${esc(s.players[s.winner].name)} wins!</h2></div></div>${story.epilogue ? `<p class="epilogue">${esc(story.epilogue)}</p>` : ''}<p class="lede">Game over: ${esc(s.endWhy || '')}. ${MONTHS[s.month]}, Year ${s.year + 1}, after ${s.monthsPlayed} month${s.monthsPlayed === 1 ? '' : 's'}.</p>
     <div class="card"><div class="tscroll"><table class="t results"><thead><tr><th>#</th><th>Baron</th><th>Net worth</th><th>Lots</th><th><span class="lg">Rent collected</span><span class="sm">Rent</span></th><th>Trades</th></tr></thead><tbody>
-    ${rank.map((id, k) => { const p = s.players[id]; return `<tr><td>${k + 1}</td><td><div class="bn" data-tok="${id}"><span>${esc(p.name)}${p.kind === 'ai' ? ` <span class="fine">(${esc(PERSONAS[p.persona].name)}, ${esc(levelName(p))})</span>` : ''}</span></div></td><td>${p.out ? `Bankrupt (month ${p.outRound})` : money(E.netWorth(s, id))}</td><td>${E.owned(s, id).length}</td><td>${money(p.stat.rentIn)}</td><td>${p.stat.trades}</td></tr>`; }).join('')}</tbody></table></div>
+    ${rank.map((id, k) => { const p = s.players[id]; return `<tr><td>${k + 1}</td><td><div class="bn" data-tok="${id}"><span>${esc(p.name)}${p.kind === 'ai' ? ` <span class="fine">(${esc(PERSONAS[p.persona].name)}, ${esc(levelName(p))})</span>` : ''}</span></div></td><td>${p.out ? `${resigned(s, id) ? 'Resigned' : 'Bankrupt'} (month ${p.outRound})` : money(E.netWorth(s, id))}</td><td>${E.owned(s, id).length}</td><td>${money(p.stat.rentIn)}</td><td>${p.stat.trades}</td></tr>`; }).join('')}</tbody></table></div>
     <p class="fine">Auctions ${s.stats.auctions} · trades ${s.stats.trades} · buildings raised ${s.stats.builds} · cards drawn ${s.stats.cards}</p></div>
     ${overWhy(s)}
     ${overCareer()}

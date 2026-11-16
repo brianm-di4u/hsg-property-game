@@ -296,7 +296,7 @@ export const tests = [
     async run(t) {
       await t.game('scene', 'settings');
       let txt = await t.page.locator('#screen').innerText();
-      t.expect(/Dice tray felt/.test(txt) && /Win a game to unlock/.test(txt) && /Finish 5 games to unlock/.test(txt) && /Earn 8 achievements to unlock/.test(txt), 'every locked felt says how to earn it');
+      t.expect(/Dice tray felt/i.test(txt) && /Win a game to unlock/.test(txt) && /Finish 5 games to unlock/.test(txt) && /Earn 8 achievements to unlock/.test(txt), 'every locked felt says how to earn it');
       t.equal(await t.page.locator('[data-felt="oxblood"]').getAttribute('aria-disabled'), 'true', 'a locked felt is marked disabled');
       await t.page.locator('[data-felt="oxblood"]').dispatchEvent('click');
       t.equal((await t.state()).settings.felt, 'green', 'clicking a locked felt does nothing');

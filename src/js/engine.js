@@ -510,7 +510,7 @@ function goBankrupt(s, ev, owed = s.debts.shift(), resigned = false) {
   p.cash = 0; p.out = true; p.outRound = s.round; p.held = 0; p.pardons = 0;
   // Remaining debts of the same player vanish.
   s.debts = s.debts.filter((x) => x.pid !== p.id);
-  s.stats.bankruptcies.push({ pid: p.id, round: s.round, to: creditor });
+  s.stats.bankruptcies.push({ pid: p.id, round: s.round, to: creditor, resigned: !!resigned });
   if (!s.stats.firstBankruptRound) s.stats.firstBankruptRound = s.round;
   ev.push({ t: 'bankrupt', pid: p.id, to: creditor, resigned });
   log(s, `${p.name} ${resigned ? 'resigns' : 'is bankrupt'}${creditor >= 0 ? `; everything goes to ${s.players[creditor].name}` : '; lots return to the town'}.`);

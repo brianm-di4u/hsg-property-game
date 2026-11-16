@@ -378,6 +378,9 @@ body.theme-dark { --highlight: #F6E3A8; }
   #modal .dlg { padding-bottom: 0; }
   #modal .dlg .btns { position: sticky; bottom: 0; margin: 14px -18px 0; padding: 12px 18px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(rgba(251,248,241,0), var(--surface) 34%); z-index: 2; }
   body.theme-dark #modal .dlg .btns { background: linear-gradient(rgba(31,28,46,0), var(--surface) 34%); }
+  /* the auction's Deed row is not stuck over the bid controls: it was covering the foot of the Max button (C4-11) */
+  #modal .dlg .btns.plain { position: static; margin: 14px 0 0; padding: 0; background: none; }
+  #modal .dlg:has(> .btns.plain) { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   #modal .dlg:has(> .news), #modal .dlg:has(> .postcard) { overflow-y: auto; max-height: 88vh; overscroll-behavior: contain; }
   #modal .dlg:has(> .news) .btns, #modal .dlg:has(> .postcard) .btns { margin: 0; padding: 14px 0 calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(rgba(12,6,2,0), rgba(12,6,2,.72) 50%); }
 }
@@ -478,7 +481,7 @@ body.theme-dark { --grain: rgba(216, 207, 189, .035); }
 #screen .card { font-family: var(--font-serif); background: repeating-linear-gradient(0deg, var(--grain) 0 2px, transparent 2px 4px), repeating-linear-gradient(90deg, var(--grain) 0 2px, transparent 2px 4px), var(--cardbg, var(--surface)); border-top: 4px double var(--primary); box-shadow: inset 0 0 30px rgba(120, 90, 40, .07); }
 #screen .card :is(button, input, select) { font-family: var(--font-sans); }
 #screen table.t th { font-family: var(--font-deco); letter-spacing: .03em; }
-.settings .card p > strong:first-child { font-family: var(--font-deco); letter-spacing: .05em; text-transform: uppercase; font-size: .95em; }
+.settings .card p > strong:first-child, .settings .felts > strong:first-child { font-family: var(--font-deco); letter-spacing: .05em; text-transform: uppercase; font-size: .95em; }
 
 /* ---------- short phones: the title picture gives way to the buttons (wave 3: S4-62) ---------- */
 @media (max-height: 600px) {

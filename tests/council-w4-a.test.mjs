@@ -192,3 +192,74 @@ tests.push({
   },
 });
 
+// ---------- C4-11: the verifiers' loose ends ----------
+tests.push({
+  name: 'C4-11 a resigned baron is "resigned" in the epilogue; a bankrupt one, or a save that never recorded it, stays "bankrupt"',
+  node: true,
+  async run(t) {
+    const mk = (resigned) => {
+      const s = E.createGame({ seed: 5, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }] });
+      s.players[0].out = true; s.players[0].outRound = 6; s.ended = true; s.phase = 'over'; s.winner = 1; s.ranking = [1, 0];
+      s.stats.bankruptcies = [Object.assign({ pid: 0, round: 6, to: 1 }, resigned === undefined ? {} : { resigned })];
+      return s;
+    };
+    t.expect(/left the Row in month 6, resigned\./.test(endingStory(mk(true)).epilogue), 'resigned: the epilogue says so');
+    t.expect(/left the Row in month 6, bankrupt\./.test(endingStory(mk(false)).epilogue), 'bankrupt: unchanged');
+    t.expect(/left the Row in month 6, bankrupt\./.test(endingStory(mk(undefined)).epilogue), 'a save that never recorded it reads as before');
+  },
+});
+tests.push({
+  name: 'C4-11 the results table says Resigned for a baron who resigned',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t, { seed: 5, seats: [{ kind: 'human', name: 'Ada Lovelace' }, { kind: 'ai', persona: 'hotelier' }] });
+    await mod(t, (s) => { s.phase = 'post'; s.pending = null; s.turn = 0; });
+    await t.game('act', 'do', { type: 'resign' });
+    await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 8000 });
+    await t.waitForStable();
+    t.expect(/Resigned \(month \d+\)/.test(await t.page.locator('.over table.results').innerText()), 'the table says Resigned');
+    const epi = await t.page.locator('.over .epilogue').innerText();
+    t.expect(/resigned\./.test(epi) && !/bankrupt/i.test(epi), `the epilogue says resigned, not bankrupt (${epi})`);
+  },
+});
+tests.push({
+  name: 'C4-11 the felt heading matches the other labels, and the auction foot never covers the bid controls',
+  async run(t) {
+    await t.game('scene', 'settings');
+    await t.waitForStable();
+    const r = await t.page.evaluate(() => { const a = getComputedStyle(document.querySelector('.settings .card p > strong')), b = getComputedStyle(document.querySelector('.settings .felts > strong')); return { fa: a.fontFamily, fb: b.fontFamily, tb: b.textTransform, sa: a.letterSpacing, sb: b.letterSpacing }; });
+    t.equal(r.fb, r.fa, 'the felt heading is in the same face');
+    t.equal(r.tb, 'uppercase', 'in capitals');
+    t.equal(r.sb, r.sa, 'with the same spacing');
+    await start(t, { seats: TWO_HUMANS, seed: 5 });
+    await act(t, { type: 'roll' });
+    const s = await g(t);
+    if (s.phase === 'buy') await act(t, { type: 'decline' });
+    else { await mod(t, (x) => { x.phase = 'roll'; x.again = false; x.pending = null; }); await t.game('act', 'dice', 2, 3); await act(t, { type: 'roll' }); await act(t, { type: 'decline' }); }
+    await t.waitForStable();
+    const o = await t.page.evaluate(() => { const bars = [...document.querySelectorAll('#modal .dlg > .btns')], deed = bars[bars.length - 1].getBoundingClientRect(), max = document.querySelector('[data-bidmax]').getBoundingClientRect(); return { deedTop: deed.top, maxBottom: max.bottom, pos: getComputedStyle(bars[bars.length - 1]).position }; });
+    if (t.viewport === 'mobile') {
+      t.expect(o.pos !== 'sticky', `the Deed row is not stuck over the dialog (${o.pos})`);
+      t.expect(o.deedTop >= o.maxBottom, `the Deed row starts at ${Math.round(o.deedTop)}, below the Max button's foot at ${Math.round(o.maxBottom)}`);
+    }
+    await t.shot('C4-11-auction');
+  },
+});
+tests.push({
+  name: 'C4-11 a take-back that cannot run keeps its step',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t, { seed: 3 });
+    const lot = LOTS_BY_D.ra[0];
+    await mod(t, (s) => { s.lots[lot].owner = 0; s.phase = 'roll'; s.pending = null; s.turn = 0; });
+    await act(t, { type: 'mortgage', space: lot });
+    await t.game('act', 'open', 'manage');
+    await t.waitForStable();
+    t.equal(await t.page.evaluate(() => window.__G.undo.length), 1, 'one step to take back');
+    await t.page.evaluate(() => { window.__G.busy = true; document.querySelector('[data-undo]').click(); });
+    t.equal(await t.page.evaluate(() => window.__G.undo.length), 1, 'pressed while the table is busy: the step is still there');
+    await t.page.evaluate(() => { window.__G.busy = false; document.querySelector('[data-undo]').click(); });
+    t.equal(await t.page.evaluate(() => window.__G.undo.length), 0, 'pressed when it can run: the step is used');
+    t.equal((await g(t)).lots[lot].mortgaged, false, 'and the mortgage is taken back');
+  },
+});
