@@ -435,3 +435,13 @@ All **[inferred]** original mechanics built on the facts above.
 - **Unverified diners:** Galaxy Connection, Hot Springs Pizza, Colonial Pancake House, Mrs. Miller's Chicken, Granny's Kitchen, Rolando's.
 - **Sensitive history:** lynchings, segregation and slavery entries should be presented factually and respectfully, never as gameplay rewards.
 - **Gaps:** no historical land values or rents; no casino revenue or wage series; no streetcar fares; Rock Island depot dates; AP&L/Harvey Couch Hot Springs connection; The Waters, The Avenue, Embassy Suites and Convention Center data; Majestic architect; Libbey Memorial building; official WWII redistribution station name.
+
+## Pythian deed sources (added 2026-11-16)
+
+The quotations behind the Pythian Bathhouse deed in Bathhouse Barons, word for word, each with its page address.
+
+- "The Pythian, named for its proprietors, the Knights of Pythias, stood on the site of the former Crystal Bathhouse." (National Park Service: African Americans and the Hot Springs Baths, https://www.nps.gov/articles/000/african-americans-and-the-hot-springs-baths.htm)
+- "The hotel opened on December 27, 1914 under the management of J. T. T. Warren." (National Park Service: African Americans and the Hot Springs Baths, https://www.nps.gov/articles/000/african-americans-and-the-hot-springs-baths.htm)
+- "The bathhouse provided bathing services half price for members of the Knights of Pythias insurance organization." (National Park Service: African Americans and the Hot Springs Baths, https://www.nps.gov/articles/000/african-americans-and-the-hot-springs-baths.htm)
+- "an African-American fraternal organization" (Encyclopedia of Arkansas: Crystal Bathhouse, https://encyclopediaofarkansas.net/entries/crystal-bathhouse-4253/)
+- "Built by the Knights of Pythias in 1914 as the only bathing facility for African-American clients in Hot Springs" (Encyclopedia of Arkansas: Pythian Bathhouse, media page, https://encyclopediaofarkansas.net/media/pythian-bathhouse-8561/)

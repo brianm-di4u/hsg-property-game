@@ -153,7 +153,7 @@ tests.push({
   async run(t) {
     const { SPACES } = await import('../src/js/data.js');
     const fact = (name) => SPACES.find((sp) => sp.name === name).fact.text;
-    t.expect(/Malvern Avenue/.test(fact('Pythian Bathhouse')) && /half-price/.test(fact('Pythian Bathhouse')), 'the Pythian deed says where it stood and who got half-price baths');
+    t.expect(/Malvern Avenue/.test(fact('Pythian Bathhouse')) && /half price/.test(fact('Pythian Bathhouse')), 'the Pythian deed says where it stood and who got half-price baths (C4-03 reworded it: "members paid half price")');
     t.expect(/African American fraternal group/.test(fact('Woodmen of Union')) && /Count Basie/.test(fact('Woodmen of Union')), 'the Woodmen deed says whose building it was and who played there');
     t.expect(/casino and sports book until 1967/.test(fact('Ohio Club')), 'the Ohio Club deed says what it was for');
     t.expect(/Capone/.test(fact('Arlington Hotel')) && /disputed/.test(fact('Arlington Hotel')), 'the Arlington deed has Capone, flagged as disputed');

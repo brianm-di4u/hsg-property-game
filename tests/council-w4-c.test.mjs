@@ -1,4 +1,4 @@
-import { start } from './helpers.mjs';
+import { start, g, mod } from './helpers.mjs';
 import { SPACES, SEASONS, PERSONA_KEYS } from '../src/js/data.js';
 
 // Wave 4, batch C: key badges and the size of the segmented controls, the Pythian deed, the summer season's fact, a human
@@ -31,6 +31,37 @@ tests.push({
     t.equal(badges.touch, t.viewport === 'mobile', 'the phone is a touch screen and the desktop is not');
     t.equal(badges.shown, t.viewport === 'mobile' ? 0 : badges.n, t.viewport === 'mobile' ? 'a phone shows none of them' : 'a desktop shows all of them');
     await t.shot('S2-14-actions', { wait: false });
+  },
+});
+
+// ---------- C4-03: the Pythian deed ----------
+tests.push({
+  name: 'C4-03 the Pythian deed says who built it and for whom, in the approved words, and its source is in the research file',
+  node: true,
+  async run(t) {
+    const fs = await import('node:fs');
+    const sp = SPACES[lot('Pythian Bathhouse')];
+    t.equal(sp.fact.text, APPROVED_PYTHIAN, 'the deed line is the approved one, character for character');
+    t.equal([sp.name, sp.short, sp.d, sp.price].join('|'), 'Pythian Bathhouse|Pythian|ps|220', 'the lot keeps its name, group and price');
+    const research = fs.readFileSync(new URL('../research/downtown-and-landmarks.md', import.meta.url), 'utf8');
+    t.expect(research.includes(sp.fact.quote), 'the quoted phrase is in the research file');
+    t.expect(!/Black-owned|insurance order|\bonly\b/.test(sp.fact.text), 'and none of the words the sources do not use is in it');
+    const { spawnSync } = await import('node:child_process');
+    const r = spawnSync(process.execPath, ['tools/check-facts.mjs'], { cwd: new URL('..', import.meta.url), encoding: 'utf8' });
+    t.equal(r.status, 0, 'tools/check-facts.mjs passes: ' + (r.stdout.match(/FAIL.*/g) || []).join('; '));
+  },
+});
+tests.push({
+  name: 'C4-03 the new deed line fits its card',
+  async run(t) {
+    await start(t);
+    await t.game('act', 'open', 'deed', lot('Pythian Bathhouse'));
+    await t.waitForStable();
+    const dlg = (await t.page.locator('#modal .dlg').innerText()).replace(/\s+/g, ' ');
+    t.expect(dlg.includes(APPROVED_PYTHIAN), 'the deed shows the approved line');
+    await t.checkLayout({ allowScrollY: true });
+    await t.shot('C4-03-pythian-deed');
+    await t.game('act', 'close');
   },
 });
 
