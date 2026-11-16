@@ -83,3 +83,46 @@ tests.push({
   },
 });
 
+// ---------- S4-10: Park Avenue names, the Vapors and the Row ----------
+tests.push({
+  name: 'S4-10 the three Park Avenue lots take their researched names on the same spaces, and the Vapors and the Row say what they are',
+  node: true,
+  async run(t) {
+    const want = { 'Langdon Filling Station': [13, 180], "Butchie's Drive-In": [14, 180], 'Velda Rose': [15, 200] };
+    for (const [n, [i, price]] of Object.entries(want)) t.equal(`${lot(n)}|${SPACES[i].d}|${SPACES[i].price}`, `${i}|pa|${price}`, `${n}: same space, group and price as before`);
+    t.expect(['Motor Courts', 'Drive-In', 'Tower Motel'].every((n) => lot(n) < 0), 'the generic names are gone');
+    t.expect(!/\b19(60|63)\b/.test(SPACES[15].fact.text), 'the Velda Rose deed leaves out the year the sources disagree on');
+    const vap = SPACES[lot('The Vapors')].fact.text;
+    t.expect(/late-night casino/.test(vap) && /clubs/.test(vap), 'the Vapors deed says why it is a club');
+    const { helpHtml } = await import('../src/js/ui.js');
+    const rules = helpHtml('rules');
+    t.expect(/Quapaw/.test(rules) && /Superior/.test(rules) && /Hale/.test(rules), 'the rules name Row bathhouses that are not in the game');
+  },
+});
+tests.push({
+  name: 'S4-10 the Vapors and the three Park Avenue deeds fit their cards',
+  async run(t) {
+    await start(t);
+    for (const name of ['The Vapors', 'Velda Rose', "Butchie's Drive-In", 'Langdon Filling Station']) {
+      await t.game('act', 'open', 'deed', lot(name));
+      await t.waitForStable();
+      const dlg = (await t.page.locator('#modal .dlg').innerText()).replace(/\s+/g, ' ');
+      t.expect(dlg.includes(SPACES[lot(name)].fact.text), `${name}: the deed shows its line`);
+      await t.checkLayout({ allowScrollY: true });
+      await t.game('act', 'close');
+    }
+  },
+});
+tests.push({
+  name: 'S4-10 a lot owned in a game begun before the rename shows under its new name',
+  async run(t) {
+    await start(t, { seed: 3 });
+    await mod(t, (s) => { s.lots[15].owner = 0; });
+    await t.game('act', 'open', 'deed', 15);
+    await t.waitForStable();
+    const dlg = (await t.page.locator('#modal .dlg').innerText()).replace(/\s+/g, ' ');
+    t.expect(/Velda Rose/.test(dlg) && /Ada/.test(dlg), `the owned lot shows the new name and its owner (${dlg.slice(0, 120)})`);
+    await t.shot('S4-10-velda-rose-deed');
+    await t.game('act', 'close');
+  },
+});
