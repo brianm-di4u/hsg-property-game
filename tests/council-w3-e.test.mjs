@@ -112,7 +112,7 @@ tests.push({
 });
 
 // ---------- S5-06: spending, earning and being held sound different ----------
-import { rollTo, act, TWO_HUMANS } from './helpers.mjs';
+import { rollTo, act, TWO_HUMANS, AI2 } from './helpers.mjs';
 const heardAfter = async (t, fn) => { await t.game('audioState', true); await fn(); await t.waitForStable(); return (await t.game('audioState')).heard; };
 tests.push({
   name: 'S5-06 buying a lot has its own cue; rent collected keeps the coin; rent paid keeps the pay cue',
@@ -218,6 +218,24 @@ tests.push({
     t.equal(await play(), '[]', 'Vibration on but motion reduced: nothing');
     await setSetting(t, 'motion', 'full');
     t.equal(await play(), '[12,[20,40,20]]', 'and back on when motion is full');
+  },
+});
+tests.push({
+  name: "S5-09 a rival's landing and the rent a rival pays do not buzz your phone, yours still does",
+  async run(t) {
+    await start(t, { seats: AI2 });
+    await buzzLog(t);
+    await setSetting(t, 'haptics', true);
+    // The rival (seat 1) lands on Ada's lot and pays her rent: she feels nothing for it.
+    await mod(t, (s) => { s.lots[13].owner = 0; s.lots[13].level = 0; s.players[1].pos = 10; s.turn = 1; s.phase = 'roll'; s.pending = null; s.again = false; }); await clearBuzz(t);
+    const cash0 = (await g(t)).players[1].cash;
+    await rollTo(t, 1, 2);
+    t.expect((await g(t)).players[1].cash < cash0, 'the rival did pay rent');
+    t.equal(await buzzes(t), '[]', "a rival's landing and its rent: no buzz");
+    // The same landing and rent for Ada herself buzz, so the log above is able to see a buzz.
+    await mod(t, (s) => { s.lots[13].owner = 1; s.lots[13].level = 0; s.players[0].pos = 10; s.turn = 0; s.phase = 'roll'; s.pending = null; s.again = false; }); await clearBuzz(t);
+    await rollTo(t, 1, 2);
+    t.equal(await buzzes(t), '[12,[20,40,20]]', 'while her own landing and rent buzz');
   },
 });
 
