@@ -75,6 +75,7 @@ export function peekHtml(s, i, touch) {
 }
 
 // Why the winner won (S3-13): sentences from the game's own record, and a line for each baron's net worth by month.
+export const firstRecorded = (s) => { const h = (Array.isArray(s.history) ? s.history : []).find((x) => x && Array.isArray(x.w) && Number.isFinite(x.m)); return h ? h.m : 0; };
 export function whyLines(s) {
   const nm = (id) => (s.players[id] ? s.players[id].name : 'A baron'), out = [], st = leadStory(s), big = s.stats && s.stats.bigRent;
   if (st) {
@@ -82,7 +83,9 @@ export function whyLines(s) {
     out.push(st.changes === 0 ? `${who} led from the first month to the last.`
       : `The lead changed hands ${st.changes} time${st.changes === 1 ? '' : 's'}; ${who} took it for good after month ${st.since}.`);
   }
-  if (big && s.players[big.from] && s.players[big.to]) out.push(`Biggest rent: ${money(big.amount)}, paid by ${nm(big.from)} to ${nm(big.to)} on ${SPACES[big.space].name} in month ${big.m + 1}.`);
+  // A game resumed from a save that kept no history starts its record late; the biggest rent is then the biggest since that month (C4-07).
+  const m0 = firstRecorded(s);
+  if (big && s.players[big.from] && s.players[big.to]) out.push(`${m0 > 0 ? `Biggest rent since month ${m0}` : 'Biggest rent'}: ${money(big.amount)}, paid by ${nm(big.from)} to ${nm(big.to)} on ${SPACES[big.space].name} in month ${big.m + 1}.`);
   if (s.players.some((p) => p.stat && p.stat.rentOut > 0)) out.push(`Rent paid: ${s.players.map((p) => `${p.name} ${money(p.stat.rentOut || 0)}`).join(', ')}.`);
   return out;
 }
@@ -118,7 +121,7 @@ export function historyChart(s) {
   const tick = (v) => `<text x="${L - 5}" y="${Y(v) + 3}" text-anchor="end">${k(v)}</text>`;
   return `<div class="histchart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Net worth of each baron, month by month. ${esc(whyLines(s).join(' '))}">
     ${grid(0)}${grid(nice / 2, 1)}${grid(nice, 1)}
-    <g fill="var(--muted)" font-size="12" font-family="var(--font-sans)">${tick(0)}${tick(nice / 2)}${tick(nice)}<text x="${L}" y="${H - 6}">Start</text><text x="${W - R}" y="${H - 6}" text-anchor="end">Month ${m1}</text></g>${lines}</svg><div class="lgnrow">${legend}</div></div>`;
+    <g fill="var(--muted)" font-size="12" font-family="var(--font-sans)">${tick(0)}${tick(nice / 2)}${tick(nice)}<text x="${L}" y="${H - 6}">${m0 > 0 ? `Month ${m0}` : 'Start'}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">Month ${m1}</text></g>${lines}</svg><div class="lgnrow">${legend}</div></div>`;
 }
 
 export function cardHtml(id, s, who) {

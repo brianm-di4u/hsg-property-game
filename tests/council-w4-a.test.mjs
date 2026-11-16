@@ -149,3 +149,23 @@ tests.push({
   },
 });
 
+// ---------- C4-07: the results chart for a game resumed late ----------
+const fake = (history, big) => ({
+  players: [{ name: 'Ada', token: 0, kind: 'human' }, { name: 'Ben', token: 1, kind: 'ai' }], winner: 0, history, stats: big ? { bigRent: big } : {}, month: 3, year: 3,
+});
+tests.push({
+  name: 'C4-07 a chart that starts at month 34 says so, and the biggest rent is "since month 34"',
+  node: true,
+  async run(t) {
+    const rent = (m) => ({ amount: 220, from: 1, to: 0, space: LOTS_BY_D.ra[0], m });
+    const late = fake([{ m: 34, w: [1500, 1400] }, { m: 35, w: [1600, 1300] }, { m: 36, w: [1800, 1200] }], rent(35));
+    const svg = historyChart(late);
+    t.expect(/>Month 34<\/text>/.test(svg) && /Month 36<\/text>/.test(svg), 'the ends are Month 34 and Month 36');
+    t.expect(!/>Start<\/text>/.test(svg), 'and nothing says Start');
+    t.expect(whyLines(late).some((l) => /^Biggest rent since month 34: \$220/.test(l)), `the biggest rent line says since month 34 (${whyLines(late).join(' | ')})`);
+    const whole = fake([{ m: 0, w: [1500, 1500] }, { m: 1, w: [1600, 1400] }, { m: 2, w: [1800, 1200] }], rent(1));
+    t.expect(/>Start<\/text>/.test(historyChart(whole)), 'a game recorded from the first month still starts at Start');
+    t.expect(whyLines(whole).some((l) => /^Biggest rent: \$220/.test(l)), 'and keeps the plain line');
+  },
+});
+
