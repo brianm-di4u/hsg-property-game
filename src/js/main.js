@@ -14,18 +14,22 @@ const $ = qs;
 const SAVE = 'hs-barons-save-v1', SETS = 'hs-barons-settings-v1';
 const store = {
   get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
-  set(k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } },
-  remove(k) { try { window.localStorage.removeItem(k); return true; } catch (e) { return false; } },
+  set(k, v) { if (k === SAVE && G.saveLocked) return false; try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+  remove(k) { if (k === SAVE && G.saveLocked) return false; try { window.localStorage.removeItem(k); return true; } catch (e) { return false; } },
   // Can this browser keep anything at all? (private windows and blocked site data cannot)
   works() { try { const k = 'hs-barons-probe'; window.localStorage.setItem(k, '1'); window.localStorage.removeItem(k); return true; } catch (e) { return false; } },
 };
 const NOSAVE_TOAST = 'Saving is off: a reload will lose this game.';
 const NOSAVE_NOTE = 'Saving is off in this browser, so your progress will not be kept. You can still play.';
+// A saved game written by a newer version of the game is never written over: this visit plays from defaults and is not saved (C4-01).
+const NEWER_TOAST = 'This visit is not being saved: the saved game here comes from a newer version.';
+const NEWER_NOTE = 'This visit is not being saved: the saved game here comes from a newer version of the game, so this version leaves it alone. You can still play.';
+const saveNote = () => (G.saveLocked ? NEWER_NOTE : G.noSave ? NOSAVE_NOTE : '');
 
 const G = {
   s: null, scene: 'title', back: null, settings: { sound: true, vol: 0.35, sfx: true, music: true, amb: true, mvol: 0.7, avol: 0.7, motion: 'system', text: 1, theme: 'auto', ai: 'normal', autoEnd: false, haptics: null, felt: 'green', tipsSeen: null, tipsDone: [] },
   career: null, careerLocked: false, gameRes: null, news: [], tipsOn: false, input: 'mouse', coach: { rent: false, month: false, turns: 0, shown: null, key: '', timer: 0 },
-  noSave: false, noSaveTold: false, queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, hidden: false, stale: false, fast: false, rush: false, waitingOk: false,
+  noSave: false, noSaveTold: false, saveLocked: false, queue: [], busy: false, anim: 0, aiTimer: 0, aiPaused: false, hidden: false, stale: false, fast: false, rush: false, waitingOk: false,
   undo: [], dialog: null, dialogRender: null, nextSeed: null, lastSetup: null, helpTab: 'rules', setup: null, liveBuf: [], logSeen: 0,
 };
 window.__G = G;
@@ -235,13 +239,15 @@ function flushLog() {
 // The one place the game writes its save. When the browser refuses, the player is told once (S6-10); the title and the
 // menu keep saying so.
 function saveGame() {
+  if (G.saveLocked) return false;
   const ok = store.set(SAVE, JSON.stringify(G.s));
   if (!ok) G.noSave = true;
   return ok;
 }
 function noSaveNote() {
-  if (!G.noSave || G.noSaveTold || G.scene !== 'game') return;
-  G.noSaveTold = true; toast(NOSAVE_TOAST, 4200); announce(NOSAVE_TOAST);
+  if (!(G.saveLocked || G.noSave) || G.noSaveTold || G.scene !== 'game') return;
+  const msg = G.saveLocked ? NEWER_TOAST : NOSAVE_TOAST;
+  G.noSaveTold = true; toast(msg, 4200); announce(msg);
 }
 
 // ---------- performing actions ----------
@@ -706,7 +712,7 @@ function openPause() {
   if (!G.s) return;
   // Resign (S6-19): a human baron leaves the table on their own turn. Two taps, as for bankruptcy.
   const me = humanActor(), canResign = !!me && can('resign'), anyHuman = G.s.players.some((p) => p.kind === 'human' && !p.out);
-  openDialog(`<h2 id="dlg-title">Menu</h2><p class="fine goal">${esc(GOAL_TEXT)}</p>${G.noSave ? `<p class="nosave" role="status">${NOSAVE_NOTE}</p>` : ''}<div class="menu">
+  openDialog(`<h2 id="dlg-title">Menu</h2><p class="fine goal">${esc(GOAL_TEXT)}</p>${saveNote() ? `<p class="nosave" role="status">${saveNote()}</p>` : ''}<div class="menu">
     <button class="btn primary" data-ok>Resume</button>
     <button class="btn" data-go="help">How to play</button>
     <button class="btn" data-mixer>Volume</button>
@@ -930,6 +936,12 @@ function scene(name) {
 // An AI seat's level name; a save from before levels reads as Normal.
 const levelName = (p) => (LEVELS[p.level] || LEVELS.normal).name;
 
+// Is the stored game from a newer version of the game? (the same test as the career record's)
+function loadSaveLock() {
+  let raw = null;
+  try { raw = JSON.parse(store.get(SAVE) || 'null'); } catch (e) { raw = null; }
+  G.saveLocked = !!(raw && typeof raw === 'object' && Number.isFinite(raw.v) && raw.v > E.VERSION);
+}
 function hasSave() { try { const s = JSON.parse(store.get(SAVE) || 'null'); return E.validateSave(s) && !s.ended ? s : null; } catch (e) { return null; } }
 
 function screenTitle(scr) {
@@ -938,7 +950,7 @@ function screenTitle(scr) {
   scr.innerHTML = `<div class="wrap title-hero">${lid ? `<div class="lid"><picture><source media="(max-aspect-ratio: 1/1)" srcset="${lidTall}"><img id="lidimg" src="${lid}" alt=""></picture>
       <div class="lidtitle" aria-hidden="true"><span class="pre">The Hot Springs game of</span><span class="big">Bathhouse Barons</span><span class="sub">Lease · Build · Prosper</span></div></div>` : '<canvas id="titleart" width="1120" height="420" aria-hidden="true"></canvas>'}
     <h1 class="${lid ? 'sr-only' : ''}">Bathhouse Barons</h1><p class="lede">Lease the bathhouses, build grand resorts and ride the seasons of Hot Springs, Arkansas.</p>
-    ${G.noSave ? `<p class="nosave" role="status">${NOSAVE_NOTE}</p>` : ''}
+    ${saveNote() ? `<p class="nosave" role="status">${saveNote()}</p>` : ''}
     <div class="menu"><button class="btn primary" data-go="setup">New game</button>
     <button class="btn" data-go="continue" ${save ? '' : 'disabled'}>Continue${save ? ` (${MONTHS[save.month]}, Year ${save.year + 1})` : ''}</button>
     <button class="btn" data-go="help">How to play</button><button class="btn" data-go="career">Career</button><button class="btn" data-go="settings">Settings</button><button class="btn" data-go="about">About</button></div>
@@ -1494,6 +1506,7 @@ function boot() {
   R.setCanvas($('#board'));
   $('#board').tabIndex = 0; $('#board').addEventListener('click', onBoardPointer); wirePeek();
   G.noSave = !store.works();
+  loadSaveLock();
   loadCareer();
   loadSettings();
   G.input = matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse';
