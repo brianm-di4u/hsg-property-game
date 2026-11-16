@@ -1258,14 +1258,17 @@ function onKey(ev) {
   unlock(); setInput('key');
   const k = ev.key;
   if (G.dialog) {
-    if (k === 'Escape') { ev.preventDefault(); closeDialog(); }
+    if (k === 'Escape') { ev.preventDefault(); if (!ev.repeat) closeDialog(); }
     else if (k === 'Tab') trapFocus(ev);
+    else if (ev.repeat && (k === 'Enter' || k === ' ') && !/^(input|select|textarea)$/i.test(ev.target.tagName || '')) ev.preventDefault(); // a held Enter must not press the next button that takes the focus (S6-15)
     return;
   }
   if (G.scene !== 'game') { if (k === 'Escape' && G.scene !== 'title') scene(G.back === 'game' && G.s ? 'game' : 'title'); return; }
   const tag = (ev.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'select') return;
   const up = k.length === 1 ? k.toUpperCase() : k;
+  // A key held down repeats: that must not end a turn, skip a move or reopen the Menu again and again (S6-15). Only the arrows and the zoom keys keep repeating.
+  if (ev.repeat && !k.startsWith('Arrow') && !'+=-_0'.includes(k)) { if (k === ' ' || k === 'Enter' || up === 'P' || k === 'Escape') ev.preventDefault(); return; }
   if (up === 'P' || k === 'Escape') { ev.preventDefault(); openPause(); return; }
   if (k.startsWith('Arrow') && (ev.target === boardEl() || R.view.cursor >= 0)) {
     ev.preventDefault();

@@ -1,4 +1,5 @@
 import { start, g, act, rollTo } from './helpers.mjs';
+import { SPACES } from '../src/js/data.js';
 
 // Wave 4, batch B: the action bar while pieces move, key repeat, the balance bands, the seed on the results screen and
 // a rematch with the same deal, the audio error count, and a settings blob that is not trusted.
@@ -38,5 +39,38 @@ tests.push({
     await t.waitForStable();
     t.equal(await t.page.locator('#actions .ai-note.moving').count(), 0, 'the hint is gone when the move is over');
     t.expect(await t.page.locator('#actions .btn:not(.ghost):not(:disabled)').count() >= 1, 'and the buttons work again');
+  },
+});
+
+// ---------- S6-15: a held key does not repeat its action ----------
+tests.push({
+  name: 'S6-15 a held key repeats nothing but the arrows and the zoom keys',
+  async run(t) {
+    await start(t, { seed: 7 });
+    await rollTo(t, 2, 3);
+    await act(t, { type: 'buy' });
+    await t.waitForStable();
+    const key = (k, repeat) => t.page.evaluate(([key, rep]) => { document.dispatchEvent(new KeyboardEvent('keydown', { key, repeat: rep, bubbles: true, cancelable: true })); }, [k, repeat]);
+    const turn = async () => (await g(t)).turn;
+    const t0 = await turn();
+    t.equal((await g(t)).phase, 'post', 'the turn is ready to end');
+    await key('e', true); await key('E', true); await t.waitForStable();
+    t.equal(await turn(), t0, 'a held E does not end the turn');
+    await key('p', true); await key('Escape', true); await t.waitForStable();
+    t.equal(await t.page.locator('.dlg').count(), 0, 'a held P or Escape does not open the Menu');
+    await key('Escape', false); await t.waitForStable();
+    t.equal(await t.page.locator('.dlg').count(), 1, 'one press of Escape does');
+    await key('Escape', true); await t.waitForStable();
+    t.equal(await t.page.locator('.dlg').count(), 1, 'and a held Escape does not close it again');
+    await key('Escape', false); await t.waitForStable();
+    t.equal(await t.page.locator('.dlg').count(), 0, 'a fresh press closes it');
+    // the arrows keep repeating: holding one walks the board cursor along
+    await t.game('act', 'cursor', 3);
+    await key('ArrowRight', true); await key('ArrowRight', true); await t.waitForStable();
+    await t.page.waitForFunction(() => /Press Enter for the deed/.test(document.querySelector('#live').textContent));
+    const said = await t.page.locator('#live').textContent();
+    t.expect(said.includes(SPACES[4].name) && said.includes(SPACES[5].name), `a held arrow still walks the board cursor (${said})`);
+    await key('e', false); await t.waitForStable();
+    t.expect(await turn() !== t0, 'one press of E still ends the turn');
   },
 });
