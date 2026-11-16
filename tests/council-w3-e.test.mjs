@@ -253,7 +253,7 @@ tests.push({
 });
 
 // ---------- S6-11: the title menu is above the fold on a short screen ----------
-for (const [w, h] of [[320, 568], [844, 390], [1024, 600]]) tests.push({
+for (const [w, h] of [[320, 568], [844, 390], [1024, 600], [667, 375], [736, 414], [800, 600]]) tests.push({
   name: `S6-11 the title buttons are on screen at ${w}x${h}`,
   viewports: ['desktop'],
   async run(t) {

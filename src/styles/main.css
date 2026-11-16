@@ -487,9 +487,11 @@ body.theme-dark { --grain: rgba(216, 207, 189, .035); }
   .title-hero .lid { min-width: 0; width: min(100%, calc(45vh * 1.5)); margin-bottom: 10px; }
   .title-hero .lede { display: none; }
   .title-hero .menu { display: grid; grid-template-columns: 1fr 1fr; max-width: 460px; } /* S6-11: six buttons in three rows, so the lot is above the fold */
+  .title-hero .lid img { aspect-ratio: 3 / 2; } /* a short landscape phone gets the wide picture; the 820 px rule's tall crop is for portrait */
 }
 @media (max-height: 600px) and (max-aspect-ratio: 1/1) {
   .title-hero .lid { width: min(100%, calc(45vh * .8)); }
+  .title-hero .lid img { aspect-ratio: 4 / 5; }
 }
 
 /* ---------- storage blocked or full (wave 3: S6-10, S4-62) ---------- */
