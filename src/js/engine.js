@@ -219,7 +219,7 @@ export function whyNot(s, pid, type, i) {
     if (s.built.includes(i)) return 'Built this turn';
     return short(buildCost(i));
   }
-  if (type === 'mortgage') return canMortgage(s, pid, i) || lot.mortgaged || isRow(i) ? '' : 'Sell the buildings in this district first';
+  if (type === 'mortgage') return isRow(i) ? 'Federal leases cannot be mortgaged' : canMortgage(s, pid, i) || lot.mortgaged ? '' : 'Sell the buildings in this district first';
   if (type === 'unmortgage') return lot.mortgaged && !canUnmortgage(s, pid, i) ? short(unmortgageCost(i)) : '';
   return '';
 }

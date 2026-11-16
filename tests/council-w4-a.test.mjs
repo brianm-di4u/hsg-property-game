@@ -118,3 +118,34 @@ tests.push({
   },
 });
 
+// ---------- C4-06: why a lease cannot be mortgaged ----------
+tests.push({
+  name: 'C4-06 a Bathhouse Row lease says why Mortgage is greyed',
+  node: true,
+  async run(t) {
+    const s = E.createGame({ seed: 4, seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'banker' }] });
+    for (const i of OWNABLE) s.lots[i].owner = -1;
+    s.phase = 'roll'; s.turn = 0; s.pending = null;
+    const row = LOTS_BY_D.br[0], other = LOTS_BY_D.ra[0];
+    s.lots[row].owner = 0; s.lots[other].owner = 0;
+    t.equal(E.whyNot(s, 0, 'mortgage', row), 'Federal leases cannot be mortgaged', 'the lease says why');
+    t.equal(E.whyNot(s, 0, 'mortgage', other), '', 'an ordinary lot that can be mortgaged says nothing');
+    t.expect(!E.legal(s).some((a) => a.type === 'mortgage' && a.space === row), 'and it is indeed not legal');
+  },
+});
+tests.push({
+  name: 'C4-06 the Manage sheet prints the reason under a lease and points the greyed button at it',
+  async run(t) {
+    await start(t, { seed: 3 });
+    const row = LOTS_BY_D.br[0];
+    await mod(t, (s) => { s.lots[row].owner = 0; s.phase = 'roll'; s.pending = null; s.turn = 0; });
+    await t.game('act', 'open', 'manage');
+    await t.waitForStable();
+    const r = await t.page.evaluate((i) => { const b = document.querySelector(`[data-act="mortgage"][data-i="${i}"]`), w = document.getElementById(b.getAttribute('aria-describedby') || 'none'); return { off: b.disabled, why: w ? w.textContent : '' }; }, row);
+    t.expect(r.off, 'Mortgage is greyed');
+    t.expect(/Mortgage: Federal leases cannot be mortgaged/.test(r.why), `and the line under it says why (${r.why})`);
+    await t.shot('C4-06-lease-manage');
+    await t.checkLayout({ allowScrollY: true });
+  },
+});
+
