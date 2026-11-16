@@ -95,3 +95,26 @@ tests.push({
   },
 });
 
+// ---------- C4-05: the title menu above the fold ----------
+tests.push({
+  name: 'C4-05 the last title button is on screen on common phones and laptops',
+  viewports: ['desktop'],
+  async run(t) {
+    for (const [w, h] of [[360, 640], [375, 667], [360, 740], [390, 844], [412, 915], [1280, 800], [1366, 768], [1280, 720], [1440, 900], [1920, 1080]]) {
+      await t.page.setViewportSize({ width: w, height: h });
+      await t.game('scene', 'title');
+      await t.waitForStable();
+      const r = await t.page.evaluate(() => {
+        const bs = [...document.querySelectorAll('.title-hero .menu .btn')], lid = document.querySelector('.lid').getBoundingClientRect();
+        return { n: bs.length, last: Math.max(...bs.map((b) => b.getBoundingClientRect().bottom)), right: Math.max(...bs.map((b) => b.getBoundingClientRect().right)), lidH: lid.height, lidW: lid.width, wide: document.documentElement.scrollWidth > innerWidth };
+      });
+      t.equal(r.n, 6, `${w}x${h}: six buttons`);
+      t.expect(r.last <= h, `${w}x${h}: About ends at ${Math.round(r.last)} px, inside the ${h} px screen`);
+      t.expect(r.right <= w && !r.wide, `${w}x${h}: nothing sticks out sideways`);
+      t.expect(r.lidH >= 230 && r.lidW >= 180, `${w}x${h}: the picture is still a picture (${Math.round(r.lidW)} x ${Math.round(r.lidH)})`);
+      if ([360, 375, 1280, 1366].includes(w)) await t.shot(`C4-05-title-${w}x${h}`);
+    }
+    await t.page.setViewportSize({ width: 1280, height: 800 });
+  },
+});
+
