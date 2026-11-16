@@ -65,6 +65,7 @@ button, input, select { font: inherit; color: inherit; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn:focus-visible, .iconbtn:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--highlight); outline-offset: 2px; }
 .btn kbd { font-family: var(--font-sans); font-size: .75em; opacity: .85; border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; }
+@media (hover: none) { .btn kbd { display: none; } } /* a touch screen has no keys to name (S2-14) */
 .iconbtn { width: 44px; height: 44px; border-radius: 10px; border: 2px solid var(--border); background: var(--surface); color: var(--text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 .iconbtn svg { width: 24px; height: 24px; }
 .ai-note { color: var(--muted); font-style: italic; align-self: center; }
@@ -87,7 +88,7 @@ h2 { font-size: 1.5em; margin: .3em 0 .5em; }
 .row > label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: .9em; }
 select, input[type=text], input[type=number] { min-height: 44px; border-radius: 8px; border: 2px solid var(--border); background: var(--surface); padding: 6px 8px; max-width: 100%; }
 .seg { display: inline-flex; border: 2px solid var(--primary); border-radius: 9px; overflow: hidden; }
-.seg button { min-height: 40px; padding: 6px 12px; border: 0; background: var(--surface); color: var(--primary); font-weight: 700; cursor: pointer; }
+.seg button { min-height: 44px; padding: 6px 12px; border: 0; background: var(--surface); color: var(--primary); font-weight: 700; cursor: pointer; }
 .seg button[aria-pressed=true] { background: var(--primary); color: var(--on-primary); }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 .tabs .btn[aria-selected=true] { background: var(--primary); color: var(--on-primary); }
