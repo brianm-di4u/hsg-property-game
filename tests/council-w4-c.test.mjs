@@ -65,3 +65,21 @@ tests.push({
   },
 });
 
+// ---------- S3-22: the summer season has a fact ----------
+tests.push({
+  name: 'S3-22 the summer season carries a sourced fact, and its sheet shows it',
+  async run(t) {
+    const summer = SEASONS.find((x) => x.id === 'summer');
+    t.expect(summer.fact && summer.fact.bank === 'hs-0427' && /June/.test(summer.fact.text), 'the season has a line from the audited bank');
+    await start(t, { seed: 3 });
+    await mod(t, (s) => { s.month = 6; });
+    await t.page.locator('#clock button.chip', { hasText: 'Summer visitors' }).click();
+    await t.waitForStable();
+    const txt = (await t.page.locator('#modal .dlg').innerText()).replace(/\s+/g, ' ');
+    t.expect(txt.includes(summer.fact.text) && txt.includes(summer.fact.src), 'the sheet shows the line and its source');
+    t.expect(!/game rule, not history/.test(txt), 'and no longer calls the season a game rule');
+    await t.shot('S3-22-summer-sheet');
+    await t.checkLayout({ allowScrollY: true });
+  },
+});
+
