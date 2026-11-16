@@ -74,3 +74,26 @@ tests.push({
     t.expect(await turn() !== t0, 'one press of E still ends the turn');
   },
 });
+
+// ---------- S3-10: the balance tool is part of npm test ----------
+tests.push({
+  name: 'S3-10 tools/balance.mjs --quick finishes with no band out, rows for the exploit baron and the dearest starting lots included',
+  node: true,
+  async run(t) {
+    const { spawnSync } = await import('node:child_process');
+    const { fileURLToPath } = await import('node:url');
+    const root = fileURLToPath(new URL('..', import.meta.url));
+    // Seeded (games 9000+k and 5000+k), so a rerun prints the same numbers. A band is wide enough that a different set of seeds
+    // would leave it with chance under 1 in 7000 over all rows (4.5 standard errors; the reasoning is at the top of the tool).
+    const r = spawnSync(process.execPath, ['tools/balance.mjs', '30', '4', '--quick'], { cwd: root, encoding: 'utf8', timeout: 240000 });
+    t.equal(r.status, 0, `the tool exits 0 (stderr: ${(r.stderr || '').slice(0, 200)})`);
+    const rows = r.stdout.split('\n').filter((l) => /\s(ok|OUT)$/.test(l));
+    const out = rows.filter((l) => /OUT$/.test(l));
+    t.expect(rows.length >= 20, `it prints its rows (${rows.length})`);
+    t.equal(out.length, 0, `no row is out of its band: ${out.join(' | ')}`);
+    t.expect(rows.some((l) => /Trade exploit baron/.test(l)), 'there is a row for the trade exploit baron');
+    t.expect(rows.some((l) => /winner had the dearest starting lots/.test(l)), 'and one for the winner holding the dearest starting lots');
+    t.expect(/Errors: 0 /.test(r.stdout), 'no game raised an error');
+    t.log(r.stdout.split('\n').filter((l) => /^Errors:/.test(l)).join(''));
+  },
+});
