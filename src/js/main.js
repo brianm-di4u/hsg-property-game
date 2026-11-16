@@ -1192,6 +1192,8 @@ function overWhy(s) {
 function screenOver(scr) {
   const s = G.s;
   const rank = s.ranking || s.players.map((p) => p.id);
+  // A game dealt from a number can be dealt again from it (S3-11). Not a daily game, whose Play again already is the same deal, nor a resumed game, whose setup is not kept.
+  const deal = Number.isFinite(s.seed) && !s.opts.daily && !!G.lastSetup;
   const story = endingStory(s), wface = s.players[s.winner].kind === 'ai' ? artSrc('face-' + s.players[s.winner].persona) : '';
   const portrait = wface ? `<img class="winface" src="${wface}" alt="">` : `<div class="winface monogram" aria-hidden="true">${esc(story.mono)}</div>`;
   scr.innerHTML = `<div class="wrap over"><div class="extra"><div class="mast">The Barons' Gazette</div><div class="dateline"><span>Extra!</span><span>${MONTHS[s.month]}, Year ${s.year + 1}</span><span>Hot Springs, Ark.</span></div></div>
@@ -1201,10 +1203,11 @@ function screenOver(scr) {
     <p class="fine">Auctions ${s.stats.auctions} · trades ${s.stats.trades} · buildings raised ${s.stats.builds} · cards drawn ${s.stats.cards}</p></div>
     ${overWhy(s)}
     ${overCareer()}
-    <div class="row"><button class="btn primary" data-again>Play again</button><button class="btn" data-career>Career</button><button class="btn" data-title>Title</button></div></div>`;
+    ${deal ? `<p class="fine seedline">Seed ${s.seed}. Same deal again plays these lots and cards once more; you can also type the seed under New game.</p>` : ''}
+    <div class="row"><button class="btn primary" data-again>Play again</button>${deal ? '<button class="btn" data-same>Same deal again</button>' : ''}<button class="btn" data-career>Career</button><button class="btn" data-title>Title</button></div></div>`;
   $('#wintok').append(R.tokenCanvas(s.players[s.winner].token, 96, s.winner + 1)); $('#wintok canvas').style.cssText = 'width:96px;height:96px';
   scr.querySelectorAll('[data-tok]').forEach((td) => td.prepend(R.tokenCanvas(s.players[+td.dataset.tok].token, 26, +td.dataset.tok + 1)));
-  scr.onclick = (ev) => { if (ev.target.closest('[data-again]')) newGame(G.lastSetup); else if (ev.target.closest('[data-career]')) { G.back = 'title'; scene('career'); } else if (ev.target.closest('[data-title]')) scene('title'); };
+  scr.onclick = (ev) => { if (ev.target.closest('[data-again]')) newGame(G.lastSetup); else if (ev.target.closest('[data-same]')) newGame({ ...G.lastSetup, seed: s.seed }); else if (ev.target.closest('[data-career]')) { G.back = 'title'; scene('career'); } else if (ev.target.closest('[data-title]')) scene('title'); };
 }
 
 // ---------- game lifecycle ----------

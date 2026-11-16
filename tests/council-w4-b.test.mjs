@@ -97,3 +97,56 @@ tests.push({
     t.log(r.stdout.split('\n').filter((l) => /^Errors:/.test(l)).join(''));
   },
 });
+
+// ---------- S3-11: the results screen shows the seed and can deal the same game again ----------
+tests.push({
+  name: 'S3-11 the results screen shows the seed, and Same deal again deals the same lots, cards and barons',
+  async run(t) {
+    const SHORT = { mode: 'short' };
+    await start(t, { seed: 4242, ...SHORT });
+    const first = await g(t);
+    await t.game('act', 'autoplay', 100000);
+    await t.waitForStable();
+    t.equal(await t.page.evaluate(() => window.__game.getState().scene), 'over', 'the game is over');
+    const line = await t.page.locator('.over .seedline').textContent();
+    t.expect(/Seed 4242\b/.test(line), `the results screen names the seed (${line})`);
+    await t.page.locator('.over .row').scrollIntoViewIfNeeded();
+    await t.shot('S3-11-results-seed');
+    await t.checkLayout({ allowScrollY: true });
+    const btn = t.page.locator('.over [data-same]');
+    t.equal(await btn.count(), 1, 'there is a Same deal again button');
+    t.expect((await btn.boundingBox()).height >= 40, 'and it is a full-size button');
+    await btn.click();
+    await t.waitForStable();
+    const again = await g(t);
+    t.equal(await t.page.evaluate(() => window.__game.getState().scene), 'game', 'it starts a new game');
+    t.equal(again.seed, 4242, 'with the same seed');
+    t.equal(again.round, 1, 'from the start');
+    const owners = (s) => Object.keys(s.lots).map((i) => s.lots[i].owner).join(',');
+    t.equal(owners(again), owners(first), 'the same lots dealt to the same barons');
+    t.equal(JSON.stringify(again.decks), JSON.stringify(first.decks), 'and the same cards in the same order');
+    t.equal(again.players.map((p) => `${p.name}/${p.persona}`).join('|'), first.players.map((p) => `${p.name}/${p.persona}`).join('|'), 'the same barons at the table');
+    t.equal(again.opts.mode, 'short', 'under the same rules');
+    // Play again is still a fresh deal
+    await t.game('act', 'autoplay', 100000);
+    await t.waitForStable();
+    await t.page.locator('.over [data-again]').click();
+    await t.waitForStable();
+    t.expect((await g(t)).seed !== 4242, 'Play again still deals a new game');
+  },
+});
+tests.push({
+  name: 'S3-11 a daily game keeps Play again as its same deal and shows no seed',
+  viewports: ['desktop'],
+  async run(t) {
+    await t.game('act', 'fast', true);
+    await t.game('act', 'aiPause', true);
+    await t.game('newGame', { seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'banker' }, { kind: 'ai', persona: 'showman' }, { kind: 'ai', persona: 'hotelier' }], mode: 'short', seed: 777, daily: '2026-11-16' });
+    await t.waitForStable();
+    await t.game('act', 'autoplay', 100000);
+    await t.waitForStable();
+    t.equal(await t.page.locator('.over .seedline').count(), 0, 'no seed line');
+    t.equal(await t.page.locator('.over [data-same]').count(), 0, 'no second button');
+    t.equal(await t.page.locator('.over [data-again]').count(), 1, 'Play again is there');
+  },
+});
