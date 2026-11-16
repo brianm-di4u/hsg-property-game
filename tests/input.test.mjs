@@ -50,6 +50,7 @@ export const tests = [
       await t.seed(5);
       // Title → setup by keyboard: New game has focus.
       await t.page.keyboard.press('Enter');
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'setup');
       t.equal((await t.state()).scene, 'setup', 'Enter opens setup');
       // Tab to the Start button (last control) and press it.
       for (let k = 0; k < 60; k++) { const f = await t.page.evaluate(() => document.activeElement && document.activeElement.dataset.start != null); if (f) break; await t.page.keyboard.press('Tab'); }
@@ -62,10 +63,13 @@ export const tests = [
       await t.page.focus('#board');
       await t.page.keyboard.press('ArrowRight');
       await t.page.keyboard.press('Enter');
+      await t.page.waitForFunction(() => window.__game.getState().dialog === 'deed');
       t.equal((await t.state()).dialog, 'deed', 'Enter opens a deed');
       await t.page.keyboard.press('Escape');
+      await t.page.waitForFunction(() => window.__game.getState().dialog === null);
       t.equal((await t.state()).dialog, null, 'Esc closes it');
       await t.page.keyboard.press('p');
+      await t.page.waitForFunction(() => window.__game.getState().dialog === 'pause');
       t.equal((await t.state()).dialog, 'pause', 'P opens the menu');
       await t.page.keyboard.press('Escape');
     },
