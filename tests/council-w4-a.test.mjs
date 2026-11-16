@@ -71,3 +71,27 @@ tests.push({
   },
 });
 
+// ---------- C4-04: season chips ----------
+tests.push({
+  name: 'C4-04 the lower quarter of every season chip lands on that chip, not on the chip below it',
+  async run(t) {
+    await start(t, { seed: 3 });
+    if (t.viewport === 'mobile') await t.page.setViewportSize({ width: 320, height: 700 });
+    // the month with the most chips, so the row wraps on a narrow phone
+    let best = 0, most = 0;
+    for (let m = 0; m < 12; m++) { await mod(t, (s) => { s.month = m; }); const n = await t.page.locator('#clock button.chip').count(); if (n > most) { most = n; best = m; } }
+    await mod(t, (s) => { s.month = best; });
+    const r = await t.page.evaluate(() => {
+      const bs = [...document.querySelectorAll('#clock button.chip')], tops = new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top)));
+      const hit = (b, f) => { const q = b.getBoundingClientRect(), e = document.elementFromPoint(q.left + q.width / 2, q.top + q.height * f); return !!e && e.closest('#clock button.chip') === b; };
+      return { rows: tops.size, n: bs.length, lower: bs.map((b) => hit(b, 0.875)), upper: bs.map((b) => hit(b, 0.125)), mid: bs.map((b) => hit(b, 0.5)) };
+    });
+    if (t.viewport === 'mobile') t.expect(r.rows >= 2, `the chips wrap onto ${r.rows} rows, so a margin could cover a chip above it`);
+    t.expect(r.n >= 3, `${r.n} chips`);
+    t.expect(r.lower.every(Boolean), `the middle of each chip's lower quarter is on that chip (${JSON.stringify(r.lower)})`);
+    t.expect(r.upper.every(Boolean) && r.mid.every(Boolean), 'and so are its upper quarter and middle');
+    await t.shot('C4-04-season-chips');
+    if (t.viewport === 'mobile') await t.page.setViewportSize({ width: 390, height: 844 });
+  },
+});
+
