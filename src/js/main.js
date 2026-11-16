@@ -537,7 +537,7 @@ function refreshView() {
   const a = s.ended ? s.winner : E.actor(s), A = s.players[a];
   const sub = s.ended ? 'Game over' : s.phase === 'auction' ? `Auction: ${SPACES[s.pending.space].name}` : s.phase === 'trade' ? `Considering ${s.players[s.pending.from].name}'s offer` : s.phase === 'debt' ? `Owes ${money(s.debts[0].amount)}: must raise cash` : s.phase === 'buy' ? `Landed on ${SPACES[s.pending.space].name} (${money(SPACES[s.pending.space].price)})` : A.held && s.phase === 'roll' ? 'Held in the Grand Jury Room' : s.phase === 'roll' ? (s.players[s.turn].doubles ? 'Doubles! Roll again' : 'To roll') : (autoEndPending() ? MOVED_ENDING : MOVED_SUB);
   const tb = $('#turnbar'); tb.innerHTML = '';
-  const tface = A.kind === 'ai' ? artSrc('face-' + A.persona) : '';
+  const tface = faceArt(A);
   if (tface) { const im = document.createElement('img'); im.className = 'face'; im.src = tface; im.alt = ''; tb.append(im); }
   tb.append(R.tokenCanvas(A.token, 36, a + 1));
   const w = document.createElement('div'); w.className = 'who';
@@ -640,7 +640,7 @@ function renderPlayers() {
     li.append(R.tokenCanvas(p.token, 34, p.id + 1));
     const d = document.createElement('div'); d.className = 'pinfo';
     const n = E.owned(s, p.id).length;
-    const face = p.kind === 'ai' ? artSrc('face-' + p.persona) : '';
+    const face = faceArt(p);
     if (face) { const im = document.createElement('img'); im.className = 'face'; im.src = face; im.alt = ''; li.append(im); }
     const fan = E.owned(s, p.id).map((i) => SPACES[i].d ? DISTRICTS[SPACES[i].d].color : '#355E41').map((c) => `<i style="background:${c}"></i>`).join('');
     d.innerHTML = `<span class="nm"><span class="full">${esc(p.name)}</span><span class="first">${esc(firsts.filter((f) => f === first(p)).length > 1 ? short(p) : first(p))}</span></span><span class="cash"></span>${p.out ? '' : `<span class="mini">${n} lot${n === 1 ? '' : 's'} · ${miniMoney(E.netWorth(s, p.id))}</span>${p.held || p.pardons ? `<span class="mini tag">${[p.held ? 'Held' : '', p.pardons ? 'Pardon' : ''].filter(Boolean).join(' · ')}</span>` : ''}`}${fan ? `<span class="fan" aria-hidden="true">${fan}</span>` : ''}<span class="meta">${p.kind === 'ai' ? esc(PERSONAS[p.persona].name) + ' AI · ' + esc(levelName(p)) : 'Human'} · ${n} lot${n === 1 ? '' : 's'} · worth ${money(E.netWorth(s, p.id))}${p.held ? ' · held' : ''}${p.pardons ? ' · pardon' : ''}</span>`;
@@ -775,10 +775,12 @@ function openManage() { if (!humanActor() || !(can('build') || can('sell') || ca
 function openDebt() { openDialog(manageRender(true), { name: 'debt', closable: false, render: () => manageRender(true) }); }
 
 // Auction
+// A baron's portrait picture: an AI's cameo, or the one a human chose in setup (S4-09). A human who chose none has none, as before.
+const faceArt = (p) => p.kind === 'ai' ? artSrc('face-' + p.persona) : PERSONA_KEYS.includes(p.face) ? artSrc('face-' + p.face) : '';
 // A baron's small portrait in dialogs: the persona's cameo for an AI, the token for a human.
 const tokUrl = {};
 function baronImg(p) {
-  const f = p.kind === 'ai' ? artSrc('face-' + p.persona) : '';
+  const f = faceArt(p);
   if (f) return `<img class="bimg" src="${f}" alt="">`;
   const key = p.token + ':' + (art.ready ? 1 : 0);
   if (!tokUrl[key]) tokUrl[key] = R.tokenCanvas(p.token, 40).toDataURL();
@@ -1037,7 +1039,7 @@ function screenSetup(scr) {
       <input type="text" class="nm" aria-label="Seat ${k + 1} name" data-name="${k}" value="${esc(p.name)}" placeholder="${p.kind === 'ai' ? esc(PERSONAS[p.persona]?.who || 'AI baron') : 'Name'}" maxlength="18">
       ${p.kind === 'ai' ? `<select class="persona" aria-label="Seat ${k + 1} AI personality" data-persona="${k}"><option value="random">Random</option>${PERSONA_KEYS.map((x) => `<option value="${x}" ${p.persona === x ? 'selected' : ''}>${PERSONAS[x].name}</option>`).join('')}</select>
       <select class="level" aria-label="Seat ${k + 1} AI level" data-level="${k}">${LEVEL_KEYS.map((x) => `<option value="${x}" ${(p.level || 'normal') === x ? 'selected' : ''}>${LEVELS[x].name}</option>`).join('')}</select>
-      <p class="blurb">${PERSONAS[p.persona] ? esc(PERSONAS[p.persona].blurb) : 'A personality drawn at random when play starts.'}${p.level && p.level !== 'normal' ? ` <em>${esc(LEVELS[p.level].name)}: ${esc(LEVELS[p.level].blurb)}</em>` : ''}</p>` : '<p class="blurb">Plays from this device.</p>'}
+      <p class="blurb">${PERSONAS[p.persona] ? esc(PERSONAS[p.persona].blurb) : 'A personality drawn at random when play starts.'}${p.level && p.level !== 'normal' ? ` <em>${esc(LEVELS[p.level].name)}: ${esc(LEVELS[p.level].blurb)}</em>` : ''}</p>` : `<select class="persona" aria-label="Seat ${k + 1} portrait" data-face="${k}"><option value="">Hat and coat</option>${PERSONA_KEYS.map((x) => `<option value="${x}" ${p.face === x ? 'selected' : ''}>${PERSONAS[x].name}</option>`).join('')}</select><p class="blurb">Plays from this device.</p>`}
       <button type="button" class="iconbtn" data-rm="${k}" aria-label="Remove seat ${k + 1}" ${st.seats.length <= 2 ? 'disabled' : ''}>✕</button></div>`).join('')}</div>
       <button type="button" class="btn" data-add ${st.seats.length >= 6 ? 'disabled' : ''} style="margin-top:8px">Add a baron</button></div>
     <div class="card"><div class="row" style="gap:18px;align-items:flex-start">
@@ -1048,7 +1050,7 @@ function screenSetup(scr) {
       <p class="fine" id="lenhint">${LENGTH_HINT}${newPlayer() ? ' New here? Short is the quickest first game.' : ''}</p>
       <p class="fine">Common Ground: base rent, fares, the utility and taxes feed a public treasury that pays everyone a dividend each month (inspired by the public-domain Landlord's Game, 1904).</p></div>
     <div class="row"><button type="button" class="btn ghost" data-back>Back</button><button type="button" class="btn primary" data-start>Start the game</button></div></div>`;
-  scr.querySelectorAll('.seat').forEach((row, k) => { const tk = row.querySelector('.tk'), p = st.seats[k], f = artSrc(p.kind === 'ai' && p.persona !== 'random' ? 'face-' + p.persona : p.kind === 'ai' ? '' : 'face-human');
+  scr.querySelectorAll('.seat').forEach((row, k) => { const tk = row.querySelector('.tk'), p = st.seats[k], f = artSrc(p.kind === 'ai' && p.persona !== 'random' ? 'face-' + p.persona : p.kind === 'ai' ? '' : PERSONA_KEYS.includes(p.face) ? 'face-' + p.face : 'face-human');
     if (f) { const im = document.createElement('img'); im.className = 'seatface'; im.src = f; im.alt = ''; tk.append(im); } tk.append(R.tokenCanvas(k, 30, k + 1)); });
   scr.onclick = (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
@@ -1065,6 +1067,7 @@ function screenSetup(scr) {
     const t = ev.target;
     if (t.dataset.name != null) st.seats[+t.dataset.name].name = t.value.trim();
     if (t.dataset.persona != null) { const k = +t.dataset.persona; st.seats[k].persona = t.value; screenSetup(scr); scr.querySelector(`[data-persona="${k}"]`).focus(); }
+    if (t.dataset.face != null) { const k = +t.dataset.face; st.seats[k].face = PERSONA_KEYS.includes(t.value) ? t.value : ''; screenSetup(scr); scr.querySelector(`[data-face="${k}"]`).focus(); }
     if (t.dataset.level != null) { const k = +t.dataset.level; st.seats[k].level = LEVELS[t.value] ? t.value : 'normal'; screenSetup(scr); scr.querySelector(`[data-level="${k}"]`).focus(); }
     if (t.dataset.years != null) st.years = +t.value;
     if (t.dataset.seed != null) st.seed = t.value;
@@ -1088,7 +1091,7 @@ function beginDaily() {
 }
 function beginSetupGame() {
   const st = G.setup;
-  const seats = st.seats.map((p) => ({ kind: p.kind, name: p.name || undefined, persona: p.persona === 'random' ? undefined : p.persona, level: p.kind === 'ai' ? (p.level || 'normal') : undefined }));
+  const seats = st.seats.map((p) => ({ kind: p.kind, name: p.name || undefined, persona: p.persona === 'random' ? undefined : p.persona, face: p.kind === 'human' && PERSONA_KEYS.includes(p.face) ? p.face : undefined, level: p.kind === 'ai' ? (p.level || 'normal') : undefined }));
   if (!G.settings.tipsSeen) saveSettings(); // a newcomer's tips are remembered from the first game on
   newGame({ seats, mode: st.mode, variant: st.variant, years: st.mode === 'short' ? 0 : +st.years, seed: st.seed !== '' ? +st.seed : undefined, coach: true });
 }
@@ -1199,7 +1202,7 @@ function screenOver(scr) {
   const rank = s.ranking || s.players.map((p) => p.id);
   // A game dealt from a number can be dealt again from it (S3-11). Not a daily game, whose Play again already is the same deal, nor a resumed game, whose setup is not kept.
   const deal = Number.isFinite(s.seed) && !s.opts.daily && !!G.lastSetup;
-  const story = endingStory(s), wface = s.players[s.winner].kind === 'ai' ? artSrc('face-' + s.players[s.winner].persona) : '';
+  const story = endingStory(s), wface = faceArt(s.players[s.winner]);
   const portrait = wface ? `<img class="winface" src="${wface}" alt="">` : `<div class="winface monogram" aria-hidden="true">${esc(story.mono)}</div>`;
   scr.innerHTML = `<div class="wrap over"><div class="extra"><div class="mast">The Barons' Gazette</div><div class="dateline"><span>Extra!</span><span>${MONTHS[s.month]}, Year ${s.year + 1}</span><span>Hot Springs, Ark.</span></div></div>
     <div class="podium">${portrait}<div class="plinth"><span id="wintok"></span></div><div><div class="kicker">${esc(story.kicker)}</div><h2>${esc(s.players[s.winner].name)} wins!</h2></div></div>${story.epilogue ? `<p class="epilogue">${esc(story.epilogue)}</p>` : ''}<p class="lede">Game over: ${esc(s.endWhy || '')}. ${MONTHS[s.month]}, Year ${s.year + 1}, after ${s.monthsPlayed} month${s.monthsPlayed === 1 ? '' : 's'}.</p>

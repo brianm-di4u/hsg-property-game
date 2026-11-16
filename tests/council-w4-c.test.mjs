@@ -83,6 +83,51 @@ tests.push({
   },
 });
 
+// ---------- S4-09: a human baron can pick a portrait ----------
+tests.push({
+  name: 'S4-09 a human baron picks one of the six portraits in setup and wears it in the turn bar, the baron list and the trade sheet',
+  async run(t) {
+    await t.game('scene', 'setup');
+    await t.waitForStable();
+    t.equal(await t.page.locator('select[data-face]').count(), 1, 'one portrait choice, on the human seat');
+    t.equal(await t.page.locator('select[data-face] option').count(), 1 + PERSONA_KEYS.length, 'a plain choice and the six portraits');
+    const seatPic = () => t.page.locator('.seat[data-k="0"] img.seatface').getAttribute('src');
+    const was = await seatPic();
+    await t.page.selectOption('select[data-face="0"]', 'banker');
+    await t.waitForStable();
+    t.expect((await seatPic()) !== was, 'choosing one changes the seat picture');
+    t.equal(await t.page.locator('select[data-face="0"]').inputValue(), 'banker', 'and the choice stays chosen');
+    await t.shot('S4-09-setup-portrait');
+    await t.checkLayout({ allowScrollY: true });
+    await t.game('act', 'fast', true);
+    await t.game('act', 'aiPause', true);
+    await t.seed(7);
+    await t.page.locator('[data-seg="mode"][data-v="short"]').click();
+    await t.page.locator('[data-start]').click();
+    await t.waitForStable();
+    t.equal((await g(t)).players[0].face, 'banker', 'the human baron carries the choice');
+    t.equal(await t.page.locator('#players img.face').count(), 4, 'every baron in the list has a portrait');
+    t.equal(await t.page.locator('#turnbar img.face').count(), 1, 'and so does the turn bar');
+    await t.game('act', 'open', 'trade', 1);
+    await t.waitForStable();
+    const classes = await t.page.evaluate(() => [...document.querySelectorAll('.dlg .bimg')].map((e) => e.className));
+    t.expect(classes.length >= 2 && classes.every((c) => c === 'bimg'), `the trade sheet shows portraits for both sides, not the token (${classes})`);
+    await t.shot('S4-09-trade-portrait');
+    await t.game('act', 'close');
+    // a game where nothing was chosen shows what it showed before
+    await t.game('newGame', { seats: [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier' }], mode: 'short', seed: 7 });
+    await t.waitForStable();
+    t.equal((await g(t)).players[0].face, undefined, 'no portrait chosen, none recorded');
+    t.equal(await t.page.locator('#players img.face').count(), 1, 'only the rival has a portrait in the list');
+    // a save with a made-up portrait name shows the token, as a save without the field does
+    const s = await g(t);
+    s.players[0].face = 'constructor';
+    await t.game('setState', { game: s });
+    await t.waitForStable();
+    t.equal(await t.page.locator('#players img.face').count(), 1, 'a made-up portrait name is ignored');
+  },
+});
+
 // ---------- S4-10: Park Avenue names, the Vapors and the Row ----------
 tests.push({
   name: 'S4-10 the three Park Avenue lots take their researched names on the same spaces, and the Vapors and the Row say what they are',

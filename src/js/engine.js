@@ -58,7 +58,7 @@ export function createGame(opts = {}) {
     names.add(name);
     s.players.push({
       id: i, name,
-      kind: st.kind === 'ai' ? 'ai' : 'human', persona, level: st.kind === 'ai' ? (LEVELS[st.level] ? st.level : 'normal') : null, token: i, cash: RULES.startCash, pos: DEPOT,
+      kind: st.kind === 'ai' ? 'ai' : 'human', persona, ...(st.kind !== 'ai' && PERSONA_KEYS.includes(st.face) ? { face: st.face } : {}), level: st.kind === 'ai' ? (LEVELS[st.level] ? st.level : 'normal') : null, token: i, cash: RULES.startCash, pos: DEPOT,
       held: 0, pardons: 0, out: false, doubles: 0, outRound: 0,
       stat: { rentIn: 0, rentOut: 0, bought: 0, built: 0, trades: 0, maxRentIn: 0, maxRentOut: 0, resorts: 0 },
     });
