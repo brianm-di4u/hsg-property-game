@@ -1457,7 +1457,7 @@ function fallback2D(why) {
 
 // ---------- hooks ----------
 function gameState() {
-  return { scene: G.scene, dialog: G.dialog, game: G.s ? JSON.parse(JSON.stringify(G.s)) : null, settings: { ...G.settings }, busy: G.busy, rush: G.rush, waitingOk: G.waitingOk, actor: G.s ? E.actor(G.s) : -1, legal: G.s ? E.legal(G.s) : [], sounds: audio.played.slice(-10), board: { W: R.view.W, H: R.view.H, dice: [R.view.dice.a, R.view.dice.b], mode: B.B3.on ? '3d' : '2d' } };
+  return { scene: G.scene, dialog: G.dialog, game: G.s ? JSON.parse(JSON.stringify(G.s)) : null, settings: { ...G.settings }, busy: G.busy, rush: G.rush, waitingOk: G.waitingOk, actor: G.s ? E.actor(G.s) : -1, legal: G.s ? E.legal(G.s) : [], sounds: audio.played.slice(-10), audioErrors: audio.errors, audioError: audio.lastError, board: { W: R.view.W, H: R.view.H, dice: [R.view.dice.a, R.view.dice.b], mode: B.B3.on ? '3d' : '2d' } };
 }
 window.__game = {
   seed(n) { G.nextSeed = n | 0; if (G.s) { G.s.rng = (n >>> 0) || 1; } return true; },
@@ -1486,6 +1486,7 @@ window.__game = {
       case 'aiPause': G.aiPaused = !!args[0]; if (!G.aiPaused) schedule(); else { clearTimeout(G.aiTimer); G.aiTimer = 0; } return G.aiPaused;
       case 'dicePos': { const D = R.view.dice, h = R.diceHome(); D.pos = args[0] ? args[0].map((p) => ({ x: h.x + p.x * h.gap, y: h.y + p.y * h.gap, lift: p.lift * h.size, rot: 0 })) : null; draw(); return h; }
       case 'fast': G.fast = !!args[0]; return G.fast;
+      case 'sfx': unlock(); sfx(args[0], args[1] || {}); return audio.errors;
       case 'autoplay': {
         if (!s) return null; const n = args[0] || 1000;
         for (let k = 0; k < n && !s.ended; k++) { const a = aiAction(s); const r = E.apply(s, a); if (!r.ok) return { error: r.error, action: a }; }

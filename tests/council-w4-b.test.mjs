@@ -170,3 +170,28 @@ tests.push({
     await t.shot('S6-12-first-card');
   },
 });
+
+// ---------- S5-22: audio failures are counted ----------
+tests.push({
+  name: 'S5-22 every cue plays through the live graph with no audio error, and one that throws is counted and not shown',
+  viewports: ['desktop'],
+  async run(t) {
+    await start(t, { seed: 3 });
+    await t.page.mouse.click(5, 5); // a gesture, so the audio wakes
+    await t.page.waitForFunction(() => window.__game.audioState().state === 'running', null, { timeout: 10000 }).catch(() => {});
+    const st = await t.game('audioState');
+    t.equal(st.state, 'running', 'the audio context is running, so the cues really play (a suspended one would pass this test for nothing)');
+    const names = (await t.game('audioList')).cues;
+    t.expect(names.length >= 30, `${names.length} cues`);
+    for (const n of names) await t.game('act', 'sfx', n, { pitch: 2, i: 1, m: 1, persona: 'banker' });
+    let s = await t.state();
+    t.equal(s.audioErrors, 0, `no cue raised an error (${s.audioError})`);
+    // a cue that throws: a pitch that is not a number makes the oscillator refuse its frequency
+    await t.game('act', 'sfx', 'bid', { pitch: 'x' });
+    s = await t.state();
+    t.equal(s.audioErrors, 1, 'a failing cue is counted');
+    t.expect(/cue bid/.test(s.audioError), `and says which one (${s.audioError})`);
+    t.equal(s.scene, 'game', 'and the game carries on');
+    t.equal((await t.game('audioState')).errors, 1, 'audioState reports the same count');
+  },
+});

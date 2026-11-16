@@ -4,7 +4,7 @@
 //   adapted: it also exposes its two buses so tests can read them). Cues are layered voices with per-play
 //   variation. Everything obeys the master Sound switch in Settings, and pauses behind the pause card and a
 //   hidden tab. The offline renderers at the bottom measure each piece without touching the live audio.
-export const audio = { ctx: null, on: true, sfx: true, music: true, amb: true, vol: 0.35, mvol: 0.7, avol: 0.7, played: [], count: 0, kit: null, cues: null, fx: null, fxTarget: 0, haptics: false, still: false, last: null };
+export const audio = { ctx: null, on: true, sfx: true, music: true, amb: true, vol: 0.35, mvol: 0.7, avol: 0.7, played: [], count: 0, kit: null, cues: null, fx: null, fxTarget: 0, haptics: false, still: false, last: null, errors: 0, lastError: '' };
 
 // Levels: at these slider positions the mix is at its measured level (see the tests). Sliders scale from there.
 const REF_FX = 0.35, REF_MIX = 0.7, FX_MAX = 1.6;
@@ -558,6 +558,9 @@ function makeCues(ctx, out, kit) {
 }
 
 // ============================================================================================ live controls
+// A failure in the audio is never allowed to reach the player, but it is counted (S5-22): a cue that throws would otherwise pass every
+// test unheard. audioState() and __game.getState() report the count, so a test can assert none.
+const audioFail = (where, e) => { audio.errors++; audio.lastError = `${where}: ${e && e.message ? e.message : e}`; };
 const holds = { hidden: false, pause: false };
 const want = { music: 'title', amb: 'town', crowd: 0.2 };
 let lastClick = -1;
@@ -595,11 +598,11 @@ export function unlock() {
       audio.cues = makeCues(ctx, g.fx, audio.kit);
       audio.kit.amb.set('crowd', want.crowd, 0.01);
       audio.kit.start();
-    } catch (e) { audio.ctx = null; audio.kit = null; audio.cues = null; return; }
+    } catch (e) { audioFail('unlock', e); audio.ctx = null; audio.kit = null; audio.cues = null; return; }
     applyAudio();
     return;
   }
-  if (audio.ctx.state !== 'running' && audio.ctx.state !== 'closed') audio.ctx.resume().catch(() => {});
+  if (audio.ctx.state !== 'running' && audio.ctx.state !== 'closed') audio.ctx.resume().catch((e) => audioFail('resume', e));
 }
 
 // Haptics (S5-09): a short pulse where the browser has it, when the player has it on and has not asked for less motion.
@@ -612,7 +615,7 @@ export function haptic(kind) {
 // Hidden tab: fade out, schedule nothing, suspend the context. holdAudio('hidden', false) and unlock() bring it back.
 export function suspendAudio() {
   holdAudio('hidden', true);
-  if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend().catch(() => {});
+  if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend().catch((e) => audioFail('suspend', e));
 }
 export function holdAudio(reason, on) { holds[reason] = !!on; applyAudio(); }
 // Which piece and which place the current screen wants (null for none). Starts when the context exists.
@@ -629,7 +632,7 @@ export function sfx(name, o = {}) {
   try {
     audio.cues.play(name, now + 0.004, o);
     if (name === 'fanfare') audio.kit.music.duck(6, 1800); else if (name === 'bust') audio.kit.music.duck(4, 700);
-  } catch (e) { /* audio is optional */ }
+  } catch (e) { audioFail(`cue ${name}`, e); }
 }
 
 // ============================================================================================ test hooks
@@ -640,7 +643,7 @@ export function audioState(reset) {
   const out = {
     ready: !!audio.ctx, state: audio.ctx ? audio.ctx.state : 'none', music: k ? nameOf(SCORES, k.music.score) : null, amb: k ? nameOf(SCENES, k.amb.scene) : null,
     musicGain: k ? +k.buses.music.gain.value.toFixed(3) : 0, ambGain: k ? +k.buses.amb.gain.value.toFixed(3) : 0, fxTarget: audio.fxTarget ?? 0,
-    held: k ? k.held : false, bars: info ? info.bars : 0, heard: audio.played.slice(), last: audio.last, count: audio.count,
+    held: k ? k.held : false, bars: info ? info.bars : 0, heard: audio.played.slice(), last: audio.last, count: audio.count, errors: audio.errors, lastError: audio.lastError,
   };
   if (reset) audio.played.length = 0;
   return out;
