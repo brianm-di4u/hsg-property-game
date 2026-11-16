@@ -4,7 +4,7 @@ import * as E from './engine.js';
 import { aiAction } from './ai.js';
 import * as R from './render.js';
 import { audio, haptic, DICE_MS, DICE_BOUNCES, unlock, suspendAudio, sfx, holdAudio, setMood, setCrowd, applyAudio, audioList, audioRender, audioState } from './audio.js';
-import { art, loadArt } from './art.js';
+import { art, loadArt, warmCards } from './art.js';
 import { ART_LIST } from './art-list.js';
 import * as B from './board3d.js';
 import { qs, esc, money, deedHtml, cardHtml, seasonHtml, helpHtml, aboutHtml, peekHtml, whyLines, endingStory, resigned, historyChart, lotLabel, artSrc, spaceArt, GOAL_TEXT } from './ui.js';
@@ -1473,7 +1473,7 @@ window.__game = {
   view() { return B.B3.on ? B.viewInfo() : null; },
   boardMode() { return { mode: B.B3.on ? '3d' : '2d', why: G.glWhy || '', gpu: G.glName || '' }; },
   force2D() { fallback2D('forced'); return !B.B3.on; },
-  art() { return { list: ART_LIST.slice(), ready: art.ready, ms: art.readyMs || null, wanted: art.want.slice(), loaded: Object.keys(art.imgs), failed: art.failed.slice() }; },
+  art() { return { list: ART_LIST.slice(), ready: art.ready, ms: art.readyMs || null, wanted: art.want.slice(), loaded: Object.keys(art.imgs), failed: art.failed.slice(), warmed: art.warmed.slice() }; },
   scene(n) { if (n === 'game' && !G.s) return false; G.back = G.s ? 'game' : 'title'; scene(n); return G.scene; },
   newGame(opts = {}) { const s = newGame(opts); return E.summary(s); },
   act(name, ...args) {
@@ -1526,6 +1526,7 @@ function boot() {
     if (B.B3.on) B.setTheme(R.view.theme);
     if (art.on) document.body.classList.add('art');
     if (G.scene === 'game') { refresh(); layout(); } // the title already has its art (the image list is known up front)
+    warmCards();
   });
   $('#coach').addEventListener('click', onCoachClick);
   $('#clock').addEventListener('click', (ev) => { const b = ev.target.closest('[data-season]'); if (b && !G.dialog && G.s) { unlock(); openDialog(`${seasonHtml(b.dataset.season)}<div class="btns"><button class="btn primary" data-ok>OK</button></div>`, { name: 'season' }); } });

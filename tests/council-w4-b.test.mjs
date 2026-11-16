@@ -150,3 +150,23 @@ tests.push({
     t.equal(await t.page.locator('.over [data-again]').count(), 1, 'Play again is there');
   },
 });
+
+// ---------- S6-12: card engravings are fetched and decoded while the title is idle ----------
+tests.push({
+  name: 'S6-12 the card engravings are decoded in the idle time of the title, so the first card shows its picture at once',
+  async run(t) {
+    const list = await t.game('art');
+    const news = list.list.filter((n) => /^news-/.test(n));
+    t.expect(news.length >= 8, `${news.length} card engravings are in the game`);
+    await t.page.waitForFunction((n) => window.__game.art().warmed.length >= n, news.length, { timeout: 30000 });
+    t.equal(JSON.stringify((await t.game('art')).warmed.slice().sort()), JSON.stringify(news.slice().sort()), 'every engraving has been warmed, once');
+    await start(t, { seed: 5 });
+    const r = await t.page.evaluate(() => {
+      window.__game.act('open', 'card', 'n-fire1878');
+      const im = document.querySelector('#modal .news img.cut');
+      return im ? { complete: im.complete, w: im.naturalWidth } : null;
+    });
+    t.expect(r && r.complete && r.w > 0, `the first headline's picture is already there when the card opens (${JSON.stringify(r)})`);
+    await t.shot('S6-12-first-card');
+  },
+});

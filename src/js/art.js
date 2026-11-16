@@ -3,7 +3,7 @@
 // (inlined as ART_LIST) are requested, so a missing file can never 404.
 import { ART_LIST } from './art-list.js';
 
-export const art = { on: true, imgs: {}, loading: 0, ready: false, fonts: false, failed: [], want: [] };
+export const art = { on: true, imgs: {}, loading: 0, ready: false, fonts: false, failed: [], want: [], warmed: [], warmKeep: [] };
 const FONTS = ['600 16px "Barlow Condensed"', '700 16px "Barlow Condensed"', '16px "Alfa Slab One"', '16px "Libre Caslon Text"', 'italic 16px "Libre Caslon Text"', '16px "Abril Fatface"'];
 
 export const img = (name) => (art.on ? art.imgs[name] || null : null);
@@ -36,4 +36,21 @@ export function loadArt(onReady) {
     const sc = document.createElement('script'); sc.src = 'assets/art-data.js'; sc.onload = () => res(); sc.onerror = () => res(); document.head.append(sc);
   }) : Promise.resolve();
   Promise.all([fonts, data.then(() => Promise.all(art.want.map(load)))]).then(() => { art.loading = 0; art.ready = true; art.readyMs = Math.round(performance.now()); onReady && onReady(); });
+}
+
+// The card engravings are plain <img> tags in the card dialog, so the first rival card of a game used to fetch and decode one while the
+// AI turn was running (S6-12). Once the board art is in, they are fetched and decoded one at a time while the browser is idle
+// (the title screen), so by then they are in the cache. Nothing waits for it and a failed one is just skipped.
+export function warmCards() {
+  if (!art.on || art.warmStarted) return;
+  art.warmStarted = true;
+  if (navigator.connection && navigator.connection.saveData) return;
+  const names = ART_LIST.filter((n) => /^news-/.test(n)), idle = window.requestIdleCallback ? (f) => window.requestIdleCallback(f, { timeout: 2000 }) : (f) => setTimeout(f, 250);
+  const next = () => {
+    const n = names.shift(); if (!n) return;
+    const im = new Image(); im.src = `assets/${n}.webp`;
+    const done = (ok) => { if (ok) { art.warmKeep.push(im); art.warmed.push(n); } idle(next); };
+    im.decode().then(() => done(true), () => done(false));
+  };
+  idle(next);
 }
