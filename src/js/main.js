@@ -584,8 +584,7 @@ function renderActions() {
     return;
   }
   const busy = G.busy;
-  if (busy && animOn() && !G.dialog) { const n = document.createElement('span'); n.className = 'ai-note moving'; n.textContent = 'Moving… tap the board or press Space to skip'; el.append(n); return; }
-  const p = s.phase;
+  const p = s.phase, moving = busy && animOn() && !G.dialog;
   if (p === 'roll') {
     const P0 = s.players[s.turn];
     if (P0.held) {
@@ -604,9 +603,11 @@ function renderActions() {
   } else if (p === 'post') {
     el.append(btn(s.again ? 'Roll again' : 'End turn', 'E', () => perform({ type: 'end' }), 'primary', busy));
     el.append(btn('Manage', 'M', () => openManage(), '', busy), btn('Trade', 'T', () => openTrade(), '', busy));
-  } else if (p === 'auction') el.append(btn('Open auction', '', () => openAuction(), 'primary'));
-  else if (p === 'debt') el.append(btn('Raise cash', '', () => openDebt(), 'primary'));
-  else if (p === 'trade') el.append(btn('Review offer', '', () => openIncoming(), 'primary'));
+  } else if (p === 'auction') el.append(btn('Open auction', '', () => openAuction(), 'primary', moving));
+  else if (p === 'debt') el.append(btn('Raise cash', '', () => openDebt(), 'primary', moving));
+  else if (p === 'trade') el.append(btn('Review offer', '', () => openIncoming(), 'primary', moving));
+  // While the pieces move the buttons stay where they are, switched off, with the way to skip written under them (S1-08).
+  if (moving) { const n = document.createElement('span'); n.className = 'ai-note moving'; n.textContent = 'Moving… tap the board or press Space to skip'; el.append(n); }
 }
 
 const shownCash = {};
