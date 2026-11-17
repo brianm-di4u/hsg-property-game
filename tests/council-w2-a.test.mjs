@@ -214,8 +214,7 @@ export const tests = [
       await wake(t);
       const set = (sel, v) => t.page.locator(sel).evaluate((el, x) => { el.value = x; el.dispatchEvent(new Event('input', { bubbles: true })); }, v);
       await set('[data-mvol]', 0.35); await set('[data-avol]', 0.1);
-      await t.page.waitForTimeout(500);
-      const a = await audio(t);
+      const a = await pollAudio(t, (x) => Math.abs(x.musicGain - 0.5) < 0.02 && Math.abs(x.ambGain - 0.1 / 0.7) < 0.02);
       t.expect(Math.abs(a.musicGain - 0.5) < 0.02, `music slider 0.35 gives bus ${a.musicGain}`);
       t.expect(Math.abs(a.ambGain - 0.1 / 0.7) < 0.02, `ambience slider 0.1 gives bus ${a.ambGain}`);
       const st = (await t.state()).settings;
