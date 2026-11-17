@@ -150,11 +150,18 @@ tests.push({
     await start(t);
     for (const name of ['The Vapors', 'Velda Rose', "Butchie's Drive-In", 'Langdon Filling Station']) {
       await t.game('act', 'open', 'deed', lot(name));
+      // Wait on the dialog itself (it is the deed, it is drawn, its pop-in animation is over), not on a guess.
+      const shown = await t.page.waitForFunction(() => {
+        const m = document.querySelector('#modal'), d = m && m.querySelector('.dlg');
+        return window.__game.getState().dialog === 'deed' && !m.hidden && !!d && d.innerText.length > 0;
+      }, null, { timeout: 10000 }).then(() => true, () => false);
+      await t.waitForAnimations();
       await t.waitForStable();
       const dlg = (await t.page.locator('#modal .dlg').innerText()).replace(/\s+/g, ' ');
-      t.expect(dlg.includes(SPACES[lot(name)].fact.text), `${name}: the deed shows its line`);
+      t.expect(shown && dlg.includes(SPACES[lot(name)].fact.text), `${name}: the deed shows its line (dialog "${(await t.state()).dialog}", text "${dlg.slice(0, 80)}")`);
       await t.checkLayout({ allowScrollY: true });
       await t.game('act', 'close');
+      await t.page.waitForFunction(() => window.__game.getState().dialog === null && document.querySelector('#modal').hidden, null, { timeout: 5000 });
     }
   },
 });
