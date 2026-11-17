@@ -369,7 +369,7 @@ body.theme-dark { --highlight: #F6E3A8; }
 .seat.human .nm { grid-column: name; } /* the portrait choice takes the persona cell (S4-09) */
 @media (max-width: 820px), (max-aspect-ratio: 1/1) {
   .seat { grid-template-columns: 52px auto minmax(0, 1fr) 44px; grid-template-areas: "tk name name rm" "kind kind persona persona" "level level . ." "blurb blurb blurb blurb"; gap: 6px 8px; padding: 8px 8px 8px 6px; }
-  .seat.human { grid-template-areas: "tk name name rm" "kind kind persona persona" "blurb blurb blurb blurb"; }
+  .seat.human { grid-template-areas: "tk name name rm" "kind kind kind kind" "persona persona persona persona" "blurb blurb blurb blurb"; }
   .seat .kind button { padding: 6px 12px; }
   .seat.human .nm { grid-column: name; }
 }

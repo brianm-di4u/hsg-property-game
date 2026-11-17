@@ -1026,6 +1026,8 @@ function setLength(st, v) {
   if (v === 'short') st.mode = 'short';
   else { st.mode = 'full'; if (v === 'standard') st.years = STANDARD_YEARS; else if (+st.years === STANDARD_YEARS) st.years = 0; }
 }
+// The portrait a human seat wears in setup: its own choice, unless a human seat above it has already taken that face (K-01).
+const seatFace = (st, k) => { const p = st.seats[k]; return p.kind === 'human' && PERSONA_KEYS.includes(p.face) && !st.seats.some((q, j) => j < k && q.kind === 'human' && q.face === p.face) ? p.face : ''; };
 function screenSetup(scr) {
   const st = G.setup || (G.setup = { seats: DEFAULT_SEATS(), mode: 'full', variant: 'standard', years: newPlayer() ? STANDARD_YEARS : 0, seed: '' });
   const seg = (key, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button type="button" data-seg="${key}" data-v="${v}" aria-pressed="${st[key] === v}">${l}</button>`).join('')}</div>`;
@@ -1039,7 +1041,7 @@ function screenSetup(scr) {
       <input type="text" class="nm" aria-label="Seat ${k + 1} name" data-name="${k}" value="${esc(p.name)}" placeholder="${p.kind === 'ai' ? esc(PERSONAS[p.persona]?.who || 'AI baron') : 'Name'}" maxlength="18">
       ${p.kind === 'ai' ? `<select class="persona" aria-label="Seat ${k + 1} AI personality" data-persona="${k}"><option value="random">Random</option>${PERSONA_KEYS.map((x) => `<option value="${x}" ${p.persona === x ? 'selected' : ''}>${PERSONAS[x].name}</option>`).join('')}</select>
       <select class="level" aria-label="Seat ${k + 1} AI level" data-level="${k}">${LEVEL_KEYS.map((x) => `<option value="${x}" ${(p.level || 'normal') === x ? 'selected' : ''}>${LEVELS[x].name}</option>`).join('')}</select>
-      <p class="blurb">${PERSONAS[p.persona] ? esc(PERSONAS[p.persona].blurb) : 'A personality drawn at random when play starts.'}${p.level && p.level !== 'normal' ? ` <em>${esc(LEVELS[p.level].name)}: ${esc(LEVELS[p.level].blurb)}</em>` : ''}</p>` : `<select class="persona" aria-label="Seat ${k + 1} portrait" data-face="${k}"><option value="">Hat and coat</option>${PERSONA_KEYS.map((x) => `<option value="${x}" ${p.face === x ? 'selected' : ''}>${PERSONAS[x].name}</option>`).join('')}</select><p class="blurb">Plays from this device.</p>`}
+      <p class="blurb">${PERSONAS[p.persona] ? esc(PERSONAS[p.persona].blurb) : 'A personality drawn at random when play starts.'}${p.level && p.level !== 'normal' ? ` <em>${esc(LEVELS[p.level].name)}: ${esc(LEVELS[p.level].blurb)}</em>` : ''}</p>` : `<select class="persona" aria-label="Seat ${k + 1} portrait" data-face="${k}"><option value="">Portrait: Hat and coat</option>${PERSONA_KEYS.filter((x) => !st.seats.some((q, j) => j !== k && seatFace(st, j) === x)).map((x) => `<option value="${x}" ${seatFace(st, k) === x ? 'selected' : ''}>Portrait: ${PERSONAS[x].name}</option>`).join('')}</select><p class="blurb">Plays from this device.</p>`}
       <button type="button" class="iconbtn" data-rm="${k}" aria-label="Remove seat ${k + 1}" ${st.seats.length <= 2 ? 'disabled' : ''}>✕</button></div>`).join('')}</div>
       <button type="button" class="btn" data-add ${st.seats.length >= 6 ? 'disabled' : ''} style="margin-top:8px">Add a baron</button></div>
     <div class="card"><div class="row" style="gap:18px;align-items:flex-start">
@@ -1050,7 +1052,7 @@ function screenSetup(scr) {
       <p class="fine" id="lenhint">${LENGTH_HINT}${newPlayer() ? ' New here? Short is the quickest first game.' : ''}</p>
       <p class="fine">Common Ground: base rent, fares, the utility and taxes feed a public treasury that pays everyone a dividend each month (inspired by the public-domain Landlord's Game, 1904).</p></div>
     <div class="row"><button type="button" class="btn ghost" data-back>Back</button><button type="button" class="btn primary" data-start>Start the game</button></div></div>`;
-  scr.querySelectorAll('.seat').forEach((row, k) => { const tk = row.querySelector('.tk'), p = st.seats[k], f = artSrc(p.kind === 'ai' && p.persona !== 'random' ? 'face-' + p.persona : p.kind === 'ai' ? '' : PERSONA_KEYS.includes(p.face) ? 'face-' + p.face : 'face-human');
+  scr.querySelectorAll('.seat').forEach((row, k) => { const tk = row.querySelector('.tk'), p = st.seats[k], f = artSrc(p.kind === 'ai' && p.persona !== 'random' ? 'face-' + p.persona : p.kind === 'ai' ? '' : seatFace(st, k) ? 'face-' + seatFace(st, k) : 'face-human');
     if (f) { const im = document.createElement('img'); im.className = 'seatface'; im.src = f; im.alt = ''; tk.append(im); } tk.append(R.tokenCanvas(k, 30, k + 1)); });
   scr.onclick = (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
@@ -1091,7 +1093,7 @@ function beginDaily() {
 }
 function beginSetupGame() {
   const st = G.setup;
-  const seats = st.seats.map((p) => ({ kind: p.kind, name: p.name || undefined, persona: p.persona === 'random' ? undefined : p.persona, face: p.kind === 'human' && PERSONA_KEYS.includes(p.face) ? p.face : undefined, level: p.kind === 'ai' ? (p.level || 'normal') : undefined }));
+  const seats = st.seats.map((p, k) => ({ kind: p.kind, name: p.name || undefined, persona: p.persona === 'random' ? undefined : p.persona, face: seatFace(st, k) || undefined, level: p.kind === 'ai' ? (p.level || 'normal') : undefined }));
   if (!G.settings.tipsSeen) saveSettings(); // a newcomer's tips are remembered from the first game on
   newGame({ seats, mode: st.mode, variant: st.variant, years: st.mode === 'short' ? 0 : +st.years, seed: st.seed !== '' ? +st.seed : undefined, coach: true });
 }
