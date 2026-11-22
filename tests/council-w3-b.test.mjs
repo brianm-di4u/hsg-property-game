@@ -165,7 +165,19 @@ tests.push({
 
 // ---- S4-21: looking round the 3D board
 const view = (t) => t.game('view');
-const settle3d = (t) => t.waitForStable();
+// The game is idle before the camera has finished easing to its new pose, and in software GL (SwiftShader) the ease takes
+// many slow frames. So after the game is idle, wait until the camera itself stops: the same pose on two polls in a row.
+// With no 3D board (the slow-frame watchdog may have switched to the flat one) there is no camera to wait for.
+const settle3d = async (t) => {
+  await t.waitForStable();
+  await t.page.waitForFunction(() => {
+    const v = window.__game.view();
+    if (!v) return true;
+    const k = [v.tx, v.tz, v.dist].map((n) => n.toFixed(3)).join(), same = window.__s421pose === k;
+    window.__s421pose = k;
+    return same;
+  }, null, { polling: 100, timeout: 20000 });
+};
 async function canvasCentre(t) { const b = await t.page.locator('#board').boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; }
 
 tests.push({
@@ -207,9 +219,17 @@ tests.push({
     t.expect(!(await view(t)).user, 'the 0 key resets too');
     await t.page.keyboard.press('+'); await settle3d(t);
     await act(t, { type: 'roll' }); await settle3d(t);
-    t.expect(!(await view(t)).user, 'a roll gives the camera back so it can follow the move');
-    // a plain click still reads a deed
-    if ((await t.page.locator('#b-view').getAttribute('aria-label')) === 'Show the whole board') await t.page.click('#b-view');
+    const mode = await t.game('boardMode');
+    if (mode.mode === '3d') {
+      t.expect(!(await view(t)).user, 'a roll gives the camera back so it can follow the move');
+      // a plain click still reads a deed
+      if ((await t.page.locator('#b-view').getAttribute('aria-label')) === 'Show the whole board') await t.page.click('#b-view');
+    } else {
+      // Software GL renders so slowly that the slow-frame watchdog (board3d.js slowFrames, checked after each move) switches
+      // to the flat board when the roll is done, as designed. The camera-follow check needs a real GPU (--gpu).
+      t.equal(mode.why, 'slow', 'only the slow-frame watchdog may leave the 3D table here');
+      t.log(`software GL (${mode.gpu.slice(0, 40)}): the watchdog switched to the flat board after the roll, so the follow check was skipped; run with --gpu to cover it`);
+    }
     await settle3d(t);
     const p = await t.game('spaceScreen', 31);
     await t.page.mouse.click(p[0], p[1]); await t.waitForStable();
