@@ -4,11 +4,11 @@ import { start, g, act, rollTo, click } from './helpers.mjs';
 // Batch B (AI): three AI levels per seat (S3-01) and the trade exploit fix (S3-04).
 // The Node tests run the real engine and AI headless; the head-to-head numbers come from tools/levels.mjs and
 // tools/exploit.mjs, the same tools that produced the before and after tables in the batch report.
-const COUNCIL = new URL('../../_council/hsg-property-game/wave-2/', import.meta.url);
+const COUNCIL = new URL('../screenshots/council/wave-2/', import.meta.url);
 const tools = (f) => import(new URL(`../tools/${f}`, import.meta.url).href);
 const rules = () => Promise.all([import('../src/js/data.js'), import('../src/js/engine.js'), import('../src/js/ai.js')]);
 function keep(name, file) {
-  try { if (fs.existsSync(COUNCIL)) { fs.mkdirSync(new URL('shots/', COUNCIL), { recursive: true }); fs.copyFileSync(file, new URL(`shots/${name}.png`, COUNCIL)); } } catch (e) { /* shots are a courtesy */ }
+  try { fs.mkdirSync(new URL('shots/', COUNCIL), { recursive: true }); fs.copyFileSync(file, new URL(`shots/${name}.png`, COUNCIL)); } catch (e) { /* shots are a courtesy */ }
 }
 const HUMAN_AI = (lv) => [{ kind: 'human', name: 'Ada' }, { kind: 'ai', persona: 'hotelier', level: lv[0] }, { kind: 'ai', persona: 'speculator', level: lv[1] }, { kind: 'ai', persona: 'banker', level: lv[2] }];
 

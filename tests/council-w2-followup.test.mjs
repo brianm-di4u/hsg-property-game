@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 
 // Follow-up S3-02: the Career button made six title buttons; they must fit the first screen wherever five did in wave 1.
-const COUNCIL = new URL('../../_council/hsg-property-game/wave-2/', import.meta.url);
+const COUNCIL = new URL('../screenshots/council/wave-2/', import.meta.url);
 function keep(name, file) {
-  try { if (fs.existsSync(COUNCIL)) { fs.mkdirSync(new URL('shots/', COUNCIL), { recursive: true }); fs.copyFileSync(file, new URL(`shots/${name}.png`, COUNCIL)); } } catch (e) { /* shots are a courtesy */ }
+  try { fs.mkdirSync(new URL('shots/', COUNCIL), { recursive: true }); fs.copyFileSync(file, new URL(`shots/${name}.png`, COUNCIL)); } catch (e) { /* shots are a courtesy */ }
 }
 // [width, height, how many of the six buttons must be fully inside the window]
 const SIZES = [[1920, 1080, 6], [800, 1100, 6], [768, 1024, 6], [390, 844, 6], [1024, 600, 5]];
