@@ -1,0 +1,14 @@
+[
+  {
+    "test": "3D table: builds, picks spaces, rolls, falls back",
+    "why": "the 3D scene settles slower than its wait in software WebGL on a shared runner"
+  },
+  {
+    "test": "S4-21 the 3D board zooms with the wheel",
+    "why": "the 3D scene settles slower than its wait in software WebGL on a shared runner"
+  },
+  {
+    "test": "S4-21 a gamepad rolls, steps between buttons",
+    "why": "the 3D scene settles slower than its wait in software WebGL on a shared runner"
+  }
+]

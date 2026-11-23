@@ -5,7 +5,7 @@ import { start, g, act, mod, rollTo, runAI, click, TWO_HUMANS, HUMAN_VS_AI } fro
 // Nobody can listen in a test run, so the music, the ambience and every cue are rendered offline at the shipped
 // levels and measured. HS_WAV_DIR=<folder> also writes each render as a WAV for a person to listen to.
 const SETS = 'hs-barons-settings-v1';
-const COUNCIL = new URL('../../_council/hsg-property-game/wave-2/', import.meta.url);
+const COUNCIL = new URL('../screenshots/council/wave-2/', import.meta.url);
 
 const audio = (t) => t.game('audioState');
 // Poll the audio state until `ok` holds (the buses glide, so a fixed wait is timing-fragile); returns the last state.
@@ -20,7 +20,7 @@ async function wake(t) { await t.page.mouse.click(5, 5); await t.page.waitForFun
 // Audio levels glide, so wait for a condition rather than a fixed time.
 const until = (t, pred, label) => t.page.waitForFunction(pred, null, { timeout: 4000 }).catch(() => t.fail(`timed out waiting for ${label}`));
 function keep(name, file) {
-  try { if (fs.existsSync(COUNCIL)) { fs.mkdirSync(new URL('shots/', COUNCIL), { recursive: true }); fs.copyFileSync(file, new URL(`shots/${name}.png`, COUNCIL)); } } catch (e) { /* shots are a courtesy */ }
+  try { fs.mkdirSync(new URL('shots/', COUNCIL), { recursive: true }); fs.copyFileSync(file, new URL(`shots/${name}.png`, COUNCIL)); } catch (e) { /* shots are a courtesy */ }
 }
 function wav(name, r) {
   if (process.env.HS_WAV_DIR && r.wav) { fs.mkdirSync(process.env.HS_WAV_DIR, { recursive: true }); fs.writeFileSync(`${process.env.HS_WAV_DIR}/${name.replace(/[:]/g, '-')}.wav`, Buffer.from(r.wav, 'base64')); }
