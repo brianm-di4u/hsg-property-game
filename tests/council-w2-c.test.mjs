@@ -3,9 +3,9 @@ import { start, g, act, rollTo, click, HUMAN_VS_AI } from './helpers.mjs';
 
 // Batch C: the career (S3-02: records, achievements, felts) and the first-run coach (S2-02).
 // Node tests run the real engine and career rules headless; the browser tests drive the real screens.
-const COUNCIL = new URL('../../_council/hsg-property-game/wave-2/', import.meta.url);
+const COUNCIL = new URL('../screenshots/council/wave-2/', import.meta.url);
 function keep(name, file) {
-  try { if (fs.existsSync(COUNCIL)) { fs.mkdirSync(new URL('shots/', COUNCIL), { recursive: true }); fs.copyFileSync(file, new URL(`shots/${name}.png`, COUNCIL)); } } catch (e) { /* shots are a courtesy */ }
+  try { fs.mkdirSync(new URL('shots/', COUNCIL), { recursive: true }); fs.copyFileSync(file, new URL(`shots/${name}.png`, COUNCIL)); } catch (e) { /* shots are a courtesy */ }
 }
 const mods = () => Promise.all([import('../src/js/data.js'), import('../src/js/engine.js'), import('../src/js/ai.js'), import('../src/js/career.js')]);
 const SAVE = 'hs-barons-save-v1', SETS = 'hs-barons-settings-v1', CAREER = 'hs-barons-career-v1';
